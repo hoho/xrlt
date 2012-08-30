@@ -1,0 +1,137 @@
+html, body
+{
+    margin: 0;
+
+    padding: 0;
+}
+
+form
+{
+    background-color: #eee;
+
+    padding: 20px 0;
+}
+
+table
+{
+    border: none;
+
+    border-collapse: collapse;
+
+    margin: 0 auto;
+}
+
+td
+{
+    padding: 0;
+}
+
+
+input
+{
+    font: normal 100% Arial, sans-serif;
+
+    line-height: 150%;
+
+    margin: 0;
+}
+
+.form-text,
+.form-count
+{
+    border: 1px solid #ddd;
+
+    margin: 0 8px 0 0;
+
+    padding: 3px;
+
+    width: 20em;
+}
+
+.form-count
+{
+    width: 5em;
+}
+
+.error
+{
+    color: #a00;
+}
+
+.error td
+{
+    font-size: 80%;
+
+    padding-left: 2px;
+}
+
+.data
+{
+    font-size: 130%;
+
+    line-height: 150%;
+
+    padding: 2em 10em;
+
+    text-align: center;
+}
+
+.comment
+{
+    color: #888;
+}
+
+.tweets
+{
+    text-align: left;
+}
+
+.tweets dl,
+.tweets dt,
+.tweets dd,
+.tweets p
+{
+    margin: 0;
+
+    padding: 0;
+}
+
+.tweets dl
+{
+    margin-bottom: 2em;
+}
+
+.tweets dt
+{
+    color: #888;
+
+    font-size: 75%;
+}
+
+.tweets dt p
+{
+    color: #00a;
+
+    float: right;
+}
+
+.tweets dd
+{
+    position: relative;
+}
+
+.tweets dd p
+{
+    color: #700;
+
+    left: -2em;
+
+    position: absolute;
+
+    vertical-align: bottom;
+}
+
+.tweets dd p span
+{
+    font-size: 75%;
+}
