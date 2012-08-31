@@ -316,7 +316,7 @@ class Global(PyV8.JSClass):
         e = self.xrlstate["apply"][name]
         root = etree.Element("root")
         apply_slice(e, None, self.xrlstate, root)
-        return json.dumps(xml2json(root[0]))
+        return json.dumps(xml2json(root))
 
 
 def exec_js(code, state, **kwargs):
@@ -345,6 +345,7 @@ def transform(f, params):
     state = {"apply": {}, "var": {}, "context": [], "params": params}
     ret = etree.Element("ret")
     process_elements(xml, state, ret)
+    etree.strip_attributes(ret, "type")
     if len(ret):
         return etree.tostring(ret[0], pretty_print=True)
     else:

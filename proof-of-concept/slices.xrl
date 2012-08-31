@@ -32,11 +32,11 @@
     <xrl:slice name="js-slice" type="javascript">
         <xrl:param name="p2" />
         <![CDATA[
-            var ppp = copy(p2);
-            ppp.boo.foo += ' yep';
+            var p = copy(p2);
+            p.boo.foo += ' yep';
             return {
                 "hello-from-js": {
-                    test: ppp,
+                    test: p,
                     test2: apply('xml-slice', {p1: new Date()})
                 }
             }
