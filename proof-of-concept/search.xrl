@@ -92,7 +92,11 @@
                             <xrl:success>
                                 <xrl:for-each select="//results">
                                     <tweet>
-                                        <date><xrl:value-of select="created_at" /></date>
+                                        <date>
+                                            <xrl:apply name="format-date">
+                                                <xrl:with-param name="date" select="created_at" />
+                                            </xrl:apply>
+                                        </date>
                                         <user><xrl:value-of select="from_user" /></user>
                                         <text><xrl:value-of select="text" /></text>
                                     </tweet>
@@ -133,6 +137,21 @@
                 </xrl:choose>
             </page>
         </xrl:transform>
+    </xrl:slice>
+
+
+    <xrl:slice name="format-date" type="javascript">
+        <xrl:param name="date" />
+        <![CDATA[
+            var d = new Date(Date.parse(date));
+            var now = new Date();
+            if ((now.getDate() == d.getDate()) && (now.getMonth() == d.getMonth()) &&
+                (now.getFullYear() == d.getFullYear())) {
+                return d.toLocaleTimeString().substring(0, 5);
+            } else {
+                return d.toLocaleDateString();
+            }
+        ]]>
     </xrl:slice>
 
 </xrl:requestsheet>

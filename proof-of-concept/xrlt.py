@@ -327,6 +327,8 @@ def exec_js(code, state, **kwargs):
     cargs = []
     for key, value in kwargs.iteritems():
         vargs.append(key)
+        if isinstance(value, list):
+            value = value[0].xpath("string(.)")
         cargs.append(json.dumps(value))
     ret = ctxt.eval("JSON.stringify((function(%s){%s})(%s)); %s" % \
                     (",".join(vargs), code, ",".join(cargs),
