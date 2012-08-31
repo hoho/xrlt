@@ -1,10 +1,10 @@
 from lxml import etree
 from xmljson import xml2json, json2xml
-from js import exec_js
 import re
 import json
 from copy import deepcopy
 from urllib import urlencode, urlopen
+import PyV8
 
 def process_param(elem, state):
     name = elem.attrib.get("name")
@@ -37,7 +37,7 @@ def process_field(elem, state, root):
         v = {name: {}}
         if val is not None:
             v[name]["value"] = val
-        ret, st = exec_js(elem.text, **v)
+        ret, st = exec_js(elem.text, state, **v)
         json2xml(st, f)
         v = st.get("value")
         if v is None and val is not None:
@@ -221,16 +221,18 @@ def process_transform(elem, state, root):
 
 
 def apply_slice(elem, apply, state, root):
+    if apply is not None:
+        process_elements(apply, state, etree.Element("apply"))
     if elem.attrib.get("type") == "javascript":
-        pass
+        params = {}
+        for key, value in state["var"].iteritems():
+            if isinstance(value, etree._Element):
+                value = xml2json(value)
+            params[key] = value
+        ret, st = exec_js(elem.xpath("string(text())"), state, **params)
+        json2xml(ret, root)
     else:
-        if apply is not None:
-            a = etree.Element("apply")
-            process_elements(apply, state, a)
-            state["context"].append(a)
         process_elements(elem, state, root)
-        if apply is not None:
-            state["context"].pop()
 
 
 def process_elements(elem, state, root):
@@ -289,6 +291,52 @@ def process_elements(elem, state, root):
             n = etree.SubElement(root, e.tag, **e.attrib)
             n.text = e.text
             process_elements(e, state, n)
+
+
+class Global(PyV8.JSClass):
+    def __init__(self, *args, **kwargs):
+        self.state = {}
+        super(Global, self).__init__(*args, **kwargs)
+    def push(self, name, value, replace):
+        v = self.state.get(name)
+        if v is None:
+            v = value
+        elif not isinstance(v, list):
+            v = [v]
+            v.append(value)
+        else:
+            v.append(value)
+        self.state[name] = v
+    def _apply(self, name, params):
+        params = json.loads(params)
+        for key, value in params.iteritems():
+            p = etree.Element(key)
+            p.text = value
+            self.xrlstate["var"][key] = p
+        e = self.xrlstate["apply"][name]
+        root = etree.Element("root")
+        apply_slice(e, None, self.xrlstate, root)
+        return json.dumps(xml2json(root[0]))
+
+
+def exec_js(code, state, **kwargs):
+    g = Global()
+    g.xrlstate = state
+    ctxt = PyV8.JSContext(g)
+    ctxt.enter()
+    vargs = []
+    cargs = []
+    for key, value in kwargs.iteritems():
+        vargs.append(key)
+        cargs.append(json.dumps(value))
+    ret = ctxt.eval("JSON.stringify((function(%s){%s})(%s)); %s" % \
+                    (",".join(vargs), code, ",".join(cargs),
+                     "function copy(obj) { return obj; };" \
+                     "function apply(name, params) { " \
+                     "    params = JSON.stringify(params);" \
+                     "    return JSON.parse(_apply(name, params)); " \
+                     "}"));
+    return json.loads(ret) if ret else ret, g.state
 
 
 def transform(f, params):

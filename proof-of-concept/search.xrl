@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xrl:requestsheet
     xmlns:xrl="http://xrlt.net/Transform"
-    xmlns:json="http://xrlt.net/JSON">
+    xmlns:xrltype="http://xrlt.net/Type">
 
     <xrl:param name="DENIED">file:denied.json</xrl:param>
     <xrl:param name="TWITTER">http://search.twitter.com/search.json</xrl:param>
