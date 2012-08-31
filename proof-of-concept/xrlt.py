@@ -54,15 +54,26 @@ def process_field(elem, state, root):
         state["field"] = None
 
 
-def process_error(elem, state, root):
-    etree.SubElement(state["field"], "error").text = elem.text
-
-
-def process_value(elem, state, root):
-    v = state["field"].find("value")
-    if v is None:
-        v = etree.SubElement(state["field"], "value")
-    process_elements(elem, state, v)
+def process_push(elem, state, root):
+    name = elem.attrib.get("name")
+    assert name is not None
+    replace = elem.attrib.get("replace")
+    select = elem.attrib.get("select")
+    field = state["field"]
+    v = field.find(name)
+    if v is not None and replace  == "yes":
+        toremove = []
+        for e in field:
+            if e.tag == name:
+                toremove.append(e)
+        for e in toremove:
+            field.remove(e)
+    v = etree.SubElement(field, name)
+    if select is not None:
+        context = get_context(state, root)
+        v.text = context.xpath("string(%s)" % select, **state["var"])
+    else:
+        process_elements(elem, state, v)
 
 
 def get_context(state, root):
@@ -264,10 +275,8 @@ def process_elements(elem, state, root):
             process_choose(e, state, root)
         elif e.tag == "{http://xrlt.net/Transform}with-param":
             process_with_param(e, state, root)
-        elif e.tag == "{http://xrlt.net/Transform}error":
-            process_error(e, state, root)
-        elif e.tag == "{http://xrlt.net/Transform}value":
-            process_value(e, state, root)
+        elif e.tag == "{http://xrlt.net/Transform}push":
+            process_push(e, state, root)
         elif e.tag == "{http://xrlt.net/Transform}value-of":
             process_value_of(e, state, root)
         elif e.tag == "{http://xrlt.net/Transform}copy-of":

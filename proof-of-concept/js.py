@@ -5,14 +5,16 @@ class Global(PyV8.JSClass):
     def __init__(self, *args, **kwargs):
         self.state = {}
         super(Global, self).__init__(*args, **kwargs)
-    def value(self, val):
-        self.state["value"] = val
-    def error(self, val):
-        err = self.state.get("error")
-        if err is None:
-            err = []
-        err.append(val)
-        self.state["error"] = err
+    def push(self, name, value, replace):
+        v = self.state.get(name)
+        if v is None:
+            v = value
+        elif not isinstance(v, list):
+            v = [v]
+            v.append(value)
+        else:
+            v.append(value)
+        self.state[name] = v
 
 
 def exec_js(code, **kwargs):

@@ -10,18 +10,18 @@
     <xrl:form name="request-form">
         <xrl:field name="count" type="javascript"><![CDATA[
             if (!count || !count.value) {
-                value(5);
+                push('value', 5, true);
                 return;
             }
             var count_ = (count.value || '').replace(/(^[0 ]+| +$)/g, '');
             if (count_.match(/^\d+$/)) {
                 count_ = parseInt(count_, 10);
-                value(count_);
+                push('value', count_, true);
                 if (count_ > 100) {
-                    error('Too large');
+                    push('error', 'Too large', true);
                 }
             } else {
-                error('Numbers only');
+                push('error', 'Numbers only', true);
             }
         ]]></xrl:field>
 
@@ -29,18 +29,18 @@
             <xrl:variable name="text_"><xrl:value-of select="normalize-space($text/value)" /></xrl:variable>
             <xrl:choose>
                 <xrl:when test="$text_ = ''">
-                    <xrl:error>Request is empty</xrl:error>
+                    <xrl:push name="error" replace="yes" stop="yes">Request is empty</xrl:push>
                 </xrl:when>
                 <xrl:otherwise>
-                    <xrl:value><xrl:value-of select="$text_" /></xrl:value>
+                    <xrl:push name="value" replace="yes" select="$text_" />
                     <xrl:include href="{$DENIED}" type="json">
                         <xrl:success>
                             <xrl:if test="/denied/values = $text_">
-                                <xrl:error>Word is denied</xrl:error>
+                                <xrl:push name="error" replace="yes">Word is denied</xrl:push>
                             </xrl:if>
                         </xrl:success>
                         <xrl:failure>
-                            <xrl:error>Failed to load stop words</xrl:error>
+                            <xrl:push name="error" replace="yes">Failed to load stop words</xrl:push>
                         </xrl:failure>
                     </xrl:include>
                 </xrl:otherwise>
@@ -49,23 +49,23 @@
         <!-- <xrl:field name="text" type="javascript"><![CDATA[
             var text_ = ((text && text.value) || '').replace(/(^ +| +$)/g, '');
             if (!text_) {
-                error('Request is empty');
+                push('error', 'Request is empty', true);
                 return;
             }
-            value(text_);
+            push('value', text_, true);
             include(DENIED, {
                 type: 'json',
                 success: function(data) {
                     data = data.denied.values;
                     for (var i = 0; i < data.length; i++) {
                         if (data[i] == text_) {
-                            error('Word is denied');
+                            push('error', 'Word is denied', true);
                             return;
                         } 
                     }
                 },
                 failure: function() {
-                    error('Failed to load stop words');
+                    push('error', 'Failed to load stop words', true);
                     return;
                 }
             });
