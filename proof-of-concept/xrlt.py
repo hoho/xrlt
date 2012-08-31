@@ -189,15 +189,11 @@ def process_include(elem, state, root):
         if failure is not None:
             process_elements(failure, state, root)
     else:
+        #print etree.tostring(ret)
         if success is None:
-            #print etree.tostring(ret)
             for e in ret:
                 root.append(e)
         else:
-            e = etree.Element(ret[0].tag)
-            for c in ret[0]:
-                e.append(deepcopy(c))
-            ret = e
             state["context"].append(ret)
             process_elements(success, state, root)
             state["context"].pop()

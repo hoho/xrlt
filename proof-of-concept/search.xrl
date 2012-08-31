@@ -35,7 +35,7 @@
                     <xrl:push name="value" replace="yes" select="$text_" />
                     <xrl:include href="{$DENIED}" type="json">
                         <xrl:success>
-                            <xrl:if test="/denied/values = $text_">
+                            <xrl:if test="//values = $text_">
                                 <xrl:push name="error" replace="yes">Word is denied</xrl:push>
                             </xrl:if>
                         </xrl:success>
@@ -80,15 +80,26 @@
             <xrl:with-param name="f" select="$form" />
             <xrl:with-param name="d">
                 <xrl:if test="not($form/*/error)">
-                    <xrl:include href="{$TWITTER}">
-                        <xrl:with-param name="q"><xrl:value-of select="$form/text/value" /></xrl:with-param>
-                        <xrl:with-param name="rpp" select="$form/count/value" />
-                        <xrl:with-param name="include_entities">false</xrl:with-param>
-                        <xrl:with-param name="result_type">recent</xrl:with-param>
-                        <xrl:failure>
-                            <failed />
-                        </xrl:failure>
-                    </xrl:include>
+                    <data>
+                        <xrl:include href="{$TWITTER}">
+                            <xrl:with-param name="q"><xrl:value-of select="$form/text/value" /></xrl:with-param>
+                            <xrl:with-param name="rpp" select="$form/count/value" />
+                            <xrl:with-param name="include_entities">false</xrl:with-param>
+                            <xrl:with-param name="result_type">recent</xrl:with-param>
+                            <xrl:failure>
+                                <failed />
+                            </xrl:failure>
+                            <xrl:success>
+                                <xrl:for-each select="//results">
+                                    <tweet>
+                                        <date><xrl:value-of select="created_at" /></date>
+                                        <user><xrl:value-of select="from_user" /></user>
+                                        <text><xrl:value-of select="text" /></text>
+                                    </tweet>
+                                </xrl:for-each>
+                            </xrl:success>
+                        </xrl:include>
+                    </data>
                 </xrl:if>
             </xrl:with-param>
         </xrl:apply>
@@ -112,19 +123,9 @@
                     <xrl:copy-of select="$f/text" />
                     <xrl:copy-of select="$f/count" />
                 </form>
-                
                 <xrl:choose>
-                    <xrl:when test="$d/*">
-                        <data>
-                            <xrl:copy-of select="$d/failed" />
-                            <xrl:for-each select="$d/results">
-                                <tweet>
-                                    <date><xrl:value-of select="created_at" /></date>
-                                    <user><xrl:value-of select="from_user" /></user>
-                                    <text><xrl:value-of select="text" /></text>
-                                </tweet>
-                            </xrl:for-each>
-                        </data>
+                    <xrl:when test="$d/data">
+                        <xrl:copy-of select="$d/data" />
                     </xrl:when>
                     <xrl:otherwise>
                         <help />
