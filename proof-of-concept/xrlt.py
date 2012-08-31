@@ -289,7 +289,6 @@ def process_elements(elem, state, root):
             process_transform(e, state, root)
         else:
             n = etree.SubElement(root, e.tag, **e.attrib)
-            n.text = e.text
             process_elements(e, state, n)
 
 
