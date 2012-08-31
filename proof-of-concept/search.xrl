@@ -102,7 +102,7 @@
         <xrl:transform type="xslt" href="search.xsl">
             <page>
                 <title>
-                    <xrl:if test="$t">
+                    <xrl:if test="$t != ''">
                         <xrl:value-of select="$t" />
                         <xrl:text> – </xrl:text>
                     </xrl:if>
