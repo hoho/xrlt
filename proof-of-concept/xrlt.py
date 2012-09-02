@@ -329,14 +329,21 @@ def exec_js(code, state, **kwargs):
         vargs.append(key)
         if isinstance(value, list):
             value = value[0].xpath("string(.)")
-        cargs.append(json.dumps(value))
-    ret = ctxt.eval("JSON.stringify((function(%s){%s})(%s)); %s" % \
+        cargs.append("{then: function(done) {done(%s);}}" % json.dumps(value))
+    ret = ctxt.eval("var ret = (function(%s){%s})(%s);"
+                    "%s; JSON.stringify((ret && ret.dvalue) || ret);" % \
                     (",".join(vargs), code, ",".join(cargs),
-                     "function copy(obj) { return obj; };" \
-                     "function apply(name, params) { " \
-                     "    params = JSON.stringify(params);" \
-                     "    return JSON.parse(_apply(name, params)); " \
-                     "}"));
+                     "function Deferred() {"
+                     "    var d = {"
+                     "        resolve: function(val) { d.dvalue = val; }"
+                     "    };"
+                     "    return d;"
+                     "};"
+                     "function copy(obj) { return obj; };"
+                     "function apply(name, params) { "
+                     "    params = JSON.stringify(params);"
+                     "    return JSON.parse(_apply(name, params)); "
+                     "};"));
     return json.loads(ret) if ret else ret, g.state
 
 
