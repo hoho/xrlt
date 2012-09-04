@@ -9,6 +9,7 @@ There are two examples (slices.xrl and search.xrl). These examples should
 kind of work.
 
 How to run:
+    0. Make sure you have PyV8 and lxml installed.
     1. python server.py
     2. Open web-browser and try http://localhost:8000/slices.xrl
     3. Then try http://localhost:8000/search.xrl
