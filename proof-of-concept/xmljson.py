@@ -1,3 +1,18 @@
+"""
+WARNING!!!1
+The code below is NOT GOOD. It should not even work completely.
+No exception handling, no comments, no nothing.
+Don't let your kids see it!
+
+The only purpose of the code below is to give the idea of XRLT a quick try.
+There are two examples (slices.xrl and search.xrl). These examples should
+kind of work.
+
+How to run:
+    1. python server.py
+    2. Open web-browser and try http://localhost:8000/slices.xrl
+    3. Then try http://localhost:8000/search.xrl
+"""
 from lxml import etree
 
 def json2xml(json, root=None, name=None):
