@@ -12,7 +12,8 @@ section: Documentation
 <a href="http://en.wikipedia.org/wiki/Asynchronous_I/O">Asynchronous I/O</a>
 and <a href="http://en.wikipedia.org/wiki/XSLT">XSLT</a>. Guess, familiarity
 with these, guarantees familiarity with all the rest terms that would be
-used.</p>
+used. You could move straight to <a href="/documentation/#syntax">Syntax</a>
+chapter to see XRLT examples.</p>
 
 <h3 id="frontends">About Frontends and XRLT</h3>
 <p>Frontend is a thing takes data from backend and transforms it to view.
@@ -30,9 +31,57 @@ ways to do the same. XRLT has a very limited set of instructions. It aims to
 standardize and simplify common frontend development scenarios.</p>
 
 <h3 id="xmljs">Melting XML and JavaScript Down</h3>
-<p>Pending.</p>
+<p>We have HTML and JavaScript for web-pages. The skeleton is XML-based and all
+the dynamic is mostly about JavaScript.</p>
+
+<p>So, in XRLT we stick XML and JavaScript together. And it would be great if
+the stitches cause no pain.</p>
+
+<p>This takes us to data representation in XML and
+<a href="http://en.wikipedia.org/wiki/JSON">JavaScript</a>.</p>
 
 <h3 id="rddm">Reasonably-Destructive Data Mapping</h3>
+<p>There are ways to map
+<a href="http://msdn.microsoft.com/en-us/library/bb924435.aspx">JSON to XML</a>
+or back non-destructively. But let's say, we don't need non-destructivity
+completely. Then we could get a cosy way to address elements in both XML and
+JSON.</p>
+
+<p>The structure: {% highlight javascript %}{
+    "root": {
+        "hello": "123",
+        "world": "yo",
+        "this": [
+            "1", "2", 3
+        ],
+        "is": {
+            "very": true,
+            "cool": [
+                4, "5", {"really": "is"}
+            ]
+        }
+    }
+}{% endhighlight %}</p>
+
+<p>is being mapped to (and back): {% highlight xml %}<root>
+    <hello>123</hello>
+    <world>yo</world>
+    <this>1</this>
+    <this>2</this>
+    <this xrl:type="number">3</this>
+    <is>
+        <very xrl:type="boolean">true</very>
+        <cool xrl:type="number">4</cool>
+        <cool>5</cool>
+        <cool>
+            <really>is</really>
+        </cool>
+    </is>
+</root>{% endhighlight %}</p>
+
+<p>This mapping is a bit destructive (we'll get back to it's destructivity
+later). But it has pros.</p>
+
 <p>Pending.</p>
 
 <h3 id="syntax">Syntax</h3>
