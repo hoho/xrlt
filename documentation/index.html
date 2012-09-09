@@ -3,11 +3,13 @@ layout: default
 title: Documentation
 section: Documentation
 ---
-<h3 id="intro">Introduction</h3>
+<h3 id="intro" xmlns="http://www.w3.org/1999/html"
+    xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">Introduction</h3>
 <p>Before we begin, let's talk buzzwords. I hope reader is familiar with
 <a href="http://en.wikipedia.org/wiki/XML">XML</a> and
 <a href="http://en.wikipedia.org/wiki/XPath">XPath</a>,
-<a href="http://en.wikipedia.org/wiki/JavaScript">JavaScript</a>,
+<a href="http://en.wikipedia.org/wiki/JavaScript">JavaScript</a> and
+<a href="http://en.wikipedia.org/wiki/JSON">JSON</a>,
 <a href="http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol">HTTP</a>,
 <a href="http://en.wikipedia.org/wiki/Asynchronous_I/O">Asynchronous I/O</a>
 and <a href="http://en.wikipedia.org/wiki/XSLT">XSLT</a>. Guess, familiarity
@@ -34,18 +36,20 @@ standardize and simplify common frontend development scenarios.</p>
 <p>We have HTML and JavaScript for web-pages. The skeleton is XML-based and all
 the dynamic is mostly about JavaScript.</p>
 
+<p>Most backends give us JSON or XML. Sometimes it's necessary to work with
+both at the same project.</p>
+
 <p>So, in XRLT we stick XML and JavaScript together. And it would be great if
 the stitches cause no pain.</p>
 
-<p>This takes us to data representation in XML and
-<a href="http://en.wikipedia.org/wiki/JSON">JavaScript</a>.</p>
-
 <h3 id="rddm">Reasonably-Destructive Data Mapping</h3>
-<p>There are ways to map
-<a href="http://msdn.microsoft.com/en-us/library/bb924435.aspx">JSON to XML</a>
-or back non-destructively. But let's say, we don't need non-destructivity
-completely. Then we could get a cosy way to address elements in both XML and
-JSON.</p>
+<p><a href="http://www.w3.org/2011/10/integration-workshop/s/ExperienceswithJSONandXMLTransformations.v08.pdf">Mapping
+between XML and JSON is tricky</a>. We can think of non-destructive ways to map
+XML to JSON, or JSON to XML. And this will bring us to non-friendly result.</p>
+
+<p>But we don't need non-destructivity completely. User-friendly data
+representation is much more important in most cases. Anyway, XRLT allows to
+access data before any destructive mapping happened.</p>
 
 <p>The structure: {% highlight javascript %}{
     "root": {
@@ -79,9 +83,70 @@ JSON.</p>
     </is>
 </root>{% endhighlight %}</p>
 
-<p>This mapping is a bit destructive (we'll get back to it's destructivity
-later). But it has pros.</p>
+<p>This mapping is destructive, but it has pros:
+<ul>
+    <li>It's pretty human-readable;</li>
+    <li>Works both ways (XML to JSON and JSON to XML);</li>
+    <li>We have a cosy way to address elements. JavaScript to get second "is"
+        looks like <code>data.root.is.cool[2].really</code>. XPath is much more
+        flexible and there are many ways to get second "is", one of them is
+        <code>/root/is/cool[3]/really</code>. Almost the same.</li>
+</ul></p>
 
+<h6>JSON to XML</h6>
+<p>JSON to XML mapping should produce well-formed XML with two exceptions:
+<ol>
+    <li>More than one root element is allowed.</li>
+    <li>Text node is allowed as root element.</li>
+</ol>
+{% highlight javascript %}// Non-empty object creates a set of nodes:
+{
+    // Object's property creates a node with the same name.
+    "str": "string",   // <str>string</str>
+    "num": 123,        // <num xrl:type="number">123</num>
+    "bool": true,      // <bool xrl:type="boolean">true</bool>
+    "null": null,      // <null />
+    "arr": ["1", "2"], // <arr>1</arr><arr>2</arr>
+    "empty": {},       // <empty xrl:type="object" />
+    "obj": {...}       // <obj>and so on...</obj>
+}
+
+
+// Top-level string, number, boolean or null become text root node:
+"string" // string
+123      // 123
+false    // false
+null     // (Empty text root node)
+
+
+// Object property's array:
+{"array": [1, "2", false]} // <array xrl:type="number">1</array>
+                           // <array>2</array>
+                           // <array xrl:type="boolean">false</array>
+
+
+// Top-level array or array's array:
+[
+    1,                     // <_ xrl:type="number">1</_>
+    "2",                   // <_>2</_>
+    false,                 // <_ xrl:type="boolean">false</_>
+    [                      // <_>
+        "boo",             //     <_>boo</_>
+        "moo",             //     <_>moo</_>
+        {                  //     <_>
+            "goo": [       //         <goo>5</goo>
+                "5",       //         <goo>
+                ["8", "9"] //             <_>8</_><_>9</_>
+            ]              //         </goo>
+        }                  //     </_>
+    ]                      // </_>
+
+
+// Top-level empty object or array's empty object:
+{} // <_ xrl:type="object" />
+{% endhighlight %}</p>
+
+<h6>XML to JSON</h6>
 <p>Pending.</p>
 
 <h3 id="syntax">Syntax</h3>
