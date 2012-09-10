@@ -4,7 +4,8 @@ title: Documentation
 section: Documentation
 ---
 <h3 id="intro" xmlns="http://www.w3.org/1999/html"
-    xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">Introduction</h3>
+    xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html"
+    xmlns="http://www.w3.org/1999/html">Introduction</h3>
 <p>Before we begin, let's talk buzzwords. I hope reader is familiar with
 <a href="http://en.wikipedia.org/wiki/XML">XML</a> and
 <a href="http://en.wikipedia.org/wiki/XPath">XPath</a>,
@@ -99,6 +100,11 @@ access data before any destructive mapping happened.</p>
     <li>More than one root element is allowed.</li>
     <li>Text node is allowed as root element.</li>
 </ol>
+
+Details described below still require more thinking, some details are subject
+to be corrected.</p>
+
+<p>
 {% highlight javascript %}// Non-empty object creates a set of nodes:
 {
     // Object's property creates a node with the same name.
@@ -106,17 +112,21 @@ access data before any destructive mapping happened.</p>
     "num": 123,        // <num xrl:type="number">123</num>
     "bool": true,      // <bool xrl:type="boolean">true</bool>
     "null": null,      // <null />
-    "arr": ["1", "2"], // <arr>1</arr><arr>2</arr>
+    "arr": ["1", "2"], // <arr>1</arr>
+                       // <arr>2</arr>
     "empty": {},       // <empty xrl:type="object" />
     "obj": {...}       // <obj>and so on...</obj>
 }
 
 
-// Top-level string, number, boolean or null become text root node:
+// Empty object:
+{} // <object xrl:type="object" />
+
+
+// Top-level string, number or boolean become text root node:
 "string" // string
 123      // 123
 false    // false
-null     // (Empty text root node)
 
 
 // Object property's array:
@@ -127,24 +137,40 @@ null     // (Empty text root node)
 
 // Top-level array or array's array:
 [
-    1,                     // <_ xrl:type="number">1</_>
-    "2",                   // <_>2</_>
-    false,                 // <_ xrl:type="boolean">false</_>
-    [                      // <_>
-        "boo",             //     <_>boo</_>
-        "moo",             //     <_>moo</_>
-        {                  //     <_>
+    1,                     // <item xrl:array="yes" xrl:type="number">1</item>
+    "2",                   // <item>2</item>
+    false,                 // <item xrl:type="boolean">false</item>
+    [                      // <item>
+        "boo",             //     <item xrl:array="yes">boo</item>
+        "moo",             //     <item>moo</item>
+        {                  //     <item>
             "goo": [       //         <goo>5</goo>
                 "5",       //         <goo>
-                ["8", "9"] //             <_>8</_><_>9</_>
+                ["8", "9"] //             <item>8</item><item>9</item>
             ]              //         </goo>
-        }                  //     </_>
-    ]                      // </_>
+        }                  //     </item>
+    ]                      // </item>
 ]
 
 
-// Top-level empty object or array's empty object:
-{} // <_ xrl:type="object" />
+// Top-level empty array:
+[] // <item xrl:array="yes" />
+
+{"test": []} // <test xrl:type="array" />
+
+
+// Top-level null:
+null // <null xrl:type="null" />
+
+// Array of null:
+[null] // <item xrl:array="yes" xrl:type="null" />
+
+// More null:
+{"test": [null, [null], []]} // <test />
+                             // <test>
+                             //     <item xrl:array="yes" xrl:type="null" />
+                             // </test>
+                             // <test xrl:type="array" />
 {% endhighlight %}</p>
 
 <h6>XML to JSON</h6>
