@@ -44,7 +44,10 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             ret = transform(f, params)
             f.close()
             self.send_response(200)
-            self.send_header("Content-type", "text/html")
+            self.send_header(
+                "Content-type",
+                "text/html" if filename.endswith("search.xrl") else "text/xml"
+            )
             self.send_header("Content-Length", str(len(ret)))
             self.end_headers()
             self.wfile.write(ret)
