@@ -33,6 +33,11 @@ run spaceships with things like PHP, but that leads to a countless number of
 ways to do the same. XRLT has a very limited set of instructions. It aims to
 standardize and simplify common frontend development scenarios.</p>
 
+<p>Server-side goal of building a web-page is building a tree, usually.
+HTML (XML) tree or JSON tree. XRLT is designed to build trees from another
+trees, subtrees and funny bushes (from backend's data and from user's
+input).</p>
+
 <h3 id="xmljs">Melting XML and JavaScript Down</h3>
 <p>We have HTML and JavaScript for web-pages. The skeleton is XML-based and all
 the dynamic is mostly about JavaScript.</p>
@@ -42,6 +47,9 @@ both at the same project.</p>
 
 <p>So, in XRLT we stick XML and JavaScript together. And it would be great if
 the stitches cause no pain.</p>
+
+<h3 id="syntax">Syntax</h3>
+<p>Pending.</p>
 
 <h3 id="rddm">Reasonably-Destructive Data Mapping</h3>
 <p><a href="http://www.w3.org/2011/10/integration-workshop/s/ExperienceswithJSONandXMLTransformations.v08.pdf">Mapping
@@ -95,14 +103,16 @@ access data before any destructive mapping happened.</p>
 </ul></p>
 
 <h6>JSON to XML</h6>
-<p>JSON to XML mapping should produce well-formed XML with two exceptions:
-<ol>
+<p>JSON to XML mapping should produce well-formed XML with two exceptions:<ol>
     <li>More than one root element is allowed.</li>
     <li>Text node is allowed as root element.</li>
-</ol>
+</ol></p>
 
-Details described below still require more thinking, some details are subject
-to be corrected.</p>
+<p>Details described below still require more thinking, some details are
+subject to be corrected.</p>
+
+<p><code>xrl:type</code> and <code>xrl:array</code> attributes are used to make
+sure we can map back to the same JSON.</p>
 
 <p>
 {% highlight javascript %}// Non-empty object creates a set of nodes:
@@ -174,9 +184,6 @@ null // <null xrl:type="null" />
 {% endhighlight %}</p>
 
 <h6>XML to JSON</h6>
-<p>Pending.</p>
-
-<h3 id="syntax">Syntax</h3>
 <p>Pending.</p>
 
 <h3 id="basic">Basic Instructions</h3>
