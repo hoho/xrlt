@@ -33,8 +33,8 @@ run spaceships with things like PHP, but that leads to a countless number of
 ways to do the same. XRLT has a very limited set of instructions. It aims to
 standardize and simplify common frontend development scenarios.</p>
 
-<p>Server-side goal of building a web-page is building a tree, usually.
-HTML (XML) tree or JSON tree. XRLT is designed to build trees from another
+<p>Server-side goal of building a web-page is to build a tree, usually.
+HTML (XML) tree or JSON tree. XRLT is designed to build trees. From another
 trees, subtrees and funny bushes (from backend's data and from user's
 input).</p>
 
@@ -49,6 +49,143 @@ both at the same project.</p>
 the stitches cause no pain.</p>
 
 <h3 id="syntax">Syntax</h3>
+<p><div class="highlight"><pre><code class="xml"><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>
+<span class="nt">&lt;xrl:requestsheet</span> <span class="na">xmlns:xrl=</span><span class="s">&quot;http://xrlt.net/Transform&quot;</span><span class="nt">&gt;</span>
+    <span class="c">&lt;!-- Slices are functions of XRLT. Unnamed slices are applied in-place,</span>
+<span class="c">         named slices should be applied with &lt;xrl:apply&gt; instruction (or</span>
+<span class="c">         apply() JavaScript function (in case of JavaScript slices).</span>
+
+<span class="c">         For the moment, there are two types of slices: XML-slices (default)</span>
+<span class="c">         and JavaScript-slices. --&gt;</span>
+    <span class="nt">&lt;xrl:slice&gt;</span>
+        <span class="c">&lt;!-- We&#39;re inside of unnamed XML-slice. It will apply in-place.</span>
+<span class="c">             So, from here XRLT processor will walk through slice&#39;s nodes.</span>
+<span class="c">             Unknown nodes will be just copied to the result tree,</span>
+<span class="c">             XRLT-instructions will be processed. --&gt;</span>
+        <span class="nt">&lt;root&gt;</span><span class="c">&lt;!-- Copy node to result tree. --&gt;</span>
+            <span class="nt">&lt;xrl:apply</span> <span class="na">name=</span><span class="s">&quot;xml-slice&quot;</span><span class="nt">&gt;</span>
+                <span class="c">&lt;!-- Apply named slice with parameter. --&gt;</span>
+                <span class="nt">&lt;xrl:with-param</span> <span class="na">name=</span><span class="s">&quot;p1&quot;</span><span class="nt">&gt;</span>yo<span class="nt">&lt;/xrl:with-param&gt;</span>
+            <span class="nt">&lt;/xrl:apply&gt;</span>
+            <span class="nt">&lt;xrl:apply</span> <span class="na">name=</span><span class="s">&quot;js-slice&quot;</span><span class="nt">&gt;</span>
+                <span class="c">&lt;!-- Apply another named slice with parameter. --&gt;</span>
+                <span class="nt">&lt;xrl:with-param</span> <span class="na">name=</span><span class="s">&quot;p2&quot;</span><span class="nt">&gt;</span>
+                    <span class="nt">&lt;boo&gt;</span>
+                        <span class="nt">&lt;foo&gt;</span>moo<span class="nt">&lt;/foo&gt;</span>
+                    <span class="nt">&lt;/boo&gt;</span>
+                <span class="nt">&lt;/xrl:with-param&gt;</span>
+            <span class="nt">&lt;/xrl:apply&gt;</span>
+        <span class="nt">&lt;/root&gt;</span>
+    <span class="nt">&lt;/xrl:slice&gt;</span>
+
+    <span class="nt">&lt;xrl:slice</span> <span class="na">name=</span><span class="s">&quot;xml-slice&quot;</span><span class="nt">&gt;</span>
+        <span class="c">&lt;!-- Named XML-slice. --&gt;</span>
+        <span class="nt">&lt;xrl:param</span> <span class="na">name=</span><span class="s">&quot;p1&quot;</span> <span class="nt">/&gt;</span><span class="c">&lt;!-- Parameter p1 could be given. --&gt;</span>
+        <span class="nt">&lt;hello-from-xml&gt;</span><span class="c">&lt;!-- Copy node to the result tree. --&gt;</span>
+            <span class="nt">&lt;hi&gt;</span><span class="c">&lt;!-- Copy node to the result tree. --&gt;</span>
+                <span class="c">&lt;!-- Evaluate XPath-expression and add evaluation result to</span>
+<span class="c">                     the result tree. --&gt;</span>
+                <span class="nt">&lt;xrl:value-of</span>
+                    <span class="na">select=</span><span class="s">&quot;concat(&#39;hello&#39;, &#39; from &#39;, &#39;xml &#39;, $p1)&quot;</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;/hi&gt;</span>
+        <span class="nt">&lt;/hello-from-xml&gt;</span>
+    <span class="nt">&lt;/xrl:slice&gt;</span>
+
+    <span class="nt">&lt;xrl:slice</span> <span class="na">name=</span><span class="s">&quot;js-slice&quot;</span> <span class="na">type=</span><span class="s">&quot;javascript&quot;</span><span class="nt">&gt;</span>
+        <span class="c">&lt;!-- Named JavaScript-slice. Parameter&#39;s p2 async=&quot;yes&quot; attribute</span>
+<span class="c">             means, we don&#39;t want to wait for p2 parameter to be ready (say,</span>
+<span class="c">             p2 contains yet unfinished backend request result). --&gt;</span>
+        <span class="nt">&lt;xrl:param</span> <span class="na">name=</span><span class="s">&quot;p2&quot;</span> <span class="na">async=</span><span class="s">&quot;yes&quot;</span> <span class="nt">/&gt;</span>
+        <span class="cp">&lt;![CDATA[</span>
+            <span class="c1">// We can freely apply JavaScript-slices from XML-slices and</span>
+            <span class="c1">// XML-slices from JavaScript-slices: parameters and the result</span>
+            <span class="c1">// will be automatically mapped between XML and JSON using</span>
+            <span class="c1">// reasonably-destructive data mapping.</span>
+
+            <span class="c1">// We can return any JSON-serializable object as the result or</span>
+            <span class="c1">// Deferred-object, if we need to get the result asynchronously.</span>
+            <span class="kd">var</span> <span class="nx">ret</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Deferred</span><span class="p">();</span>
+
+            <span class="c1">// Parameters are available as scope variables. When we have</span>
+            <span class="c1">// async=&quot;yes&quot; in parameter&#39;s declaration, we get Deferred-object</span>
+            <span class="c1">// in parameter&#39;s variable.</span>
+            <span class="nx">p2</span><span class="p">.</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">value</span><span class="p">)</span> <span class="p">{</span>
+                <span class="c1">// Slice parameters&#39; values are immutable, so, we have to copy</span>
+                <span class="c1">// value, if we want to change it.</span>
+                <span class="kd">var</span> <span class="nx">p</span> <span class="o">=</span> <span class="nx">copy</span><span class="p">(</span><span class="nx">value</span><span class="p">);</span>
+
+                <span class="c1">// &lt;boo&gt;&lt;foo&gt;moo&lt;/foo&gt;&lt;/boo&gt; is passed to this slice, and</span>
+                <span class="c1">// automatically mapped to {&quot;boo&quot;: {&quot;foo&quot;: &quot;moo&quot;}}.</span>
+                <span class="c1">// Let&#39;s add something to foo property.</span>
+                <span class="nx">p</span><span class="p">.</span><span class="nx">boo</span><span class="p">.</span><span class="nx">foo</span> <span class="o">+=</span> <span class="s1">&#39; yep&#39;</span><span class="p">;</span>
+
+                <span class="c1">// Apply XML-slice with parameter p1.</span>
+                <span class="kd">var</span> <span class="nx">xmlSliceResult</span> <span class="o">=</span> <span class="nx">apply</span><span class="p">(</span><span class="s1">&#39;xml-slice&#39;</span><span class="p">,</span> <span class="p">{</span><span class="nx">p1</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">()});</span>
+
+                <span class="c1">// The result will be:</span>
+                <span class="c1">// {</span>
+                <span class="c1">//     &quot;hello-from-js&quot;: {</span>
+                <span class="c1">//         &quot;test&quot;: {&quot;boo&quot;: {&quot;foo&quot;: &quot;moo yep&quot;}},</span>
+                <span class="c1">//         &quot;test2&quot;: ... — result of xml-slice.</span>
+                <span class="c1">//     }</span>
+                <span class="c1">// }</span>
+                <span class="nx">ret</span><span class="p">.</span><span class="nx">resolve</span><span class="p">({</span>
+                    <span class="s1">&#39;hello-from-js&#39;</span><span class="o">:</span> <span class="p">{</span>
+                        <span class="nx">test</span><span class="o">:</span> <span class="nx">p</span><span class="p">,</span>
+                        <span class="nx">test2</span><span class="o">:</span> <span class="nx">xmlSliceResult</span>
+                    <span class="p">}</span>
+                <span class="p">});</span>
+            <span class="p">});</span>
+
+            <span class="c1">// Return Deferred-object.</span>
+            <span class="k">return</span> <span class="nx">ret</span><span class="p">;</span>
+        <span class="cp">]]&gt;</span>
+    <span class="nt">&lt;/xrl:slice&gt;</span>
+
+<span class="nt">&lt;/xrl:requestsheet&gt;</span>
+</code></pre>
+</div></p>
+
+
+<p>This transformation's result will look like:
+{% highlight xml %}<root>
+    <hello-from-xml>
+        <hi>hello from xml yo</hi>
+    </hello-from-xml>
+    <hello-from-js>
+        <test>
+            <boo>
+                <foo>moo yep</foo>
+            </boo>
+        </test>
+        <test2>
+            <hello-from-xml>
+                <hi>hello from xml 2012-09-15T00:00:22.661Z</hi>
+            </hello-from-xml>
+        </test2>
+    </hello-from-js>
+</root>{% endhighlight %}</p>
+
+<p>Or (if we declare JSON output):
+{% highlight javascript %}{
+    "root": {
+        "hello-from-xml": {"hi": "hello from xml yo"},
+        "hello-from-js": {
+            "test": {"boo": {"foo": "moo yep"}},
+            "test2": {
+                "hello-from-xml": {
+                    "hi": "hello from xml 2012-09-15T00:00:22.661Z"
+                }
+            }
+        }
+    }
+}{% endhighlight %}</p>
+
+
+<h3 id="basic">Basic Instructions</h3>
+<p>Pending.</p>
+
+<h3 id="includes">Data Including</h3>
 <p>Pending.</p>
 
 <h3 id="rddm">Reasonably-Destructive Data Mapping</h3>
@@ -184,12 +321,6 @@ null // <null xrl:type="null" />
 {% endhighlight %}</p>
 
 <h6>XML to JSON</h6>
-<p>Pending.</p>
-
-<h3 id="basic">Basic Instructions</h3>
-<p>Pending.</p>
-
-<h3 id="includes">Data Including</h3>
 <p>Pending.</p>
 
 <h3 id="templates">Templates</h3>
