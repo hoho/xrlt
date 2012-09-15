@@ -72,7 +72,7 @@
     </xrl:slice>
 
     <xrl:slice name="format-date" type="javascript">
-        <xrl:param name="date" />
+        <xrl:param name="date" async="yes" />
         <![CDATA[
             var ret = new Deferred();
             date.then(function(val) {
