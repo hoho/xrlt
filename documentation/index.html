@@ -182,10 +182,46 @@ the stitches cause no pain.</p>
 }{% endhighlight %}</p>
 
 
-<h3 id="basic">Basic Instructions</h3>
-<p>Pending.</p>
+<h3 id="basic">Instructions</h3>
+<p>Most of XRLT instructions are taken from XSLT and work pretty much the
+same. Some instructions have JavaScript-counterparts with the same names to use
+inside JavaScript-slices.</p>
+
+<p><ul>
+    <li><code>&lt;xrl:apply&gt;</code> — apply named slice.</li>
+    <li><code>&lt;xrl:attribute&gt;</code> — add an attrubute to XML element.</li>
+    <li><code>&lt;xrl:choose&gt;</code> — multiple conditional tests.</li>
+    <li><code>&lt;xrl:copy&gt;</code> — copy a node (without child nodes).</li>
+    <li><code>&lt;xrl:copy-of&gt;</code> — copy a node (with child nodes).</li>
+    <li><code>&lt;xrl:element&gt;</code> — add a dynamically named element.</li>
+    <li><code>&lt;xrl:for-each&gt;</code> — loop through nodeset.</li>
+    <li><code>&lt;xrl:form&gt;</code> — special kind of slices to simplify form validation, see <a href="/documentation/#forms">Form Validation</a>.</li>
+    <li><code>&lt;xrl:if&gt;</code> — conditional processing.</li>
+    <li><code>&lt;xrl:import&gt;</code> — import named slices from another XRLT-file.</li>
+    <li><code>&lt;xrl:include&gt;</code> — include data from backend, see <a href="/documentation/#includes">Data Including</a>.</li>
+    <li><code>&lt;xrl:output&gt;</code> — define output format (XML, JSON or Text).</li>
+    <li><code>&lt;xrl:param&gt;</code> — parameter declaration.</li>
+    <li><code>&lt;xrl:slice&gt;</code> — slice.</li>
+    <li><code>&lt;xrl:text&gt;</code> — add text.</li>
+    <li><code>&lt;xrl:transform&gt;</code> — transform content with a template, see <a href="/documentation/#templates">Templates</a>.</li>
+    <li><code>&lt;xrl:value-of&gt;</code> — evaluate XPath expression and add evaluation result.</li>
+    <li><code>&lt;xrl:variable&gt;</code> — declare variable.</li>
+    <li><code>&lt;xrl:with-param&gt;</code> — pass a parameter with.</li>
+</ul></p>
 
 <h3 id="includes">Data Including</h3>
+<p>Pending.</p>
+
+<h3 id="templates">Templates</h3>
+<p>Pending.</p>
+
+<h3 id="forms">Form Validation</h3>
+<p>Pending.</p>
+
+<h3 id="request">Request Information</h3>
+<p>Pending.</p>
+
+<h3 id="caching">Caching</h3>
 <p>Pending.</p>
 
 <h3 id="rddm">Reasonably-Destructive Data Mapping</h3>
@@ -321,18 +357,6 @@ null // <null xrl:type="null" />
 {% endhighlight %}</p>
 
 <h6>XML to JSON</h6>
-<p>Pending.</p>
-
-<h3 id="templates">Templates</h3>
-<p>Pending.</p>
-
-<h3 id="forms">Form Validation</h3>
-<p>Pending.</p>
-
-<h3 id="request">Request Information</h3>
-<p>Pending.</p>
-
-<h3 id="caching">Caching</h3>
 <p>Pending.</p>
 
 <h3 id="moar">Moar</h3>
