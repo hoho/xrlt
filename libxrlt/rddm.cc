@@ -8,14 +8,56 @@
 #include "rddm.h"
 
 
-#define EXTRACT_RDDM_OBJECT_DATA                                              \
+#define XRLT_EXTRACT_RDDM_OBJECT_DATA                                         \
     v8::Handle<v8::External> field =                                          \
         v8::Handle<v8::External>::Cast(info.Holder()->GetInternalField(0));   \
-    RDDMObjectData *data = static_cast<RDDMObjectData *>(field->Value());
+    xrltRDDMObjectData *data =                                                \
+        static_cast<xrltRDDMObjectData *>(field->Value());
 
 
-// RDDM object template, needs InitRDDMObjectTemplate to initialize.
-v8::Persistent<v8::ObjectTemplate> RDDMObjectTemplate;
+// RDDM cache template, needs xrltInitRDDMObjectTemplate to initialize.
+v8::Persistent<v8::ObjectTemplate> xrltRDDMObjectCacheTemplate;
+// RDDM object template, needs xrltInitRDDMObjectTemplate to initialize.
+v8::Persistent<v8::ObjectTemplate> xrltRDDMObjectTemplate;
+
+
+// C++ structure to be associated with RDDM cache.
+struct xrltRDDMObjectCache {
+    xrltRDDMObjectCache(v8::Handle<v8::Array> data) : index(0), data(data) {};
+    bool get(xmlNodePtr node, v8::Handle<v8::Value> *value);
+    void set(xmlNodePtr node, v8::Handle<v8::Value> value);
+
+  private:
+    uint32_t index;
+    std::map<xmlNodePtr, uint32_t> cache;
+    v8::Handle<v8::Array> data;
+};
+
+bool xrltRDDMObjectCache::get(xmlNodePtr node, v8::Handle<v8::Value> *value) {
+    std::map<xmlNodePtr, uint32_t>::iterator i;
+
+    i = cache.find(node);
+    if (i != cache.end()) {
+        *value = data->Get(i->second);
+        return true;
+    }
+
+    return false;
+}
+
+void xrltRDDMObjectCache::set(xmlNodePtr node, v8::Handle<v8::Value> value) {
+    cache.insert(std::pair<xmlNodePtr, uint32_t>(node, index));
+    data->Set(index++, value);
+}
+
+
+// Deallocator for C++ data connected to RDDM cache.
+void xrltRDDMObjectCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload) {
+    xrltRDDMObjectCache *data = static_cast<xrltRDDMObjectCache *>(payload);
+    delete data;
+    obj.ClearWeak();
+    obj.Dispose();
+}
 
 
 // Map to find XML node content type by xrl:type attribute.
@@ -41,14 +83,15 @@ xrltRDDMTypeMap XRLT_TYPE_MAP;
 
 
 // C++ structure to be associated with RDDM JavaScript object.
-struct RDDMObjectData {
-    RDDMObjectData(xmlNodePtr first);
+struct xrltRDDMObjectData {
+    xrltRDDMObjectData(xmlNodePtr parent, xrltRDDMObjectCache *cache);
     xrltJSON2XMLType type;
     std::vector<xmlNodePtr> nodes;
     std::multimap<std::string, xmlNodePtr> named;
+    xrltRDDMObjectCache *cache;
 };
 
-RDDMObjectData::RDDMObjectData(xmlNodePtr parent) {
+xrltRDDMObjectData::xrltRDDMObjectData(xmlNodePtr parent, xrltRDDMObjectCache *cache) : cache(cache) {
     xmlNodePtr n = parent != NULL ? parent->children : NULL;
 
     // Create a list of nodes for RDDM object.
@@ -90,8 +133,8 @@ RDDMObjectData::RDDMObjectData(xmlNodePtr parent) {
 
 
 // Deallocator for C++ data connected to RDDM JavaScript object.
-void RDDMObjectWeakCallback(v8::Persistent<v8::Value> obj, void *payload) {
-    RDDMObjectData *data = static_cast<RDDMObjectData *>(payload);
+void xrltRDDMObjectWeakCallback(v8::Persistent<v8::Value> obj, void *payload) {
+    xrltRDDMObjectData *data = static_cast<xrltRDDMObjectData *>(payload);
     delete data;
     obj.ClearWeak();
     obj.Dispose();
@@ -99,9 +142,14 @@ void RDDMObjectWeakCallback(v8::Persistent<v8::Value> obj, void *payload) {
 
 
 // RDDM JavaScript object creator. Pretty much to optimize here.
-v8::Handle<v8::Value> CreateRDDMObject(xmlNodePtr parent) {
-    RDDMObjectData *data = new RDDMObjectData(parent);
+v8::Handle<v8::Value> xrltCreateRDDMObject(xmlNodePtr parent, xrltRDDMObjectCache *cache) {
     v8::Handle<v8::Value> ret;
+
+    if (cache != NULL && cache->get(parent, &ret)) {
+        return ret;
+    }
+
+    xrltRDDMObjectData *data = new xrltRDDMObjectData(parent, cache);
     bool isRDDM = false;
 
     if (data->type == XRLT_JSON2XML_ARRAY) {
@@ -109,7 +157,7 @@ v8::Handle<v8::Value> CreateRDDMObject(xmlNodePtr parent) {
         v8::Local<v8::Array> arr = v8::Array::New(data->nodes.size());
         uint32_t i;
         for (i = 0; i < data->nodes.size(); i++) {
-            arr->Set(i, CreateRDDMObject(data->nodes[i]));
+            arr->Set(i, xrltCreateRDDMObject(data->nodes[i], cache));
         }
         ret = arr;
     } else {
@@ -134,8 +182,8 @@ v8::Handle<v8::Value> CreateRDDMObject(xmlNodePtr parent) {
         } else {
             // We have some more complex structure, create RDDM object.
             v8::Persistent<v8::Object> rddm;
-            rddm = v8::Persistent<v8::Object>::New(RDDMObjectTemplate->NewInstance());
-            rddm.MakeWeak(data, RDDMObjectWeakCallback);
+            rddm = v8::Persistent<v8::Object>::New(xrltRDDMObjectTemplate->NewInstance());
+            rddm.MakeWeak(data, xrltRDDMObjectWeakCallback);
             rddm->SetInternalField(0, v8::External::New(data));
             ret = rddm;
             isRDDM = true;
@@ -145,14 +193,41 @@ v8::Handle<v8::Value> CreateRDDMObject(xmlNodePtr parent) {
     // Free data if necessary.
     if (!isRDDM) { delete data; }
 
+    if (cache != NULL) {
+        cache->set(parent, ret);
+    }
+
     return ret;
 }
 
 
+
+// RDDM JavaScript object creator. Pretty much to optimize here.
+v8::Handle<v8::Value> xrltCreateRDDMObjectWithCache(xmlNodePtr parent) {
+    xrltRDDMObjectCache *cache;
+    v8::Persistent<v8::Object> cacheobj;
+
+    // We will store objects in JavaScript array avoid freeing them by GC
+    // before cache is freed.
+    v8::Local<v8::Array> data = v8::Array::New();
+
+    cacheobj = v8::Persistent<v8::Object>::New(xrltRDDMObjectCacheTemplate->NewInstance());
+
+    // Make a reference to cached data.
+    cacheobj->Set(0, data);
+
+    cache = new xrltRDDMObjectCache(data);
+
+    cacheobj.MakeWeak(cache, xrltRDDMObjectCacheWeakCallback);
+    cacheobj->SetInternalField(0, v8::External::New(cache));
+
+    return xrltCreateRDDMObject(parent, cache);
+}
+
 // Named properties interceptor for RDDM JavaScript object.
-v8::Handle<v8::Value> GetRDDMObjectProperty(v8::Local<v8::String> name,
-                                            const v8::AccessorInfo& info) {
-    EXTRACT_RDDM_OBJECT_DATA;
+v8::Handle<v8::Value> xrltGetRDDMObjectProperty(v8::Local<v8::String> name,
+                                                const v8::AccessorInfo& info) {
+    XRLT_EXTRACT_RDDM_OBJECT_DATA;
 
     std::string key;
     v8::String::Utf8Value keyarg(name);
@@ -168,12 +243,12 @@ v8::Handle<v8::Value> GetRDDMObjectProperty(v8::Local<v8::String> name,
         }
 
         if (values.size() == 1) {
-            return CreateRDDMObject(values[0]);
+            return xrltCreateRDDMObject(values[0], data->cache);
         } else if (values.size() > 1) {
             v8::Local<v8::Array> ret = v8::Array::New();
             uint32_t index = 0;
             for (index = 0; index < values.size(); index++) {
-                ret->Set(index, CreateRDDMObject(values[index]));
+                ret->Set(index, xrltCreateRDDMObject(values[index], data->cache));
             }
             return ret;
         }
@@ -184,8 +259,8 @@ v8::Handle<v8::Value> GetRDDMObjectProperty(v8::Local<v8::String> name,
 
 
 // Named properties enumerator for RDDM JavaScript object.
-v8::Handle<v8::Array> EnumRDDMObjectProperties(const v8::AccessorInfo& info) {
-    EXTRACT_RDDM_OBJECT_DATA;
+v8::Handle<v8::Array> xrltEnumRDDMObjectProperties(const v8::AccessorInfo& info) {
+    XRLT_EXTRACT_RDDM_OBJECT_DATA;
 
     v8::HandleScope scope;
 
@@ -203,8 +278,11 @@ v8::Handle<v8::Array> EnumRDDMObjectProperties(const v8::AccessorInfo& info) {
 
 
 // This function must be called to initialize RDDM object template.
-void InitRDDMObjectTemplate(void) {
-    RDDMObjectTemplate = v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
-    RDDMObjectTemplate->SetInternalFieldCount(1);
-    RDDMObjectTemplate->SetNamedPropertyHandler(GetRDDMObjectProperty, 0, 0, 0, EnumRDDMObjectProperties);
+void xrltInitRDDMObjectTemplate(void) {
+    xrltRDDMObjectCacheTemplate = v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
+    xrltRDDMObjectCacheTemplate->SetInternalFieldCount(1);
+
+    xrltRDDMObjectTemplate = v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
+    xrltRDDMObjectTemplate->SetInternalFieldCount(1);
+    xrltRDDMObjectTemplate->SetNamedPropertyHandler(xrltGetRDDMObjectProperty, 0, 0, 0, xrltEnumRDDMObjectProperties);
 }
