@@ -91,6 +91,8 @@ typedef struct {
 
 
 inline xrltBool
+        xrltStringInit            (xrltString *str, char *val);
+inline xrltBool
         xrltStringCopy            (xrltString *dst, xrltString *src);
 
 inline void
@@ -100,6 +102,8 @@ inline void
         xrltStringFree            (xrltString *str);
 
 
+inline void
+        xrltHeaderListInit        (xrltHeaderList *list);
 inline xrltBool
         xrltHeaderListPush        (xrltHeaderList *list,
                                    xrltString *name, xrltString *value);
@@ -142,6 +146,15 @@ inline void
 
 
 inline xrltBool
+xrltStringInit(xrltString *str, char *val)
+{
+    str->len = strlen(val);
+    str->data = strndup(val, str->len);
+    return str->data == NULL ? FALSE : TRUE;
+}
+
+
+inline xrltBool
 xrltStringCopy(xrltString *dst, xrltString *src)
 {
     //if (src == NULL || src->data == NULL || dst == NULL) { return FALSE; }
@@ -165,6 +178,13 @@ xrltStringFree(xrltString *str)
     if (str != NULL && str->data != NULL) {
         xrltFree(str->data);
     }
+}
+
+
+inline void
+xrltHeaderListInit(xrltHeaderList *list)
+{
+    memset(list, 0, sizeof(xrltHeaderList));
 }
 
 
@@ -251,7 +271,6 @@ xrltSubrequestListPush(xrltSubrequestList *list,
 
     sr = xrltMalloc(sizeof(xrltSubrequest));
 
-
     if (sr == NULL) { return FALSE; }
 
     memset(sr, 0, sizeof(xrltSubrequest));
@@ -315,7 +334,8 @@ xrltSubrequestListShift(xrltSubrequestList *list,
     xrltStringMove(body, &sr->body);
 
     if (sr->next == NULL) {
-        list->first = list->last = NULL;
+        list->first = NULL;
+        list->last = NULL;
     } else {
         list->first = sr->next;
     }
