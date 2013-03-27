@@ -29,7 +29,7 @@ char   _msgbuf[256];
 #define ASSERT_INT(r, e)                                                      \
     _ASSERT(!((r) == (e)),                                                    \
             snprintf(_msgbuf, 255, "%s:%d, expected %d, got %d",              \
-                     __FILE__, __LINE__, e, r));                              \
+                     __FILE__, __LINE__, (int)e, (int)r));                    \
 
 #define ASSERT_TRUE(r)                                                        \
     _ASSERT(!(r),                                                             \

@@ -99,7 +99,7 @@ inline void
         xrltStringMove            (xrltString *dst, xrltString *src);
 
 inline void
-        xrltStringFree            (xrltString *str);
+        xrltStringClear            (xrltString *str);
 
 
 inline void
@@ -114,6 +114,8 @@ inline void
         xrltHeaderListClear       (xrltHeaderList *list);
 
 
+inline void
+        xrltSubrequestListInit    (xrltSubrequestList *list);
 inline xrltBool
         xrltSubrequestListPush    (xrltSubrequestList *list, size_t id,
                                    xrltHeaderList *header, xrltString *url,
@@ -126,6 +128,8 @@ inline void
         xrltSubrequestListClear   (xrltSubrequestList *list);
 
 
+inline void
+        xrltChunkListInit         (xrltChunkList *list);
 inline xrltBool
         xrltChunkListPush         (xrltChunkList *list, xrltString *chunk);
 inline xrltBool
@@ -134,6 +138,8 @@ inline void
         xrltChunkListClear        (xrltChunkList *list);
 
 
+inline void
+        xrltLogListInit           (xrltLogList *list);
 inline xrltBool
         xrltLogListPush           (xrltLogList *list,
                                    xrltLogType type, xrltString *msg);
@@ -173,10 +179,12 @@ xrltStringMove(xrltString *dst, xrltString *src)
 
 
 inline void
-xrltStringFree(xrltString *str)
+xrltStringClear(xrltString *str)
 {
     if (str != NULL && str->data != NULL) {
         xrltFree(str->data);
+        str->data = NULL;
+        str->len = 0;
     }
 }
 
@@ -214,8 +222,8 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
     return TRUE;
 
   error:
-    xrltStringFree(&h->name);
-    xrltStringFree(&h->value);
+    xrltStringClear(&h->name);
+    xrltStringClear(&h->value);
     xrltFree(h);
 
     return FALSE;
@@ -254,9 +262,16 @@ xrltHeaderListClear(xrltHeaderList *list)
     xrltString   value;
 
     while (xrltHeaderListShift(list, &name, &value)) {
-        xrltStringFree(&name);
-        xrltStringFree(&value);
+        xrltStringClear(&name);
+        xrltStringClear(&value);
     }
+}
+
+
+inline void
+xrltSubrequestListInit(xrltSubrequestList *list)
+{
+    memset(list, 0, sizeof(xrltSubrequestList));
 }
 
 
@@ -299,9 +314,9 @@ xrltSubrequestListPush(xrltSubrequestList *list,
     return TRUE;
 
   error:
-    xrltStringFree(&sr->url);
-    xrltStringFree(&sr->query);
-    xrltStringFree(&sr->body);
+    xrltStringClear(&sr->url);
+    xrltStringClear(&sr->query);
+    xrltStringClear(&sr->body);
 
     xrltFree(sr);
 
@@ -358,10 +373,17 @@ xrltSubrequestListClear(xrltSubrequestList *list)
     while (xrltSubrequestListShift(list, &id, &header, &url, &query, &body)) {
         xrltHeaderListClear(&header);
 
-        xrltStringFree(&url);
-        xrltStringFree(&query);
-        xrltStringFree(&body);
+        xrltStringClear(&url);
+        xrltStringClear(&query);
+        xrltStringClear(&body);
     }
+}
+
+
+inline void
+xrltChunkListInit(xrltChunkList *list)
+{
+    memset(list, 0, sizeof(xrltChunkList));
 }
 
 
@@ -424,8 +446,15 @@ xrltChunkListClear(xrltChunkList *list)
     xrltString   chunk;
 
     while (xrltChunkListShift(list, &chunk)) {
-        xrltStringFree(&chunk);
+        xrltStringClear(&chunk);
     }
+}
+
+
+inline void
+xrltLogListInit(xrltLogList *list)
+{
+    memset(list, 0, sizeof(xrltLogList));
 }
 
 
@@ -447,6 +476,8 @@ xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
         return FALSE;
     }
 
+    l->type = type;
+
     if (list->last == NULL) {
         list->first = l;
     } else {
@@ -461,7 +492,7 @@ xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
 inline xrltBool
 xrltLogListShift(xrltLogList *list, xrltLogType *type, xrltString *msg)
 {
-    if (list == NULL || msg == NULL) { return FALSE; }
+    if (list == NULL || type == NULL || msg == NULL) { return FALSE; }
 
     xrltLogPtr l = list->first;
 
@@ -491,7 +522,7 @@ xrltLogListClear(xrltLogList *list)
     xrltString    msg;
 
     while (xrltLogListShift(list, &type, &msg)) {
-        xrltStringFree(&msg);
+        xrltStringClear(&msg);
     }
 }
 

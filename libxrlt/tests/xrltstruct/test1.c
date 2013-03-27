@@ -47,27 +47,267 @@ void test_xrltHeaderList(void)
     ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
-    xrltStringFree(&name);
-    xrltStringFree(&val);
+    xrltStringClear(&name);
+    xrltStringClear(&val);
 
     ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
     ASSERT_STR(name, "name2");
     ASSERT_STR(val, "value2");
-    xrltStringFree(&name);
-    xrltStringFree(&val);
+    xrltStringClear(&name);
+    xrltStringClear(&val);
 
     ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
-    xrltStringFree(&name);
-    xrltStringFree(&val);
+    xrltStringClear(&name);
+    xrltStringClear(&val);
 
     ASSERT_FALSE(xrltHeaderListShift(&h, &name, &val));
 
-    xrltStringFree(&name1);
-    xrltStringFree(&name2);
-    xrltStringFree(&val1);
-    xrltStringFree(&val2);
+    xrltStringClear(&name1);
+    xrltStringClear(&name2);
+    xrltStringClear(&val1);
+    xrltStringClear(&val2);
+
+    TEST_PASSED;
+}
+
+
+void test_xrltSubrequestList(void)
+{
+    xrltSubrequestList   sr;
+    xrltHeaderList       h;
+    xrltString           n, v;
+    size_t               id;
+    xrltString           url1, url2, url3, url;
+    xrltString           q1, q2, q;
+    xrltString           b1, b2, b;
+
+    xrltSubrequestListInit(&sr);
+
+    xrltHeaderListInit(&h);
+    xrltStringInit(&n, "hname");
+    xrltStringInit(&v, "hvalue");
+    xrltHeaderListPush(&h, &n, &v);
+    xrltHeaderListPush(&h, &n, &v);
+    xrltStringClear(&n);
+    xrltStringClear(&v);
+
+    xrltStringInit(&url1, "url1");
+    xrltStringInit(&url2, "url2");
+    xrltStringInit(&url3, "url3");
+
+    xrltStringInit(&q1, "querystring1");
+    xrltStringInit(&q2, "querystring2");
+
+    xrltStringInit(&b1, "body1");
+    xrltStringInit(&b2, "body2");
+
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, &h, &url1, &q1, &b1));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, NULL, &url2, &q2, &b2));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, NULL, &url3, NULL, NULL));
+
+    ASSERT_NULL(h.first);
+    ASSERT_NULL(h.last);
+
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_INT(id, 123);
+
+    ASSERT_TRUE(xrltHeaderListShift(&h, &n, &v));
+    ASSERT_STR(n, "hname");
+    ASSERT_STR(v, "hvalue");
+    xrltStringClear(&n);
+    xrltStringClear(&v);
+
+    ASSERT_TRUE(xrltHeaderListShift(&h, &n, &v));
+    ASSERT_STR(n, "hname");
+    ASSERT_STR(v, "hvalue");
+    xrltStringClear(&n);
+    xrltStringClear(&v);
+
+    ASSERT_FALSE(xrltHeaderListShift(&h, &n, &v));
+
+    ASSERT_STR(url, "url1");
+    ASSERT_STR(q, "querystring1");
+    ASSERT_STR(b, "body1");
+    xrltStringClear(&url);
+    xrltStringClear(&q);
+    xrltStringClear(&b);
+
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_INT(id, 234);
+    ASSERT_NULL(h.first);
+    ASSERT_NULL(h.last);
+    ASSERT_STR(url, "url2");
+    ASSERT_STR(q, "querystring2");
+    ASSERT_STR(b, "body2");
+    xrltStringClear(&url);
+    xrltStringClear(&q);
+    xrltStringClear(&b);
+
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_INT(id, 345);
+    ASSERT_NULL(h.first);
+    ASSERT_NULL(h.last);
+    ASSERT_STR(url, "url3");
+    ASSERT_NULL(q.data);
+    ASSERT_NULL(b.data);
+    xrltStringClear(&url);
+
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+
+    xrltStringInit(&n, "hname");
+    xrltStringInit(&v, "hvalue");
+    xrltHeaderListPush(&h, &n, &v);
+    xrltHeaderListPush(&h, &n, &v);
+    xrltStringClear(&n);
+    xrltStringClear(&v);
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, &h, &url1, &q1, &b1));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, NULL, &url2, &q2, &b2));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, NULL, &url3, NULL, NULL));
+
+    ASSERT_FALSE(xrltSubrequestListPush(NULL, 123, NULL, &url1, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListPush(&sr, 0, NULL, &url1, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListPush(&sr, 123, NULL, NULL, NULL, NULL));
+
+    ASSERT_FALSE(xrltSubrequestListShift(NULL, NULL, NULL, NULL, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, NULL, NULL, NULL, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, NULL, NULL, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, NULL, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, NULL));
+
+    xrltSubrequestListClear(&sr);
+    ASSERT_NULL(sr.first);
+    ASSERT_NULL(sr.last);
+
+
+    xrltStringClear(&url1);
+    xrltStringClear(&url2);
+    xrltStringClear(&url3);
+    xrltStringClear(&q1);
+    xrltStringClear(&q2);
+    xrltStringClear(&b1);
+    xrltStringClear(&b2);
+
+    TEST_PASSED;
+}
+
+
+void test_xrltChunkList(void)
+{
+    xrltChunkList   cl;
+    xrltString      c1, c2, c3, c;
+
+    xrltChunkListInit(&cl);
+    ASSERT_NULL(cl.first);
+    ASSERT_NULL(cl.last);
+
+    xrltStringInit(&c1, "chunk1");
+    xrltStringInit(&c2, "chunk2");
+    xrltStringInit(&c3, "chunk3");
+
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c1));
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c2));
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c3));
+
+    ASSERT_TRUE(xrltChunkListShift(&cl, &c));
+    ASSERT_STR(c, "chunk1");
+    xrltStringClear(&c);
+
+    ASSERT_TRUE(xrltChunkListShift(&cl, &c));
+    ASSERT_STR(c, "chunk2");
+    xrltStringClear(&c);
+
+    ASSERT_TRUE(xrltChunkListShift(&cl, &c));
+    ASSERT_STR(c, "chunk3");
+    xrltStringClear(&c);
+
+    ASSERT_FALSE(xrltChunkListShift(&cl, &c));
+
+    ASSERT_NULL(cl.first);
+    ASSERT_NULL(cl.last);
+
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c1));
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c2));
+    ASSERT_TRUE(xrltChunkListPush(&cl, &c3));
+
+    ASSERT_FALSE(xrltChunkListPush(NULL, NULL));
+    ASSERT_FALSE(xrltChunkListPush(&cl, NULL));
+    ASSERT_FALSE(xrltChunkListPush(NULL, &c));
+    ASSERT_FALSE(xrltChunkListShift(NULL, NULL));
+    ASSERT_FALSE(xrltChunkListShift(&cl, NULL));
+    ASSERT_FALSE(xrltChunkListShift(NULL, &c));
+
+    xrltChunkListClear(&cl);
+    ASSERT_NULL(cl.first);
+    ASSERT_NULL(cl.last);
+
+    xrltStringClear(&c1);
+    xrltStringClear(&c2);
+    xrltStringClear(&c3);
+
+    TEST_PASSED;
+}
+
+
+void test_xrltLogList(void)
+{
+    xrltLogList   ll;
+    xrltString    msg1, msg2, msg3, msg;
+    xrltLogType   type;
+
+    xrltLogListInit(&ll);
+    ASSERT_NULL(ll.first);
+    ASSERT_NULL(ll.last);
+
+    xrltStringInit(&msg1, "log1");
+    xrltStringInit(&msg2, "log2");
+    xrltStringInit(&msg3, "log3");
+
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_ERROR, &msg1));
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_WARNING, &msg2));
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_INFO, &msg3));
+
+    ASSERT_TRUE(xrltLogListShift(&ll, &type, &msg));
+    ASSERT_STR(msg, "log1");
+    ASSERT_INT(type, XRLT_ERROR);
+    xrltStringClear(&msg);
+
+    ASSERT_TRUE(xrltLogListShift(&ll, &type, &msg));
+    ASSERT_STR(msg, "log2");
+    ASSERT_INT(type, XRLT_WARNING);
+    xrltStringClear(&msg);
+
+    ASSERT_TRUE(xrltLogListShift(&ll, &type, &msg));
+    ASSERT_STR(msg, "log3");
+    ASSERT_INT(type, XRLT_INFO);
+    xrltStringClear(&msg);
+
+    ASSERT_FALSE(xrltLogListShift(&ll, &type, &msg));
+
+    ASSERT_NULL(ll.first);
+    ASSERT_NULL(ll.last);
+
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_ERROR, &msg1));
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_WARNING, &msg2));
+    ASSERT_TRUE(xrltLogListPush(&ll, XRLT_INFO, &msg3));
+
+    ASSERT_FALSE(xrltLogListPush(NULL, XRLT_DEBUG, NULL));
+    ASSERT_FALSE(xrltLogListPush(&ll, XRLT_DEBUG, NULL));
+    ASSERT_FALSE(xrltLogListPush(NULL, XRLT_DEBUG, &msg1));
+    ASSERT_FALSE(xrltLogListShift(NULL, NULL, NULL));
+    ASSERT_FALSE(xrltLogListShift(&ll, NULL, NULL));
+    ASSERT_FALSE(xrltLogListShift(&ll, &type, NULL));
+    ASSERT_FALSE(xrltLogListShift(&ll, NULL, &msg));
+
+    xrltLogListClear(&ll);
+    ASSERT_NULL(ll.first);
+    ASSERT_NULL(ll.last);
+
+    xrltStringClear(&msg1);
+    xrltStringClear(&msg2);
+    xrltStringClear(&msg3);
 
     TEST_PASSED;
 }
@@ -76,6 +316,9 @@ void test_xrltHeaderList(void)
 int main()
 {
     test_xrltHeaderList();
+    test_xrltSubrequestList();
+    test_xrltChunkList();
+    test_xrltLogList();
 
     xrltTestFailurePrint();
     return 0;
