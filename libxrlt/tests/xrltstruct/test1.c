@@ -9,55 +9,60 @@ void test_xrltHeaderList(void)
     xrltString       name1, name2, val1, val2, name, val;
 
     xrltHeaderListInit(&h);
-    ASSERT(h.first == NULL)
-    ASSERT(h.last == NULL)
+    ASSERT_NULL(h.first);
+    ASSERT_NULL(h.last);
 
     xrltStringInit(&name1, "name1");
     xrltStringInit(&name2, "name2");
     xrltStringInit(&val1, "value1");
     xrltStringInit(&val2, "value2");
 
-    ASSERT(!strcmp(name1.data, "name1"))
-    ASSERT(name1.len == 5)
+    ASSERT_STR(name1, "name1");
 
     xrltHeaderListPush(&h, &name1, &val1);
-    ASSERT(h.first != NULL)
-    ASSERT(h.first == h.last)
-    ASSERT(!strcmp(h.first->name.data, "name1"))
-    ASSERT(h.first->name.len == 5)
-    ASSERT(!strcmp(h.first->value.data, "value1"))
-    ASSERT(h.first->value.len == 6)
+    ASSERT_NOT_NULL(h.first);
+    ASSERT_TRUE(h.first == h.last);
+    ASSERT_STR(h.first->name, "name1");
+    ASSERT_STR(h.first->value, "value1");
 
     xrltHeaderListPush(&h, &name2, &val2);
-    ASSERT(h.first != h.last)
+    ASSERT_TRUE(h.first != h.last);
 
     xrltHeaderListClear(&h);
-    ASSERT(h.first == NULL)
-    ASSERT(h.last == NULL)
+    ASSERT_NULL(h.first);
+    ASSERT_NULL(h.last);
 
     xrltHeaderListPush(&h, &name1, &val1);
     xrltHeaderListPush(&h, &name2, &val2);
     xrltHeaderListPush(&h, &name1, &val1);
 
-    ASSERT(xrltHeaderListShift(&h, &name, &val) == TRUE)
-    ASSERT(!strcmp(name.data, "name1"))
-    ASSERT(!strcmp(val.data, "value1"))
+    ASSERT_FALSE(xrltHeaderListPush(NULL, &name1, &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, &name1, NULL));
+
+    ASSERT_FALSE(xrltHeaderListShift(NULL, &name1, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &name1, NULL));
+
+    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_STR(name, "name1");
+    ASSERT_STR(val, "value1");
     xrltStringFree(&name);
     xrltStringFree(&val);
 
-    ASSERT(xrltHeaderListShift(&h, &name, &val) == TRUE)
-    ASSERT(!strcmp(name.data, "name2"))
-    ASSERT(!strcmp(val.data, "value2"))
+    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_STR(name, "name2");
+    ASSERT_STR(val, "value2");
     xrltStringFree(&name);
     xrltStringFree(&val);
 
-    ASSERT(xrltHeaderListShift(&h, &name, &val) == TRUE)
-    ASSERT(!strcmp(name.data, "name1"))
-    ASSERT(!strcmp(val.data, "value1"))
+    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_STR(name, "name1");
+    ASSERT_STR(val, "value1");
     xrltStringFree(&name);
     xrltStringFree(&val);
 
-    ASSERT(xrltHeaderListShift(&h, &name, &val) == FALSE)
+    ASSERT_FALSE(xrltHeaderListShift(&h, &name, &val));
 
     xrltStringFree(&name1);
     xrltStringFree(&name2);
