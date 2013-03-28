@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="object">
+  <aaa xrl:type="object">
+    <bbb xrl:type="object">
+      <ccc xrl:type="number">123</ccc>
+    </bbb>
+  </aaa>
+</root>

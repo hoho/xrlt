@@ -12,14 +12,15 @@ extern "C" {
 #endif
 
 
-char   _msgbuf[256];
+char   _msgbuf[4096];
 
 
 #define TEST_PASSED printf("."); return;
+#define TEST_FAILED printf("F"); return;
 
 #define _ASSERT(cond, msg)                                                    \
     if (cond) {                                                               \
-        memset(_msgbuf, 0, 256);                                              \
+        memset(_msgbuf, 0, 4096);                                             \
         msg;                                                                  \
         xrltTestFailurePush(_msgbuf);                                         \
         printf("F");                                                          \
@@ -28,33 +29,38 @@ char   _msgbuf[256];
 
 #define ASSERT_INT(r, e)                                                      \
     _ASSERT(!((r) == (e)),                                                    \
-            snprintf(_msgbuf, 255, "%s:%d, expected %d, got %d",              \
+            snprintf(_msgbuf, 4095, "%s:%d, expected %d, got %d",             \
                      __FILE__, __LINE__, (int)e, (int)r));                    \
 
 #define ASSERT_TRUE(r)                                                        \
     _ASSERT(!(r),                                                             \
-            snprintf(_msgbuf, 255, "%s:%d, expected TRUE",                    \
+            snprintf(_msgbuf, 4095, "%s:%d, expected TRUE",                   \
                      __FILE__, __LINE__));                                    \
 
 #define ASSERT_FALSE(r)                                                       \
     _ASSERT(r,                                                                \
-            snprintf(_msgbuf, 255, "%s:%d, expected FALSE",                   \
+            snprintf(_msgbuf, 4095, "%s:%d, expected FALSE",                  \
                      __FILE__, __LINE__));                                    \
 
 #define ASSERT_NULL(r)                                                        \
     _ASSERT((r) != NULL,                                                      \
-            snprintf(_msgbuf, 255, "%s:%d, expected NULL",                    \
+            snprintf(_msgbuf, 4095, "%s:%d, expected NULL",                   \
                      __FILE__, __LINE__));                                    \
 
 #define ASSERT_NOT_NULL(r)                                                    \
     _ASSERT((r) == NULL,                                                      \
-            snprintf(_msgbuf, 255, "%s:%d, expected NOT NULL",                \
+            snprintf(_msgbuf, 4095, "%s:%d, expected NOT NULL",               \
                      __FILE__, __LINE__));                                    \
 
 #define ASSERT_STR(r, e)                                                      \
     _ASSERT(strcmp(r.data, e) || r.len != strlen(e),                          \
-            snprintf(_msgbuf, 255, "%s:%d, expected '%s', got '%s'",          \
+            snprintf(_msgbuf, 4095, "%s:%d, expected '%s', got '%s'",         \
                      __FILE__, __LINE__, e, r.data));                         \
+
+#define ASSERT_CSTR(r, e)                                                     \
+    _ASSERT(strcmp((char *)r, (char *)e),                                     \
+            snprintf(_msgbuf, 4095, "%s:%d, expected '%s', got '%s'",         \
+                     __FILE__, __LINE__, (char *)e, (char *)r));              \
 
 
 typedef struct _xrltTestFailure xrltTestFailure;

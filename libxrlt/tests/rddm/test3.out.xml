@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="object">
+  <test xrl:type="null"/>
+  <test xrl:type="array">
+    <item xrl:type="null"/>
+  </test>
+  <test xrl:type="array"/>
+</root>

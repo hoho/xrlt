@@ -1,5 +1,5 @@
-#ifndef __XRLTMEMORY_H__
-#define __XRLTMEMORY_H__
+#ifndef __XRLT_MEMORY_H__
+#define __XRLT_MEMORY_H__
 
 
 #include <stdlib.h>
@@ -18,4 +18,4 @@ extern "C" {
 }
 #endif
 
-#endif /* __XRLTMEMORY_H__ */
+#endif /* __XRLT_MEMORY_H__ */

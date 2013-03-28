@@ -1,0 +1,9 @@
+{
+    "str": "string",
+    "num": 123,
+    "bool": true,
+    "null": null,
+    "arr": ["1", "2"],
+    "empty": {},
+    "obj": {"vv": 7}
+}

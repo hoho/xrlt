@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="object">
+  <str xrl:type="string">string</str>
+  <num xrl:type="number">123</num>
+  <bool xrl:type="boolean">true</bool>
+  <null xrl:type="null"/>
+  <arr xrl:type="string">1</arr>
+  <arr xrl:type="string">2</arr>
+  <empty xrl:type="object"/>
+  <obj xrl:type="object">
+    <vv xrl:type="number">7</vv>
+  </obj>
+</root>

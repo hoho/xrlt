@@ -181,7 +181,6 @@ void test_xrltSubrequestList(void)
     ASSERT_NULL(sr.first);
     ASSERT_NULL(sr.last);
 
-
     xrltStringClear(&url1);
     xrltStringClear(&url2);
     xrltStringClear(&url3);

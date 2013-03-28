@@ -1,0 +1,23 @@
+{
+    "hi": 123,
+    "yoo": null,
+    "zozoz": true,
+    "bye": "ololo",
+    "piu": [
+        123,
+        false,
+        true,
+        "ggg",
+        [
+            1,
+            2,
+            3,
+            {"h": true},
+            [6, 8],
+            [],
+            {"test": [null, [null], []]}
+        ],
+        {"love": 34, "hate": false}
+    ],
+    "mmm": {}
+}

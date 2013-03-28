@@ -1,5 +1,5 @@
-#ifndef __XRLTSTRUCT_H__
-#define __XRLTSTRUCT_H__
+#ifndef __XRLT_STRUCT_H__
+#define __XRLT_STRUCT_H__
 
 
 #include <string.h>
@@ -90,68 +90,68 @@ typedef struct {
 } xrltLogList;
 
 
-inline xrltBool
+static inline xrltBool
         xrltStringInit            (xrltString *str, char *val);
-inline xrltBool
+static inline xrltBool
         xrltStringCopy            (xrltString *dst, xrltString *src);
 
-inline void
+static inline void
         xrltStringMove            (xrltString *dst, xrltString *src);
 
-inline void
+static inline void
         xrltStringClear            (xrltString *str);
 
 
-inline void
+static inline void
         xrltHeaderListInit        (xrltHeaderList *list);
-inline xrltBool
+static inline xrltBool
         xrltHeaderListPush        (xrltHeaderList *list,
                                    xrltString *name, xrltString *value);
-inline xrltBool
+static inline xrltBool
         xrltHeaderListShift       (xrltHeaderList *list,
                                    xrltString *name, xrltString *value);
-inline void
+static inline void
         xrltHeaderListClear       (xrltHeaderList *list);
 
 
-inline void
+static inline void
         xrltSubrequestListInit    (xrltSubrequestList *list);
-inline xrltBool
+static inline xrltBool
         xrltSubrequestListPush    (xrltSubrequestList *list, size_t id,
                                    xrltHeaderList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
-inline xrltBool
+static inline xrltBool
         xrltSubrequestListShift   (xrltSubrequestList *list, size_t *id,
                                    xrltHeaderList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
-inline void
+static inline void
         xrltSubrequestListClear   (xrltSubrequestList *list);
 
 
-inline void
+static inline void
         xrltChunkListInit         (xrltChunkList *list);
-inline xrltBool
+static inline xrltBool
         xrltChunkListPush         (xrltChunkList *list, xrltString *chunk);
-inline xrltBool
+static inline xrltBool
         xrltChunkListShift        (xrltChunkList *list, xrltString *chunk);
-inline void
+static inline void
         xrltChunkListClear        (xrltChunkList *list);
 
 
-inline void
+static inline void
         xrltLogListInit           (xrltLogList *list);
-inline xrltBool
+static inline xrltBool
         xrltLogListPush           (xrltLogList *list,
                                    xrltLogType type, xrltString *msg);
-inline xrltBool
+static inline xrltBool
         xrltLogListShift          (xrltLogList *list,
                                    xrltLogType *type, xrltString *msg);
-inline void
+static inline void
         xrltLogListClear          (xrltLogList *list);
 
 
 
-inline xrltBool
+static inline xrltBool
 xrltStringInit(xrltString *str, char *val)
 {
     str->len = strlen(val);
@@ -160,7 +160,7 @@ xrltStringInit(xrltString *str, char *val)
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltStringCopy(xrltString *dst, xrltString *src)
 {
     //if (src == NULL || src->data == NULL || dst == NULL) { return FALSE; }
@@ -170,7 +170,7 @@ xrltStringCopy(xrltString *dst, xrltString *src)
 }
 
 
-inline void
+static inline void
 xrltStringMove(xrltString *dst, xrltString *src)
 {
     dst->data = src->data;
@@ -178,7 +178,7 @@ xrltStringMove(xrltString *dst, xrltString *src)
 }
 
 
-inline void
+static inline void
 xrltStringClear(xrltString *str)
 {
     if (str != NULL && str->data != NULL) {
@@ -189,14 +189,14 @@ xrltStringClear(xrltString *str)
 }
 
 
-inline void
+static inline void
 xrltHeaderListInit(xrltHeaderList *list)
 {
     memset(list, 0, sizeof(xrltHeaderList));
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
 {
     if (list == NULL || name == NULL || value == NULL) { return FALSE; }
@@ -230,7 +230,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltHeaderListShift(xrltHeaderList *list, xrltString *name, xrltString *value)
 {
     if (list == NULL || name == NULL || value == NULL) { return FALSE; }
@@ -255,7 +255,7 @@ xrltHeaderListShift(xrltHeaderList *list, xrltString *name, xrltString *value)
 }
 
 
-inline void
+static inline void
 xrltHeaderListClear(xrltHeaderList *list)
 {
     xrltString   name;
@@ -268,14 +268,14 @@ xrltHeaderListClear(xrltHeaderList *list)
 }
 
 
-inline void
+static inline void
 xrltSubrequestListInit(xrltSubrequestList *list)
 {
     memset(list, 0, sizeof(xrltSubrequestList));
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltSubrequestListPush(xrltSubrequestList *list,
                        size_t id, xrltHeaderList *header, xrltString *url,
                        xrltString *query, xrltString *body)
@@ -324,7 +324,7 @@ xrltSubrequestListPush(xrltSubrequestList *list,
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltSubrequestListShift(xrltSubrequestList *list,
                         size_t *id, xrltHeaderList *header, xrltString *url,
                         xrltString *query, xrltString *body)
@@ -361,7 +361,7 @@ xrltSubrequestListShift(xrltSubrequestList *list,
 }
 
 
-inline void
+static inline void
 xrltSubrequestListClear(xrltSubrequestList *list)
 {
     size_t           id;
@@ -380,14 +380,14 @@ xrltSubrequestListClear(xrltSubrequestList *list)
 }
 
 
-inline void
+static inline void
 xrltChunkListInit(xrltChunkList *list)
 {
     memset(list, 0, sizeof(xrltChunkList));
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltChunkListPush(xrltChunkList *list, xrltString *chunk)
 {
     if (list == NULL || chunk == NULL) { return FALSE; }
@@ -416,7 +416,7 @@ xrltChunkListPush(xrltChunkList *list, xrltString *chunk)
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltChunkListShift(xrltChunkList *list, xrltString *chunk)
 {
     if (list == NULL || chunk == NULL) { return FALSE; }
@@ -440,7 +440,7 @@ xrltChunkListShift(xrltChunkList *list, xrltString *chunk)
 }
 
 
-inline void
+static inline void
 xrltChunkListClear(xrltChunkList *list)
 {
     xrltString   chunk;
@@ -451,14 +451,14 @@ xrltChunkListClear(xrltChunkList *list)
 }
 
 
-inline void
+static inline void
 xrltLogListInit(xrltLogList *list)
 {
     memset(list, 0, sizeof(xrltLogList));
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
 {
     if (list == NULL || msg == NULL) { return FALSE; }
@@ -489,7 +489,7 @@ xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
 }
 
 
-inline xrltBool
+static inline xrltBool
 xrltLogListShift(xrltLogList *list, xrltLogType *type, xrltString *msg)
 {
     if (list == NULL || type == NULL || msg == NULL) { return FALSE; }
@@ -515,7 +515,7 @@ xrltLogListShift(xrltLogList *list, xrltLogType *type, xrltString *msg)
 }
 
 
-inline void
+static inline void
 xrltLogListClear(xrltLogList *list)
 {
     xrltLogType   type;
@@ -531,4 +531,4 @@ xrltLogListClear(xrltLogList *list)
 }
 #endif
 
-#endif /* __XRLTSTRUCT_H__ */
+#endif /* __XRLT_STRUCT_H__ */

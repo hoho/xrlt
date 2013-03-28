@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="object">
+  <array xrl:type="number">1</array>
+  <array xrl:type="string">2</array>
+  <array xrl:type="boolean">false</array>
+</root>

@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="array">
+  <item xrl:type="number">1</item>
+  <item xrl:type="string">2</item>
+  <item xrl:type="boolean">false</item>
+  <item xrl:type="array">
+    <item xrl:type="string">boo</item>
+    <item xrl:type="string">moo</item>
+    <item xrl:type="object">
+      <goo xrl:type="string">5</goo>
+      <goo xrl:type="array">
+        <item xrl:type="string">8</item>
+        <item xrl:type="string">9</item>
+      </goo>
+    </item>
+  </item>
+</root>

@@ -109,12 +109,6 @@ xrltJSON2XMLSetType(xrltJSON2XMLPtr json2xml, xmlNodePtr node,
     }
 
     xmlSetNsProp(node, json2xml->ns, XRLT_JSON2XML_ATTR_TYPE, val);
-    if (json2xml->stackPos >= 0 &&
-        json2xml->stack[json2xml->stackPos].type == XRLT_JSON2XML_ARRAY)
-    {
-        xmlSetNsProp(node, json2xml->ns, XRLT_JSON2XML_ATTR_TYPE_ARRAY,
-                                 XRLT_JSON2XML_ATTR_VALUE_YES);
-    }
 }
 
 

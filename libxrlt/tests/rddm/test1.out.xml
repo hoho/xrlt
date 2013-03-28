@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<root xmlns:xrl="http://xrlt.net/Transform" xrl:type="object">
+  <hi xrl:type="number">123</hi>
+  <yoo xrl:type="null"/>
+  <zozoz xrl:type="boolean">true</zozoz>
+  <bye xrl:type="string">ololo</bye>
+  <piu xrl:type="number">123</piu>
+  <piu xrl:type="boolean">false</piu>
+  <piu xrl:type="boolean">true</piu>
+  <piu xrl:type="string">ggg</piu>
+  <piu xrl:type="array">
+    <item xrl:type="number">1</item>
+    <item xrl:type="number">2</item>
+    <item xrl:type="number">3</item>
+    <item xrl:type="object">
+      <h xrl:type="boolean">true</h>
+    </item>
+    <item xrl:type="array">
+      <item xrl:type="number">6</item>
+      <item xrl:type="number">8</item>
+    </item>
+    <item xrl:type="array"/>
+    <item xrl:type="object">
+      <test xrl:type="null"/>
+      <test xrl:type="array">
+        <item xrl:type="null"/>
+      </test>
+      <test xrl:type="array"/>
+    </item>
+  </piu>
+  <piu xrl:type="object">
+    <love xrl:type="number">34</love>
+    <hate xrl:type="boolean">false</hate>
+  </piu>
+  <mmm xrl:type="object"/>
+</root>
