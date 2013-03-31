@@ -1,5 +1,5 @@
 #include <xrlt.h>
-#include <rddm.h>
+#include "json2xml.h"
 
 #include "../test.h"
 
@@ -93,15 +93,15 @@ void test_xrltRDDM(char *in, char *out)
 
 int main()
 {
-    test_xrltRDDM("rddm/test1.in.json", "rddm/test1.out.xml");
-    test_xrltRDDM("rddm/test2.in.json", "rddm/test2.out.xml");
-    test_xrltRDDM("rddm/test3.in.json", "rddm/test3.out.xml");
-    test_xrltRDDM("rddm/test4.in.json", "rddm/test4.out.xml");
-    test_xrltRDDM("rddm/test5.in.json", "rddm/test5.out.xml");
-    test_xrltRDDM("rddm/test6.in.json", "rddm/test6.out.xml");
-    test_xrltRDDM("rddm/test7.in.json", "rddm/test7.out.xml");
-    test_xrltRDDM("rddm/test8.in.json", "rddm/test8.out.xml");
-    test_xrltRDDM("rddm/test9.in.json", "rddm/test9.out.xml");
+    test_xrltRDDM("json2xml/test1.in.json", "json2xml/test1.out.xml");
+    test_xrltRDDM("json2xml/test2.in.json", "json2xml/test2.out.xml");
+    test_xrltRDDM("json2xml/test3.in.json", "json2xml/test3.out.xml");
+    test_xrltRDDM("json2xml/test4.in.json", "json2xml/test4.out.xml");
+    test_xrltRDDM("json2xml/test5.in.json", "json2xml/test5.out.xml");
+    test_xrltRDDM("json2xml/test6.in.json", "json2xml/test6.out.xml");
+    test_xrltRDDM("json2xml/test7.in.json", "json2xml/test7.out.xml");
+    test_xrltRDDM("json2xml/test8.in.json", "json2xml/test8.out.xml");
+    test_xrltRDDM("json2xml/test9.in.json", "json2xml/test9.out.xml");
 
     xrltTestFailurePrint();
     return 0;

@@ -5,25 +5,25 @@
 #include <string>
 
 #include <xrlt.h>
-#include <rddm.h>
+#include "json2xml.h"
 
 
-#define XRLT_EXTRACT_RDDM_OBJECT_DATA                                         \
+#define XRLT_EXTRACT_XML2JSON_DATA                                            \
     v8::Handle<v8::External> field =                                          \
         v8::Handle<v8::External>::Cast(info.Holder()->GetInternalField(0));   \
-    xrltRDDMObjectData *data =                                                \
-        static_cast<xrltRDDMObjectData *>(field->Value());
+    xrltXML2JSONData *data =                                                  \
+        static_cast<xrltXML2JSONData *>(field->Value());
 
 
-// RDDM cache template, needs xrltInitRDDMObjectTemplate to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltRDDMObjectCacheTemplate;
-// RDDM object template, needs xrltInitRDDMObjectTemplate to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltRDDMObjectTemplate;
+// XML2JSON cache template, needs xrltXML2JSONTemplateInit to initialize.
+v8::Persistent<v8::ObjectTemplate> xrltXML2JSONCacheTemplate;
+// XML2JSON object template, needs xrltXML2JSONTemplateInit to initialize.
+v8::Persistent<v8::ObjectTemplate> xrltXML2JSONTemplate;
 
 
-// C++ structure to be associated with RDDM cache.
-struct xrltRDDMObjectCache {
-    xrltRDDMObjectCache(v8::Handle<v8::Array> data) : index(0), data(data) {};
+// C++ structure to be associated with XML2JSON cache.
+struct xrltXML2JSONCache {
+    xrltXML2JSONCache(v8::Handle<v8::Array> data) : index(0), data(data) {};
     bool get(xmlNodePtr node, v8::Handle<v8::Value> *value);
     void set(xmlNodePtr node, v8::Handle<v8::Value> value);
 
@@ -35,7 +35,7 @@ struct xrltRDDMObjectCache {
 
 
 bool
-xrltRDDMObjectCache::get(xmlNodePtr node, v8::Handle<v8::Value> *value)
+xrltXML2JSONCache::get(xmlNodePtr node, v8::Handle<v8::Value> *value)
 {
     std::map<xmlNodePtr, uint32_t>::iterator i;
 
@@ -50,18 +50,18 @@ xrltRDDMObjectCache::get(xmlNodePtr node, v8::Handle<v8::Value> *value)
 
 
 void
-xrltRDDMObjectCache::set(xmlNodePtr node, v8::Handle<v8::Value> value)
+xrltXML2JSONCache::set(xmlNodePtr node, v8::Handle<v8::Value> value)
 {
     cache.insert(std::pair<xmlNodePtr, uint32_t>(node, index));
     data->Set(index++, value);
 }
 
 
-// Deallocator for C++ data connected to RDDM cache.
+// Deallocator for C++ data connected to XML2JSON cache.
 void
-xrltRDDMObjectCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
+xrltXML2JSONCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
 {
-    xrltRDDMObjectCache *data = static_cast<xrltRDDMObjectCache *>(payload);
+    xrltXML2JSONCache *data = static_cast<xrltXML2JSONCache *>(payload);
     delete data;
     obj.ClearWeak();
     obj.Dispose();
@@ -69,8 +69,8 @@ xrltRDDMObjectCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
 
 
 // Map to find XML node content type by xrl:type attribute.
-struct xrltRDDMTypeMap {
-    xrltRDDMTypeMap()
+struct xrltXML2JSONTypeMap {
+    xrltXML2JSONTypeMap()
     {
         types.insert(
             std::pair<std::string, xrltJSON2XMLType>(
@@ -119,26 +119,26 @@ struct xrltRDDMTypeMap {
   private:
     std::map<std::string, xrltJSON2XMLType> types;
 };
-xrltRDDMTypeMap XRLT_TYPE_MAP;
+xrltXML2JSONTypeMap XRLT_TYPE_MAP;
 
 
-// C++ structure to be associated with RDDM JavaScript object.
-struct xrltRDDMObjectData {
-    xrltRDDMObjectData(xmlNodePtr parent, xrltRDDMObjectCache *cache);
+// C++ structure to be associated with XML2JSON JavaScript object.
+struct xrltXML2JSONData {
+    xrltXML2JSONData(xmlNodePtr parent, xrltXML2JSONCache *cache);
 
     xrltJSON2XMLType                         type;
     std::vector<xmlNodePtr>                  nodes;
     std::multimap<std::string, xmlNodePtr>   named;
-    xrltRDDMObjectCache                     *cache;
+    xrltXML2JSONCache                       *cache;
 };
 
 
-xrltRDDMObjectData::xrltRDDMObjectData(xmlNodePtr parent,
-                                       xrltRDDMObjectCache *cache) : cache(cache)
+xrltXML2JSONData::xrltXML2JSONData(xmlNodePtr parent,
+                                   xrltXML2JSONCache *cache) : cache(cache)
 {
     xmlNodePtr n = parent != NULL ? parent->children : NULL;
 
-    // Create a list of nodes for RDDM object.
+    // Create a list of nodes for XML2JSON object.
     while (n != NULL) {
         if (!xmlIsBlankNode(n)) {
             nodes.push_back(n);
@@ -158,7 +158,7 @@ xrltRDDMObjectData::xrltRDDMObjectData(xmlNodePtr parent,
         }
     }
 
-    // Determine RDDM object type.
+    // Determine XML2JSON object type.
     xmlChar * typestr = NULL;
 
     if (parent != NULL) {
@@ -177,20 +177,20 @@ xrltRDDMObjectData::xrltRDDMObjectData(xmlNodePtr parent,
 }
 
 
-// Deallocator for C++ data connected to RDDM JavaScript object.
+// Deallocator for C++ data connected to XML2JSON JavaScript object.
 void
-xrltRDDMObjectWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
+xrltXML2JSONWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
 {
-    xrltRDDMObjectData *data = static_cast<xrltRDDMObjectData *>(payload);
+    xrltXML2JSONData *data = static_cast<xrltXML2JSONData *>(payload);
     delete data;
     obj.ClearWeak();
     obj.Dispose();
 }
 
 
-// RDDM JavaScript object creator. Pretty much to optimize here.
+// XML2JSON JavaScript object creator. Pretty much to optimize here.
 v8::Handle<v8::Value>
-xrltCreateRDDMObject(xmlNodePtr parent, xrltRDDMObjectCache *cache)
+xrltXML2JSONCreateInternal(xmlNodePtr parent, xrltXML2JSONCache *cache)
 {
     v8::Handle<v8::Value>   ret;
 
@@ -198,16 +198,16 @@ xrltCreateRDDMObject(xmlNodePtr parent, xrltRDDMObjectCache *cache)
         return ret;
     }
 
-    xrltRDDMObjectData     *data = new xrltRDDMObjectData(parent, cache);
-    bool                    isRDDM = false;
+    xrltXML2JSONData     *data = new xrltXML2JSONData(parent, cache);
+    bool                 isXML2JSON = false;
 
     if (data->type == XRLT_JSON2XML_ARRAY) {
-        // If it's an array, return a JavaScript array of RDDM objects.
+        // If it's an array, return a JavaScript array of XML2JSON objects.
         v8::Local<v8::Array>   arr = v8::Array::New(data->nodes.size());
         uint32_t               i;
 
         for (i = 0; i < data->nodes.size(); i++) {
-            arr->Set(i, xrltCreateRDDMObject(data->nodes[i], cache));
+            arr->Set(i, xrltXML2JSONCreateInternal(data->nodes[i], cache));
         }
         ret = arr;
     } else {
@@ -237,24 +237,24 @@ xrltCreateRDDMObject(xmlNodePtr parent, xrltRDDMObjectCache *cache)
                 ret = v8::String::New((const char *)data->nodes[0]->content);
             }
         } else {
-            // We have some more complex structure, create RDDM object.
+            // We have some more complex structure, create XML2JSON object.
             v8::Persistent<v8::Object> rddm;
 
             rddm = v8::Persistent<v8::Object>::New(
-                xrltRDDMObjectTemplate->NewInstance()
+                xrltXML2JSONTemplate->NewInstance()
             );
 
-            rddm.MakeWeak(data, xrltRDDMObjectWeakCallback);
+            rddm.MakeWeak(data, xrltXML2JSONWeakCallback);
 
             rddm->SetInternalField(0, v8::External::New(data));
 
             ret = rddm;
-            isRDDM = true;
+            isXML2JSON = true;
         }
     }
 
     // Free data if necessary.
-    if (!isRDDM) { delete data; }
+    if (!isXML2JSON) { delete data; }
 
     if (cache != NULL) {
         cache->set(parent, ret);
@@ -264,11 +264,11 @@ xrltCreateRDDMObject(xmlNodePtr parent, xrltRDDMObjectCache *cache)
 }
 
 
-// RDDM JavaScript object creator. Pretty much to optimize here.
+// XML2JSON JavaScript object creator. Pretty much to optimize here.
 v8::Handle<v8::Value>
-xrltCreateRDDMObjectWithCache(xmlNodePtr parent)
+xrltXML2JSONCreate(xmlNodePtr parent)
 {
-    xrltRDDMObjectCache         *cache;
+    xrltXML2JSONCache           *cache;
     v8::Persistent<v8::Object>   cacheobj;
 
     // We will store objects in JavaScript array avoid freeing them by GC
@@ -276,27 +276,27 @@ xrltCreateRDDMObjectWithCache(xmlNodePtr parent)
     v8::Local<v8::Array>         data = v8::Array::New();
 
     cacheobj = v8::Persistent<v8::Object>::New(
-        xrltRDDMObjectCacheTemplate->NewInstance()
+        xrltXML2JSONCacheTemplate->NewInstance()
     );
 
     // Make a reference to cached data.
     cacheobj->Set(0, data);
 
-    cache = new xrltRDDMObjectCache(data);
+    cache = new xrltXML2JSONCache(data);
 
-    cacheobj.MakeWeak(cache, xrltRDDMObjectCacheWeakCallback);
+    cacheobj.MakeWeak(cache, xrltXML2JSONCacheWeakCallback);
     cacheobj->SetInternalField(0, v8::External::New(cache));
 
-    return xrltCreateRDDMObject(parent, cache);
+    return xrltXML2JSONCreateInternal(parent, cache);
 }
 
 
-// Named properties interceptor for RDDM JavaScript object.
+// Named properties interceptor for XML2JSON JavaScript object.
 v8::Handle<v8::Value>
-xrltGetRDDMObjectProperty(v8::Local<v8::String> name,
-                          const v8::AccessorInfo& info)
+xrltXML2JSONGetProperty(v8::Local<v8::String> name,
+                        const v8::AccessorInfo& info)
 {
-    XRLT_EXTRACT_RDDM_OBJECT_DATA;
+    XRLT_EXTRACT_XML2JSON_DATA;
 
     std::string                                        key;
     v8::String::Utf8Value                              keyarg(name);
@@ -312,14 +312,15 @@ xrltGetRDDMObjectProperty(v8::Local<v8::String> name,
         }
 
         if (values.size() == 1) {
-            return xrltCreateRDDMObject(values[0], data->cache);
+            return xrltXML2JSONCreateInternal(values[0], data->cache);
         } else if (values.size() > 1) {
             uint32_t               index = 0;
             v8::Local<v8::Array>   ret = v8::Array::New();
 
             for (index = 0; index < values.size(); index++) {
                 ret->Set(index,
-                         xrltCreateRDDMObject(values[index], data->cache));
+                         xrltXML2JSONCreateInternal(values[index],
+                                                    data->cache));
             }
             return ret;
         }
@@ -329,11 +330,11 @@ xrltGetRDDMObjectProperty(v8::Local<v8::String> name,
 }
 
 
-// Named properties enumerator for RDDM JavaScript object.
+// Named properties enumerator for XML2JSON JavaScript object.
 v8::Handle<v8::Array>
-xrltEnumRDDMObjectProperties(const v8::AccessorInfo& info)
+xrltXML2JSONEnumProperties(const v8::AccessorInfo& info)
 {
-    XRLT_EXTRACT_RDDM_OBJECT_DATA;
+    XRLT_EXTRACT_XML2JSON_DATA;
 
     v8::HandleScope                                    scope;
 
@@ -351,21 +352,23 @@ xrltEnumRDDMObjectProperties(const v8::AccessorInfo& info)
 }
 
 
-// This function must be called to initialize RDDM object template.
+// This function must be called to initialize XML2JSON object template.
 void
-xrltInitRDDMObjectTemplate(void)
+xrltXML2JSONTemplateInit(void)
 {
-    xrltRDDMObjectCacheTemplate = \
+    v8::HandleScope   scope;
+
+    xrltXML2JSONCacheTemplate = \
         v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
 
-    xrltRDDMObjectCacheTemplate->SetInternalFieldCount(1);
+    xrltXML2JSONCacheTemplate->SetInternalFieldCount(1);
 
-    xrltRDDMObjectTemplate = \
+    xrltXML2JSONTemplate = \
         v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
 
-    xrltRDDMObjectTemplate->SetInternalFieldCount(1);
+    xrltXML2JSONTemplate->SetInternalFieldCount(1);
 
-    xrltRDDMObjectTemplate->SetNamedPropertyHandler(
-        xrltGetRDDMObjectProperty, 0, 0, 0, xrltEnumRDDMObjectProperties
+    xrltXML2JSONTemplate->SetNamedPropertyHandler(
+        xrltXML2JSONGetProperty, 0, 0, 0, xrltXML2JSONEnumProperties
     );
 }

@@ -203,7 +203,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
 
     xrltHeaderPtr h;
 
-    h = xrltMalloc(sizeof(xrltHeader));
+    h = (xrltHeaderPtr)xrltMalloc(sizeof(xrltHeader));
 
     if (h == NULL) { return FALSE; }
 
@@ -284,7 +284,7 @@ xrltSubrequestListPush(xrltSubrequestList *list,
 
     xrltSubrequestPtr sr;
 
-    sr = xrltMalloc(sizeof(xrltSubrequest));
+    sr = (xrltSubrequestPtr)xrltMalloc(sizeof(xrltSubrequest));
 
     if (sr == NULL) { return FALSE; }
 
@@ -394,7 +394,7 @@ xrltChunkListPush(xrltChunkList *list, xrltString *chunk)
 
     xrltChunkPtr c;
 
-    c = xrltMalloc(sizeof(xrltChunk));
+    c = (xrltChunkPtr)xrltMalloc(sizeof(xrltChunk));
 
     if (c == NULL) { return FALSE; }
 
@@ -465,7 +465,7 @@ xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
 
     xrltLogPtr l;
 
-    l = xrltMalloc(sizeof(xrltLog));
+    l = (xrltLogPtr)xrltMalloc(sizeof(xrltLog));
 
     if (l == NULL) { return FALSE; }
 

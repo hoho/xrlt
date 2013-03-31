@@ -1,5 +1,5 @@
-#ifndef __XRLT_RDDM_H__
-#define __XRLT_RDDM_H__
+#ifndef __XRLT_JSON2XML_H__
+#define __XRLT_JSON2XML_H__
 
 
 #include <libxml/tree.h>
@@ -59,19 +59,19 @@ struct _xrltJSON2XML {
 
 
 xrltJSON2XMLPtr
-        xrltJSON2XMLInit       (xmlNodePtr insert);
+        xrltJSON2XMLInit           (xmlNodePtr insert);
 xrltBool
-        xrltJSON2XMLFree       (xrltJSON2XMLPtr json2xml);
+        xrltJSON2XMLFree           (xrltJSON2XMLPtr json2xml);
 xrltBool
-        xrltJSON2XMLFeed       (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
-                                size_t l);
+        xrltJSON2XMLFeed           (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
+                                    size_t l);
 xmlChar *
-        xrltJSON2XMLGetError   (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
-                                size_t l);
+        xrltJSON2XMLGetError       (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
+                                    size_t l);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __XRLT_RDDM_H__ */
+#endif /* __XRLT_JSON2XML_H__ */
