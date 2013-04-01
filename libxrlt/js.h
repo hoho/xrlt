@@ -2,6 +2,8 @@
 #define __XRLT_JS_H__
 
 
+#include <libxml/xpath.h>
+
 #include <xrltstruct.h>
 
 
@@ -21,91 +23,96 @@ typedef struct _xrltJSArgument xrltJSArgument;
 typedef xrltJSArgument* xrltJSArgumentPtr;
 struct _xrltJSArgument {
     char               *name;
-    //xmlXPathObjectPtr   val;
-    xrltJSArgumentPtr   next;
+    xmlXPathObjectPtr   val;
 };
 
 
-typedef struct {
-    xrltJSArgumentPtr   first;
-    xrltJSArgumentPtr   last;
-} xrltJSArgumentList;
+typedef struct _xrltJSArgumentList xrltJSArgumentList;
+typedef xrltJSArgumentList* xrltJSArgumentListPtr;
+struct _xrltJSArgumentList {
+    xrltJSArgumentPtr   arg;
+    int                 size;
+    int                 len;
+};
 
 
-static inline void
-        xrltJSArgumentListInit    (xrltJSArgumentList *list);
+static inline xrltJSArgumentListPtr
+        xrltJSArgumentListCreate   (int size);
 static inline xrltBool
-        xrltJSArgumentListPush    (xrltJSArgumentList *list,
-                                       char *arg);
+        xrltJSArgumentListPush     (xrltJSArgumentListPtr list, char *name,
+                                    xmlXPathObjectPtr val);
 static inline void
-        xrltJSArgumentListClear   (xrltJSArgumentList *list);
+        xrltJSArgumentListFree     (xrltJSArgumentListPtr list);
 
 void
-        xrltJSInit                (void);
+        xrltJSInit                 (void);
+void
+        xrltJSFree                 (void);
 
 xrltJSContextPtr
-        xrltJSContextCreate       (void);
+        xrltJSContextCreate        (void);
 void
-        xrltJSContextFree         (xrltJSContextPtr jsctx);
+        xrltJSContextFree          (xrltJSContextPtr jsctx);
 xrltBool
-        xrltJSSlice               (xrltJSContextPtr jsctx, char *name,
-                                   xrltJSArgumentList *args, char *code);
+        xrltJSSlice                (xrltJSContextPtr jsctx, char *name,
+                                    xrltJSArgumentListPtr args, char *code);
 xrltBool
-        xrltJSApply               (xrltJSContextPtr jsctx, char *name,
-                                   xrltJSArgumentList *args);
+        xrltJSApply                (xrltJSContextPtr jsctx, char *name,
+                                    xrltJSArgumentListPtr args);
 
 
-static inline void
-xrltJSArgumentListInit(xrltJSArgumentList *list)
+static inline xrltJSArgumentListPtr
+xrltJSArgumentListCreate(int size)
 {
-    if (list != NULL) {
-        memset(list, 0, sizeof(xrltJSArgumentList));
-    }
+    xrltJSArgumentListPtr   ret;
+    ret = (xrltJSArgumentListPtr)xrltMalloc(sizeof(xrltJSArgumentList) +
+                                            sizeof(xrltJSArgument) * size);
+
+    if (ret == NULL) { return NULL; }
+
+    memset(ret, 0, sizeof(xrltJSArgumentList) + sizeof(xrltJSArgument) * size);
+
+    ret->size = size;
+    ret->arg = (xrltJSArgumentPtr)(ret + 1);
+
+    return ret;
 }
 
 
 static inline xrltBool
-xrltJSArgumentListPush(xrltJSArgumentList *list, char *arg)
+xrltJSArgumentListPush(xrltJSArgumentListPtr list, char *name,
+                       xmlXPathObjectPtr val)
 {
-    if (list == NULL || arg == NULL) { return FALSE; }
-
-    xrltJSArgumentPtr   a;
-    size_t              len = strlen(arg);
-
-    a = (xrltJSArgumentPtr)xrltMalloc(sizeof(xrltJSArgument) + len + 1);
-
-    if (a == NULL) { return FALSE; }
-
-    memset(a, 0, sizeof(xrltJSArgument) + len + 1);
-
-    a->name = (char *)(a + 1);
-    memcpy(a->name, arg, len);
-
-    if (list->first == NULL) {
-        list->first = a;
-    } else {
-        list->last->next = a;
+    if (list == NULL || name == NULL || list->len >= list->size) {
+        return FALSE;
     }
-    list->last = a;
+
+    xrltJSArgumentPtr   a = &list->arg[list->len++];
+
+    a->name = strdup(name);
+
+    if (a->name == NULL) {
+        list->len--;
+        return FALSE;
+    }
+
+    a->val = val;
 
     return TRUE;
 }
 
 
 static inline void
-xrltJSArgumentListClear(xrltJSArgumentList *list)
+xrltJSArgumentListFree(xrltJSArgumentListPtr list)
 {
-    xrltJSArgumentPtr   a, a2;
-
-    a = list->first;
-
-    while (a != NULL) {
-        a2 = a->next;
-        xrltFree(a);
-        a = a2;
+    if (list == NULL) { return; }
+    int   i;
+    for (i = list->len - 1; i >= 0; i--) {
+        if (list->arg[i].name != NULL) {
+            xrltFree(list->arg[i].name);
+        }
     }
-
-    xrltJSArgumentListInit(list);
+    xrltFree(list);
 }
 
 

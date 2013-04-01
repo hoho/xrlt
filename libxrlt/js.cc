@@ -12,10 +12,52 @@ typedef struct {
 } xrltJSContextPrivate;
 
 
+v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
+
+
+v8::Handle<v8::Value>
+xrltDeferredThen(const v8::Arguments& args) {
+    printf("then\n");
+    return v8::True();
+}
+
+
+v8::Handle<v8::Value>
+xrltDeferredResolve(const v8::Arguments& args) {
+    printf("resolve\n");
+    return v8::True();
+}
+
+
 void
 xrltJSInit(void)
 {
+    v8::HandleScope   scope;
+
     xrltXML2JSONTemplateInit();
+
+    xrltDeferredConstructor = \
+        v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
+    xrltDeferredConstructor->SetClassName(v8::String::New("Deferred"));
+
+    xrltDeferredConstructor->PrototypeTemplate()->Set(
+        v8::String::New("then"),
+        v8::FunctionTemplate::New(xrltDeferredThen)
+    );
+
+    xrltDeferredConstructor->PrototypeTemplate()->Set(
+        v8::String::New("resolve"),
+        v8::FunctionTemplate::New(xrltDeferredResolve)
+    );
+}
+
+
+void
+xrltJSFree(void)
+{
+    xrltXML2JSONTemplateFree();
+
+    xrltDeferredConstructor.Dispose();
 }
 
 
@@ -25,7 +67,8 @@ const char* ToCString(const v8::String::Utf8Value& value) {
 }
 
 
-v8::Handle<v8::Value> Print(const v8::Arguments& args) {
+v8::Handle<v8::Value>
+Print(const v8::Arguments& args) {
     bool first = true;
     for (int i = 0; i < args.Length(); i++) {
         v8::HandleScope scope;
@@ -44,7 +87,8 @@ v8::Handle<v8::Value> Print(const v8::Arguments& args) {
 }
 
 
-v8::Handle<v8::Value> Apply(const v8::Arguments& args) {
+v8::Handle<v8::Value>
+Apply(const v8::Arguments& args) {
     v8::HandleScope           scope;
 
     v8::Local<v8::External>  _jsctx;
@@ -128,8 +172,12 @@ xrltJSContextCreate(void)
 
     priv->global->Set(v8::String::New("apply"),
                       v8::FunctionTemplate::New(Apply, data));
+
+    priv->global->Set(v8::String::New("Deferred"), xrltDeferredConstructor);
+
     priv->global->Set(v8::String::New("print"),
                       v8::FunctionTemplate::New(Print));
+
     priv->context = v8::Context::New(NULL, priv->global);
 
     v8::Context::Scope context_scope(priv->context);
@@ -163,7 +211,7 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
 
 xrltBool
 xrltJSSlice(xrltJSContextPtr jsctx, char *name,
-            xrltJSArgumentList *args, char *code)
+            xrltJSArgumentListPtr args, char *code)
 {
     if (jsctx == NULL || name == NULL || code == NULL) { return FALSE; }
 
@@ -180,15 +228,14 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
     v8::Local<v8::Object>     slice = v8::Object::New();
     v8::Local<v8::Object>     func;
 
-    if (args != NULL && args->first != NULL) {
-        xrltJSArgumentPtr   arg = args->first;
+    if (args != NULL && args->len > 0) {
+        xrltJSArgumentPtr   arg;
         std::string        _args;
-        count = 0;
-        while (arg != NULL) {
-            slice->Set(v8::String::New(arg->name), v8::Number::New(count++));
+        for (count = 0; count < args->len; count++) {
+            arg = &args->arg[count];
+            slice->Set(v8::String::New(arg->name), v8::Number::New(count));
             _args.append(arg->name);
-            arg = arg->next;
-            if (arg != NULL) { _args.append(", "); }
+            if (count < args->len - 1) { _args.append(", "); }
         }
         argv[0] = v8::String::New(_args.c_str());
         argc = 1;
@@ -213,7 +260,7 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
 
 
 xrltBool
-xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentList *args)
+xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args)
 {
     if (jsctx == NULL || name == NULL) { return FALSE; }
 
@@ -227,7 +274,20 @@ xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentList *args)
     slice = v8::Local<v8::Object>::Cast(priv->slice->Get(v8::String::New(name)));
     if (!slice->IsUndefined()) {
         func = v8::Local<v8::Function>::Cast(slice->Get(v8::String::New("0")));
-        func->Call(priv->context->Global(), 0, NULL);
+
+        int   count = args != NULL && args->len > 0 ? args->len : 0;
+        if (count > 0) {
+            int                    i;
+            v8::Local<v8::Value>   argv[count];
+            for (i = 0; i < count; i++) {
+                argv[i] = v8::Local<v8::Value>::New(
+                    xrltXML2JSONCreate(args->arg[i].val)
+                );
+            }
+            func->Call(priv->context->Global(), count, argv);
+        } else {
+            func->Call(priv->context->Global(), 0, NULL);
+        }
     } else {
         return FALSE;
     }

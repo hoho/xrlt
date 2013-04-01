@@ -1,11 +1,10 @@
-#include <libxml/tree.h>
-#include <v8.h>
 #include <vector>
 #include <map>
 #include <string>
 
 #include <xrlt.h>
 #include "json2xml.h"
+#include "xml2json.h"
 
 
 #define XRLT_EXTRACT_XML2JSON_DATA                                            \
@@ -198,8 +197,8 @@ xrltXML2JSONCreateInternal(xmlNodePtr parent, xrltXML2JSONCache *cache)
         return ret;
     }
 
-    xrltXML2JSONData     *data = new xrltXML2JSONData(parent, cache);
-    bool                 isXML2JSON = false;
+    xrltXML2JSONData       *data = new xrltXML2JSONData(parent, cache);
+    bool                    isXML2JSON = false;
 
     if (data->type == XRLT_JSON2XML_ARRAY) {
         // If it's an array, return a JavaScript array of XML2JSON objects.
@@ -266,10 +265,29 @@ xrltXML2JSONCreateInternal(xmlNodePtr parent, xrltXML2JSONCache *cache)
 
 // XML2JSON JavaScript object creator. Pretty much to optimize here.
 v8::Handle<v8::Value>
-xrltXML2JSONCreate(xmlNodePtr parent)
+xrltXML2JSONCreate(xmlXPathObjectPtr value)
 {
     xrltXML2JSONCache           *cache;
     v8::Persistent<v8::Object>   cacheobj;
+
+    switch (value->type) {
+        case XPATH_BOOLEAN:
+            return v8::Boolean::New(value->boolval);
+        case XPATH_NUMBER:
+            return v8::Number::New(value->floatval);
+        case XPATH_STRING:
+            return v8::String::New((const char *)value->stringval);
+        case XPATH_NODESET:
+            return v8::Undefined();
+        case XPATH_USERS:
+            break;
+        case XPATH_UNDEFINED:
+        case XPATH_POINT:
+        case XPATH_RANGE:
+        case XPATH_LOCATIONSET:
+        case XPATH_XSLT_TREE:
+            return v8::Undefined();
+    }
 
     // We will store objects in JavaScript array avoid freeing them by GC
     // before cache is freed.
@@ -287,7 +305,7 @@ xrltXML2JSONCreate(xmlNodePtr parent)
     cacheobj.MakeWeak(cache, xrltXML2JSONCacheWeakCallback);
     cacheobj->SetInternalField(0, v8::External::New(cache));
 
-    return xrltXML2JSONCreateInternal(parent, cache);
+    return xrltXML2JSONCreateInternal((xmlNodePtr)value->user, cache);
 }
 
 
@@ -356,8 +374,6 @@ xrltXML2JSONEnumProperties(const v8::AccessorInfo& info)
 void
 xrltXML2JSONTemplateInit(void)
 {
-    v8::HandleScope   scope;
-
     xrltXML2JSONCacheTemplate = \
         v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
 
@@ -371,4 +387,12 @@ xrltXML2JSONTemplateInit(void)
     xrltXML2JSONTemplate->SetNamedPropertyHandler(
         xrltXML2JSONGetProperty, 0, 0, 0, xrltXML2JSONEnumProperties
     );
+}
+
+
+void
+xrltXML2JSONTemplateFree(void)
+{
+    xrltXML2JSONCacheTemplate.Dispose();
+    xrltXML2JSONTemplate.Dispose();
 }

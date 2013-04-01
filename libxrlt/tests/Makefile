@@ -20,7 +20,7 @@ json2xml:
 
 .PHONY: js
 js:
-	gcc -o .build/js_test1_test1.o      -Wall -c -I../ js/test1.c
+	gcc -o .build/js_test1_test1.o      -Wall -c -I../ -I/usr/include/libxml2 js/test1.c
 	g++ -o .build/js_test1_js.o         -Wall -c -I../ -I/usr/include/libxml2 ../js.cc
 	g++ -o .build/js_test1_xml2json.o   -Wall -c -I../ -I/usr/include/libxml2 ../xml2json.cc
 	g++ -o .build/js_test1              -Wall .build/js_test1_test1.o .build/js_test1_js.o .build/js_test1_xml2json.o -lv8 -lxml2
