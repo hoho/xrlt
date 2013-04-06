@@ -10,8 +10,9 @@ extern "C" {
 #endif
 
 
-#define xrltMalloc   malloc
-#define xrltFree     free
+#define xrltMalloc    malloc
+#define xrltRealloc   realloc
+#define xrltFree      free
 
 
 #ifdef __cplusplus

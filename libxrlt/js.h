@@ -58,6 +58,9 @@ xrltBool
                                     xrltJSArgumentListPtr args, char *code);
 xrltBool
         xrltJSApply                (xrltJSContextPtr jsctx, char *name,
+                                    xrltJSArgumentListPtr args, char **ret);
+xrltBool
+        xrltJSCallback             (xrltJSContextPtr jsctx, void *callback,
                                     xrltJSArgumentListPtr args);
 
 

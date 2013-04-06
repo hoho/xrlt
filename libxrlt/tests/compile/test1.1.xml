@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<xrl:requestsheet xmlns:xrl="http://xrlt.net/Transform">
+
+    <xrl:transformation name="concatjs" type="javascript">
+        <xrl:param name="testpar" />
+        return {aaa: this, ppp: testpar};
+    </xrl:transformation>
+
+    <xrl:transformation name="concatxml">
+        <xrl:transform name="xml-stringify">
+            <bbb><xrl:copy-of select="/*" /></bbb>
+        </xrl:transform>
+    </xrl:transformation>
+
+    <xrl:response>
+        <a/>
+        <xrl:if test="345" />
+        <xrl:if test="456">
+            <xrl:if test="567">a<br/>aa</xrl:if>
+        </xrl:if>
+
+        <xrl:transform name="xslt-stringify" href="file.xsl">
+            <xrl:transform name="xslt" href="file.xsl">
+                <xrl:apply name="ololo" />
+            </xrl:transform>
+        </xrl:transform>
+
+        <xrl:transform name="json-stringify">
+            <xrl:apply name="ololo" />
+        </xrl:transform>
+
+        <xrl:transform name="xml-stringify">
+            <xrl:apply name="ololo" />
+        </xrl:transform>
+
+        <xrl:transform name="concatjs">
+            <xrl:with-param name="testpar" select="9494" />
+            <xrl:apply name="ololo" />
+        </xrl:transform>
+
+        <xrl:apply name="ololo" />
+    </xrl:response>
+
+    <!--
+
+    <xrl:response type="javascript"><![CDATA[
+        return {ololo: 123}
+    ]]></xrl:response>
+
+    -->
+
+    <xrl:slice name="ololo">
+        <hello>world</hello>
+    </xrl:slice>
+
+</xrl:requestsheet>

@@ -3,7 +3,6 @@
 
 
 #include <libxml/tree.h>
-
 #include <xrltstruct.h>
 #include <xrltexports.h>
 
@@ -14,6 +13,7 @@ extern "C" {
 
 
 #define XRLT_NS (const xmlChar *)"http://xrlt.net/Transform"
+#define XRLT_ROOT_NAME (const xmlChar *)"requestsheet"
 
 
 #define XRLT_STATUS_UNKNOWN      0
@@ -44,6 +44,7 @@ typedef struct _xrltRequestsheet xrltRequestsheet;
 typedef xrltRequestsheet* xrltRequestsheetPtr;
 struct _xrltRequestsheet {
     xmlDocPtr   doc;
+    void       *_private;
 };
 
 
@@ -52,21 +53,77 @@ typedef xrltContext* xrltContextPtr;
 struct _xrltContext {
     xrltRequestsheetPtr   sheet;
 
+    xrltBool              error;
+
     xrltHeaderList        header;
     xrltSubrequestList    sr;
     xrltChunkList         chunk;
     xrltLogList           log;
 
-    void                *_internal;
+    void                 *_private;
 };
 
 
-XRLTPUBFUN xrltContextPtr XRLTCALL
-        xrltContextCreate   (xrltRequestsheetPtr sheet, xrltHeaderList *header);
+typedef void *   (*xrltCompileFunction)     (xrltRequestsheetPtr sheet,
+                                             xmlNodePtr node);
+typedef void     (*xrltFreeFunction)        (void *data);
+typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *data);
+
+
+typedef xrltBool (*xrltNodeReadyCallback)   (xrltContextPtr ctx,
+                                             xmlNodePtr node, void *data);
+typedef xrltBool (*xrltTransformCallback)   (xrltContextPtr ctx,
+                                             xrltTransformValue *data);
+
+
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltElementRegister       (const xmlChar *ns, const xmlChar *name,
+                                   xrltBool toplevel,
+                                   xrltCompileFunction compile,
+                                   xrltFreeFunction free,
+                                   xrltTransformFunction transform);
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltElementCompile        (xrltRequestsheetPtr sheet, xmlNodePtr first);
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltElementTransform      (xrltRequestsheetPtr sheet, xmlNodePtr first);
+
+
 XRLTPUBFUN void XRLTCALL
-        xrltContextFree     (xrltContextPtr ctx);
+        xrltCleanup               (void);
+
+
+XRLTPUBFUN xrltRequestsheetPtr XRLTCALL
+        xrltRequestsheetCreate    (xmlDocPtr doc);
+XRLTPUBFUN void XRLTCALL
+        xrltRequestsheetFree      (xrltRequestsheetPtr sheet);
+
+
+XRLTPUBFUN xrltContextPtr XRLTCALL
+        xrltContextCreate         (xrltRequestsheetPtr sheet,
+                                   xrltHeaderList *header);
+XRLTPUBFUN void XRLTCALL
+        xrltContextFree           (xrltContextPtr ctx);
 XRLTPUBFUN int XRLTCALL
-        xrltTransform       (xrltContextPtr ctx, xrltTransformValue *data);
+        xrltTransform             (xrltContextPtr ctx,
+                                   xrltTransformValue *data);
+
+
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltOutputNodeInsert      (xrltContextPtr ctx, xmlNodePtr node,
+                                   xrltNodeReadyCallback ready,
+                                   xrltFreeFunction free, void *data);
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltOutputNodeSubscribe   (xrltContextPtr ctx, xmlNodePtr node,
+                                   xrltNodeReadyCallback ready,
+                                   xrltFreeFunction free, void *data);
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltOutputNodeReady       (xrltContextPtr ctx, xmlNodePtr node);
+
+
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltTransformSubscribe    (xrltContextPtr ctx,
+                                   xrltTransformValueType type, size_t id,
+                                   xrltTransformCallback callback);
 
 
 #ifdef __cplusplus

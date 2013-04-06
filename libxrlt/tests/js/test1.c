@@ -6,6 +6,7 @@
 int main()
 {
     xrltJSContextPtr   jsctx, jsctx2;
+    char              *ret;
     //int                i;
 
     printf("12341234134523456\n");
@@ -22,8 +23,9 @@ int main()
         xrltJSArgumentListPush(args, "arg1", NULL);
         xrltJSArgumentListPush(args, "arg2", NULL);
         xrltJSArgumentListPush(args, "arg3", NULL);
+        xrltJSSlice(jsctx, "testfunc", args, "print(11); return {fuck: apply('testfunc2'), heck: apply('testfunc3')};");
         xrltJSSlice(jsctx, "testfunc2", args, "if (global.aaa) {print(123 + '' + new Deferred())}; return 59595;");
-        xrltJSSlice(jsctx, "testfunc", args, "if (global.aaa) { global.aaa += 1} else {global.aaa = 1; }; print(apply('testfunc2', {aa:123, bb:234, arg2:456}) + JSON.stringify(arguments) + global + (this + 1), arg3, global.aaa); return 33;");
+        xrltJSSlice(jsctx, "testfunc3", args, "return new Deferred()");
         xrltJSArgumentListFree(args);
 
         args = xrltJSArgumentListCreate(2);
@@ -33,6 +35,7 @@ int main()
         xrltJSArgumentListFree(args);
 
     //for (i = 0; i < 1000000; i++) {
+
 
         args = xrltJSArgumentListCreate(1);
         xmlXPathObject rddm;
@@ -48,20 +51,21 @@ int main()
             //rddm.floatval = 9876;
             xrltJSArgumentListPush(args, "arg4", &rddm);
         }
-        xrltJSApply(jsctx, "testfunc", args);
+        xrltJSApply(jsctx, "testfunc", args, &ret);
+        printf(";;;[;[;; %s\n", ret);
         xrltJSArgumentListFree(args);
         xmlFreeDoc(doc);
 
-        xrltJSApply(jsctx, "testfunc", NULL);
+        xrltJSApply(jsctx, "testfunc", NULL, &ret);
 
-        xrltJSApply(jsctx2, "testfunc", NULL);
-        xrltJSApply(jsctx2, "testfunc", NULL);
-        xrltJSApply(jsctx2, "testfunc", NULL);
-        xrltJSApply(jsctx2, "testfunc", NULL);
-        xrltJSApply(jsctx2, "testfunc", NULL);
-        xrltJSApply(jsctx2, "testfunc", NULL);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
+        xrltJSApply(jsctx2, "testfunc", NULL, &ret);
 
-        xrltJSApply(jsctx, "testfunc", NULL);
+        xrltJSApply(jsctx, "testfunc", NULL, &ret);
 
     //}
 

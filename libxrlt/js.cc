@@ -6,13 +6,18 @@
 
 
 typedef struct {
-    v8::Persistent<v8::ObjectTemplate>   global;
+    v8::Persistent<v8::ObjectTemplate>   globalTemplate;
+    v8::Persistent<v8::Object>           global;
     v8::Persistent<v8::Object>           slice;
     v8::Persistent<v8::Context>          context;
+    v8::Persistent<v8::Object>           JSONobject;
+    v8::Persistent<v8::Function>         stringify;
+    v8::Persistent<v8::Function>         replacer;
 } xrltJSContextPrivate;
 
 
 v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
+v8::Persistent<v8::FunctionTemplate> xrltStringifyReplacerTemplate;
 
 
 v8::Handle<v8::Value>
@@ -26,6 +31,17 @@ v8::Handle<v8::Value>
 xrltDeferredResolve(const v8::Arguments& args) {
     printf("resolve\n");
     return v8::True();
+}
+
+
+v8::Handle<v8::Value>
+xrltStringifyReplacer(const v8::Arguments& args) {
+    if (xrltDeferredConstructor->HasInstance(args[1])) {
+        printf("fuckfuckufckfuckfuck\n");
+        return v8::True();
+    } else {
+        return args[1];
+    }
 }
 
 
@@ -49,6 +65,10 @@ xrltJSInit(void)
         v8::String::New("resolve"),
         v8::FunctionTemplate::New(xrltDeferredResolve)
     );
+
+    xrltStringifyReplacerTemplate = v8::Persistent<v8::FunctionTemplate>::New(
+         v8::FunctionTemplate::New(xrltStringifyReplacer)
+    );
 }
 
 
@@ -56,8 +76,8 @@ void
 xrltJSFree(void)
 {
     xrltXML2JSONTemplateFree();
-
     xrltDeferredConstructor.Dispose();
+    xrltStringifyReplacerTemplate.Dispose();
 }
 
 
@@ -151,6 +171,7 @@ xrltJSContextCreate(void)
     v8::HandleScope           scope;
 
     v8::Local<v8::External>   data;
+    v8::Local<v8::Function>   stringify;
 
     ret = (xrltJSContextPtr)xrltMalloc(sizeof(xrltJSContext) +
                                        sizeof(xrltJSContextPrivate));
@@ -159,33 +180,45 @@ xrltJSContextCreate(void)
 
     memset(ret, 0, sizeof(xrltJSContext) + sizeof(xrltJSContextPrivate));
 
-    printf("affff: %p\n", ret);
-
-
     priv = (xrltJSContextPrivate *)(ret + 1);
     ret->_private = priv;
 
-    priv->global = \
+    priv->globalTemplate = \
         v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
 
     data = v8::External::New(ret);
 
-    priv->global->Set(v8::String::New("apply"),
-                      v8::FunctionTemplate::New(Apply, data));
+    priv->globalTemplate->Set(v8::String::New("apply"),
+                              v8::FunctionTemplate::New(Apply, data));
 
-    priv->global->Set(v8::String::New("Deferred"), xrltDeferredConstructor);
+    priv->globalTemplate->Set(v8::String::New("Deferred"),
+                              xrltDeferredConstructor);
 
-    priv->global->Set(v8::String::New("print"),
-                      v8::FunctionTemplate::New(Print));
+    priv->globalTemplate->Set(v8::String::New("print"),
+                              v8::FunctionTemplate::New(Print));
 
-    priv->context = v8::Context::New(NULL, priv->global);
+    priv->context = v8::Context::New(NULL, priv->globalTemplate);
 
-    v8::Context::Scope context_scope(priv->context);
+    v8::Context::Scope   context_scope(priv->context);
+
+    priv->global = v8::Persistent<v8::Object>::New(priv->context->Global());
 
     priv->slice = v8::Persistent<v8::Object>::New(v8::Object::New());
 
-    priv->context->Global()->Set(v8::String::New("global"),
-                                 priv->context->Global());
+    priv->global->Set(v8::String::New("global"), priv->global);
+
+    priv->JSONobject = v8::Persistent<v8::Object>::New(
+        priv->global->Get(v8::String::New("JSON"))->ToObject()
+    );
+    stringify = v8::Local<v8::Function>::Cast(
+        priv->JSONobject->Get(v8::String::New("stringify"))
+    );
+    priv->stringify = v8::Persistent<v8::Function>::New(stringify);
+
+    priv->replacer = v8::Persistent<v8::Function>::New(
+        xrltStringifyReplacerTemplate->GetFunction()
+    );
+
     return ret;
 }
 
@@ -198,9 +231,13 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
     xrltJSContextPrivate  *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (priv != NULL) {
+        priv->stringify.Dispose();
+        priv->JSONobject.Dispose();
+        priv->replacer.Dispose();
         priv->slice.Dispose();
         priv->context.Dispose();
         priv->global.Dispose();
+        priv->globalTemplate.Dispose();
     }
 
     xrltFree(jsctx);
@@ -220,7 +257,6 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
     v8::HandleScope           scope;
     v8::Context::Scope        context_scope(priv->context);
 
-    v8::Local<v8::Object>     global = priv->context->Global();
     v8::Local<v8::Function>   constr;
     v8::Local<v8::Value>      argv[2];
     int                       argc;
@@ -246,8 +282,9 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
 
     argv[argc++] = v8::String::New(code);
 
-    constr = \
-        v8::Local<v8::Function>::Cast(global->Get(v8::String::New("Function")));
+    constr = v8::Local<v8::Function>::Cast(
+        priv->global->Get(v8::String::New("Function"))
+    );
     func = constr->NewInstance(argc, argv);
 
     slice->Set(v8::String::New("0"), func);
@@ -260,33 +297,51 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
 
 
 xrltBool
-xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args)
+xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args,
+            char **ret)
 {
-    if (jsctx == NULL || name == NULL) { return FALSE; }
+    if (jsctx == NULL || name == NULL || ret == NULL) { return FALSE; }
 
-    xrltJSContextPrivate  *priv = (xrltJSContextPrivate *)jsctx->_private;
+    xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     v8::HandleScope           scope;
     v8::Context::Scope        context_scope(priv->context);
     v8::Local<v8::Object>     slice;
     v8::Local<v8::Function>   func;
+    int                       argc;
+    v8::Local<v8::Value>      _ret;
 
-    slice = v8::Local<v8::Object>::Cast(priv->slice->Get(v8::String::New(name)));
+    slice = priv->slice->Get(v8::String::New(name))->ToObject();
     if (!slice->IsUndefined()) {
         func = v8::Local<v8::Function>::Cast(slice->Get(v8::String::New("0")));
+        argc = args != NULL && args->len > 0 ? args->len : 0;
 
-        int   count = args != NULL && args->len > 0 ? args->len : 0;
-        if (count > 0) {
+        if (argc > 0) {
+            v8::Local<v8::Value>   argv[argc];
             int                    i;
-            v8::Local<v8::Value>   argv[count];
-            for (i = 0; i < count; i++) {
+
+            for (i = 0; i < argc; i++) {
                 argv[i] = v8::Local<v8::Value>::New(
                     xrltXML2JSONCreate(args->arg[i].val)
                 );
             }
-            func->Call(priv->context->Global(), count, argv);
+            _ret = func->Call(priv->global, argc, argv);
         } else {
-            func->Call(priv->context->Global(), 0, NULL);
+            _ret = func->Call(priv->global, 0, NULL);
+        }
+
+        if (_ret.IsEmpty() || _ret->IsUndefined()) {
+            *ret = NULL;
+        } else {
+            v8::Local<v8::Value>   __ret;
+            v8::Local<v8::Value>   argv[2] = {
+                _ret,
+                v8::Local<v8::Value>::New(priv->replacer)
+            };
+
+            __ret = priv->stringify->Call(priv->JSONobject, 2, argv);
+            v8::String::Utf8Value   ___ret(__ret);
+            *ret = strdup(*___ret);
         }
     } else {
         return FALSE;
