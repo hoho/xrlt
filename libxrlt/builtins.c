@@ -4,7 +4,7 @@
 
 
 void *
-xrltResponseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node)
+xrltResponseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
 
@@ -20,7 +20,7 @@ xrltResponseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node)
         return node;
     } else {
         xrltTransformError(NULL, sheet, node,
-                           "Duplicate response node\n");
+                           "Duplicate response element\n");
         return NULL;
     }
 }
@@ -41,7 +41,7 @@ xrltResponseTransform(xrltContextPtr ctx, void *data)
 
 
 void *
-xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node)
+xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltIfData  *ret = NULL;
     xmlChar     *expr = NULL;

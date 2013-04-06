@@ -54,7 +54,7 @@ xrltJSContextPtr
 void
         xrltJSContextFree          (xrltJSContextPtr jsctx);
 xrltBool
-        xrltJSSlice                (xrltJSContextPtr jsctx, char *name,
+        xrltJSFunction             (xrltJSContextPtr jsctx, char *name,
                                     xrltJSArgumentListPtr args, char *code);
 xrltBool
         xrltJSApply                (xrltJSContextPtr jsctx, char *name,

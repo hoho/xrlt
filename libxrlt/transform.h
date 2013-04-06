@@ -14,12 +14,20 @@ extern "C" {
 #endif
 
 
+typedef enum {
+    XRLT_PASS1 = 0,
+    XRLT_PASS2,
+    XRLT_COMPILED
+} xrltCompilePass;
+
+
 typedef struct _xrltElement xrltElement;
 typedef xrltElement* xrltElementPtr;
 struct _xrltElement {
     xrltCompileFunction     compile;
     xrltFreeFunction        free;
     xrltTransformFunction   transform;
+    size_t                  passes;
 };
 
 
@@ -33,6 +41,7 @@ struct _xrltCompiledElement {
 
 
 typedef struct {
+    xrltCompilePass          pass;
     xrltCompiledElementPtr   compiled;
     size_t                   compiledLen;
     size_t                   compiledSize;

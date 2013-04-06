@@ -46,9 +46,17 @@ xrltRequestsheetCreate(xmlDocPtr doc)
         goto error;
     }
 
+    priv->pass = XRLT_PASS1;
     if (!xrltElementCompile(ret, root->children)) {
         goto error;
     }
+
+    priv->pass = XRLT_PASS2;
+    if (!xrltElementCompile(ret, root->children)) {
+        goto error;
+    }
+
+    priv->pass = XRLT_COMPILED;
 
     ret->doc = doc;
 

@@ -23,15 +23,15 @@ int main()
         xrltJSArgumentListPush(args, "arg1", NULL);
         xrltJSArgumentListPush(args, "arg2", NULL);
         xrltJSArgumentListPush(args, "arg3", NULL);
-        xrltJSSlice(jsctx, "testfunc", args, "print(11); return {fuck: apply('testfunc2'), heck: apply('testfunc3')};");
-        xrltJSSlice(jsctx, "testfunc2", args, "if (global.aaa) {print(123 + '' + new Deferred())}; return 59595;");
-        xrltJSSlice(jsctx, "testfunc3", args, "return new Deferred()");
+        xrltJSFunction(jsctx, "testfunc", args, "print(11); return {fuck: apply('testfunc2'), heck: apply('testfunc3')};");
+        xrltJSFunction(jsctx, "testfunc2", args, "if (global.aaa) {print(123 + '' + new Deferred())}; return 59595;");
+        xrltJSFunction(jsctx, "testfunc3", args, "return new Deferred()");
         xrltJSArgumentListFree(args);
 
         args = xrltJSArgumentListCreate(2);
         xrltJSArgumentListPush(args, "arg4", NULL);
         xrltJSArgumentListPush(args, "arg5", NULL);
-        xrltJSSlice(jsctx2, "testfunc", args, "if (global.aaa) { global.aaa += 1} else {global.aaa = 1; }; print(JSON.stringify(arguments) + global + (this + 1), arg4, global.aaa); return 33;");
+        xrltJSFunction(jsctx2, "testfunc", args, "if (global.aaa) { global.aaa += 1} else {global.aaa = 1; }; print(JSON.stringify(arguments) + global + (this + 1), arg4, global.aaa); return 33;");
         xrltJSArgumentListFree(args);
 
     //for (i = 0; i < 1000000; i++) {

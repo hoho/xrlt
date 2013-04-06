@@ -9,9 +9,16 @@ static xmlHashTablePtr xrltRegisteredElements = NULL;
 
 
 static void
-xrltRegisteredElementsDeallocator(void *payload, xmlChar * name)
+xrltRegisteredElementsDeallocator(void *payload, xmlChar *name)
 {
-    xrltFree(payload);
+    xrltElementPtr   elem = (xrltElementPtr)payload;
+    if (elem != NULL) {
+        if (elem->passes > 1) {
+            elem->passes--;
+        } else {
+            xrltFree(elem);
+        }
+    }
 }
 
 
@@ -32,21 +39,24 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
     if (xrltRegisteredElements != NULL) { return TRUE; }
 
     xrltRegisteredElements = xmlHashCreate(20);
+
     if (xrltRegisteredElements == NULL) {
         xrltTransformError(
             NULL, NULL, NULL,
-            "xrltRegisterBuiltinElementsIfUnregistered: Out of memory\n"
+            "xrltRegisterBuiltinElementsIfUnregistered: Hash creation failed\n"
         );
         return FALSE;
     }
 
     xrltBool   ret = FALSE;
 
-    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"response", TRUE,
+    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"response",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
                                xrltResponseCompile, xrltResponseFree,
                                xrltResponseTransform);
 
-    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"if", FALSE,
+    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
+                               XRLT_COMPILE_PASS2,
                                xrltIfCompile, xrltIfFree, xrltIfTransform);
 
     if (!ret) {
@@ -60,7 +70,7 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
 
 xrltBool
 xrltElementRegister(const xmlChar *ns, const xmlChar *name,
-                    xrltBool toplevel, xrltCompileFunction compile,
+                    int flags, xrltCompileFunction compile,
                     xrltFreeFunction free,
                     xrltTransformFunction transform)
 {
@@ -68,7 +78,22 @@ xrltElementRegister(const xmlChar *ns, const xmlChar *name,
     if (!xrltRegisterBuiltinElementsIfUnregistered()) { return FALSE; }
 
     xrltElementPtr   elem;
-    const xmlChar   *_toplevel = (const xmlChar *)(toplevel ? "yes" : "no");
+    const xmlChar   *pass1, *pass2;
+    xrltBool         ret = TRUE;
+
+    if (flags & XRLT_REGISTER_TOPLEVEL) {
+        pass1 = flags & XRLT_COMPILE_PASS1 ? (const xmlChar *)"top1" : NULL;
+        pass2 = flags & XRLT_COMPILE_PASS2 ? (const xmlChar *)"top2" : NULL;
+    } else {
+        pass1 = flags & XRLT_COMPILE_PASS1 ? (const xmlChar *)"1" : NULL;
+        pass2 = flags & XRLT_COMPILE_PASS2 ? (const xmlChar *)"2" : NULL;
+    }
+
+    if (pass1 == NULL && pass2 == NULL) {
+        // We will probably need to throw an error here, but I can't come with
+        // a good error message.
+        return TRUE;
+    }
 
     elem = xrltMalloc(sizeof(xrltElement));
 
@@ -83,8 +108,17 @@ xrltElementRegister(const xmlChar *ns, const xmlChar *name,
     elem->compile = compile;
     elem->free = free;
     elem->transform = transform;
+    elem->passes = pass1 != NULL && pass2 != NULL ? 2 : 1;
 
-    if (!xmlHashAddEntry3(xrltRegisteredElements, name, _toplevel, ns, elem)) {
+    if (pass1 != NULL) {
+        ret = !xmlHashAddEntry3(xrltRegisteredElements, name, pass1, ns, elem);
+    }
+
+    if (pass2 != NULL) {
+        ret &= !xmlHashAddEntry3(xrltRegisteredElements, name, pass2, ns, elem);
+    }
+
+    if (ret) {
         return TRUE;
     } else {
         xrltTransformError(NULL, NULL, NULL,
@@ -139,23 +173,37 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     if (sheet == NULL || first == NULL) { return FALSE; }
     if (!xrltRegisterBuiltinElementsIfUnregistered()) { return FALSE; }
 
-    const xmlChar   *ns;
-    const xmlChar   *name;
-    const xmlChar   *toplevel;
-    xrltElementPtr   elem;
-    xmlNodePtr       tmp;
-    void            *comp;
-    size_t           num;
+    xrltRequestsheetPrivate  *priv = sheet->_private;
+    xrltCompilePass           pass = priv->pass;
+    const xmlChar            *ns;
+    const xmlChar            *name;
+    const xmlChar            *_pass;
+    xrltBool                  toplevel;
+    xrltElementPtr            elem;
+    xmlNodePtr                tmp;
+    void                     *comp, *prevcomp;
+    size_t                    num;
 
     toplevel = first != NULL && first->parent != NULL &&
                xmlStrEqual(first->parent->name, XRLT_ROOT_NAME) &&
                first->parent->ns != NULL &&
                xmlStrEqual(first->parent->ns->href, XRLT_NS)
         ?
-        (xmlChar *)"yes"
+        TRUE
         :
-        (xmlChar *)"no";
+        FALSE;
 
+    switch (pass) {
+        case XRLT_PASS1:
+            _pass = (const xmlChar *)(toplevel ? "top1" : "1");
+            break;
+        case XRLT_PASS2:
+            _pass = (const xmlChar *)(toplevel ? "top2" : "2");
+            break;
+        case XRLT_COMPILED:
+            xrltTransformError(NULL, sheet, first, "Unexpected compile pass\n");
+            return FALSE;
+    }
 
     while (first != NULL) {
         if (xmlIsBlankNode(first)) {
@@ -175,17 +223,22 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
         name = first->name;
 
         elem = (xrltElementPtr)xmlHashLookup3(
-            xrltRegisteredElements, name, toplevel, ns
+            xrltRegisteredElements, name, _pass, ns
         );
 
-        printf("0000000 %s\n", (char *)first->name);
+        printf("0000000 %s %d %s %p\n", (char *)first->name, pass, (char *)_pass, elem);
 
         if (elem == NULL) {
-            first->_private = NULL;
+            if (pass == XRLT_PASS1) {
+                // Set _private to zero on the first compile pass.
+                first->_private = NULL;
+            }
 
-            if (first->ns != NULL && xmlStrEqual(first->ns->href, XRLT_NS)) {
+            if (pass == XRLT_PASS2 && first->_private == NULL &&
+                first->ns != NULL && xmlStrEqual(first->ns->href, XRLT_NS))
+            {
                 // Don't allow unknown elements from XRLT namespace.
-                xrltTransformError(NULL, sheet, first, "Unknown node\n");
+                xrltTransformError(NULL, sheet, first, "Unknown element\n");
                 return FALSE;
             }
 
@@ -195,18 +248,25 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
                 return FALSE;
             }
         } else {
+            num = pass == XRLT_PASS2 ? (size_t)first->_private : 0;
+            prevcomp = num > 0 ? priv->compiled[num].data : NULL;
+
             if (elem->compile != NULL) {
-                comp = elem->compile(sheet, first);
+                comp = elem->compile(sheet, first, prevcomp);
                 if (comp == NULL) { return FALSE; }
             } else {
                 comp = NULL;
             }
 
-            num = xrltCompiledElementPush(
-                sheet, elem->transform, elem->free, comp
-            );
-
-            printf("pushed %d\n", (int)num);
+            if (num == 0) {
+                num = xrltCompiledElementPush(
+                    sheet, elem->transform, elem->free, comp
+                );
+            } else {
+                priv->compiled[num].transform = elem->transform;
+                priv->compiled[num].free = elem->free;
+                priv->compiled[num].data = comp;
+            }
 
             if (num > 0) {
                 first->_private = (void *)num;

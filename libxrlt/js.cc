@@ -8,7 +8,7 @@
 typedef struct {
     v8::Persistent<v8::ObjectTemplate>   globalTemplate;
     v8::Persistent<v8::Object>           global;
-    v8::Persistent<v8::Object>           slice;
+    v8::Persistent<v8::Object>           functions;
     v8::Persistent<v8::Context>          context;
     v8::Persistent<v8::Object>           JSONobject;
     v8::Persistent<v8::Function>         stringify;
@@ -120,7 +120,7 @@ Apply(const v8::Arguments& args) {
     priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (args.Length() > 0) {
-        v8::Local<v8::Object>     slice;
+        v8::Local<v8::Object>     funcwrap;
         v8::Local<v8::Function>   func;
         v8::Local<v8::Number>     count;
         v8::Local<v8::Object>    _args;
@@ -128,10 +128,10 @@ Apply(const v8::Arguments& args) {
 
         _args = v8::Local<v8::Object>::Cast(args[1]);
 
-        slice = v8::Local<v8::Object>::Cast(priv->slice->Get(args[0]));
+        funcwrap = v8::Local<v8::Object>::Cast(priv->functions->Get(args[0]));
 
-        func = v8::Local<v8::Function>::Cast(slice->Get(v8::String::New("0")));
-        count = v8::Local<v8::Number>::Cast(slice->Get(v8::String::New("1")));
+        func = v8::Local<v8::Function>::Cast(funcwrap->Get(v8::String::New("0")));
+        count = v8::Local<v8::Number>::Cast(funcwrap->Get(v8::String::New("1")));
 
         i = count->Int32Value();
         v8::Local<v8::Value>      argv[i > 0 ? i : 1];
@@ -148,7 +148,7 @@ Apply(const v8::Arguments& args) {
             v8::Local<v8::Number>   index;
             for (i = argnames->Length() - 1; i >= 0; i--) {
                 name = v8::Local<v8::String>::Cast(argnames->Get(i));
-                index = v8::Local<v8::Number>::Cast(slice->Get(name));
+                index = v8::Local<v8::Number>::Cast(funcwrap->Get(name));
                 if (!index->IsUndefined()) {
                     argv[index->Int32Value()] = _args->Get(name);
                 }
@@ -203,7 +203,7 @@ xrltJSContextCreate(void)
 
     priv->global = v8::Persistent<v8::Object>::New(priv->context->Global());
 
-    priv->slice = v8::Persistent<v8::Object>::New(v8::Object::New());
+    priv->functions = v8::Persistent<v8::Object>::New(v8::Object::New());
 
     priv->global->Set(v8::String::New("global"), priv->global);
 
@@ -234,7 +234,7 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
         priv->stringify.Dispose();
         priv->JSONobject.Dispose();
         priv->replacer.Dispose();
-        priv->slice.Dispose();
+        priv->functions.Dispose();
         priv->context.Dispose();
         priv->global.Dispose();
         priv->globalTemplate.Dispose();
@@ -247,8 +247,8 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
 
 
 xrltBool
-xrltJSSlice(xrltJSContextPtr jsctx, char *name,
-            xrltJSArgumentListPtr args, char *code)
+xrltJSFunction(xrltJSContextPtr jsctx, char *name,
+               xrltJSArgumentListPtr args, char *code)
 {
     if (jsctx == NULL || name == NULL || code == NULL) { return FALSE; }
 
@@ -261,7 +261,7 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
     v8::Local<v8::Value>      argv[2];
     int                       argc;
     int                       count;
-    v8::Local<v8::Object>     slice = v8::Object::New();
+    v8::Local<v8::Object>     funcwrap = v8::Object::New();
     v8::Local<v8::Object>     func;
 
     if (args != NULL && args->len > 0) {
@@ -269,7 +269,7 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
         std::string        _args;
         for (count = 0; count < args->len; count++) {
             arg = &args->arg[count];
-            slice->Set(v8::String::New(arg->name), v8::Number::New(count));
+            funcwrap->Set(v8::String::New(arg->name), v8::Number::New(count));
             _args.append(arg->name);
             if (count < args->len - 1) { _args.append(", "); }
         }
@@ -287,10 +287,10 @@ xrltJSSlice(xrltJSContextPtr jsctx, char *name,
     );
     func = constr->NewInstance(argc, argv);
 
-    slice->Set(v8::String::New("0"), func);
-    slice->Set(v8::String::New("1"), v8::Number::New(count));
+    funcwrap->Set(v8::String::New("0"), func);
+    funcwrap->Set(v8::String::New("1"), v8::Number::New(count));
 
-    priv->slice->Set(v8::String::New(name), slice);
+    priv->functions->Set(v8::String::New(name), funcwrap);
 
     return TRUE;
 }
@@ -306,15 +306,17 @@ xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args,
 
     v8::HandleScope           scope;
     v8::Context::Scope        context_scope(priv->context);
-    v8::Local<v8::Object>     slice;
+    v8::Local<v8::Object>     funcwrap;
     v8::Local<v8::Function>   func;
     int                       argc;
     v8::Local<v8::Value>      _ret;
 
-    slice = priv->slice->Get(v8::String::New(name))->ToObject();
-    if (!slice->IsUndefined()) {
-        func = v8::Local<v8::Function>::Cast(slice->Get(v8::String::New("0")));
+    funcwrap = priv->functions->Get(v8::String::New(name))->ToObject();
+    if (!funcwrap->IsUndefined()) {
         argc = args != NULL && args->len > 0 ? args->len : 0;
+        func = v8::Local<v8::Function>::Cast(
+            funcwrap->Get(v8::String::New("0"))
+        );
 
         if (argc > 0) {
             v8::Local<v8::Value>   argv[argc];

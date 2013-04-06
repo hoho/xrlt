@@ -25,6 +25,11 @@ extern "C" {
 #define XRLT_STATUS_LOG          64
 
 
+#define XRLT_REGISTER_TOPLEVEL   2
+#define XRLT_COMPILE_PASS1       4
+#define XRLT_COMPILE_PASS2       8
+
+
 typedef enum {
     XRLT_PROCESS_REQUEST_BODY,
     XRLT_PROCESS_SUBREQUEST_HEADER,
@@ -65,7 +70,7 @@ struct _xrltContext {
 
 
 typedef void *   (*xrltCompileFunction)     (xrltRequestsheetPtr sheet,
-                                             xmlNodePtr node);
+                                             xmlNodePtr node, void *prevcomp);
 typedef void     (*xrltFreeFunction)        (void *data);
 typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *data);
 
@@ -78,8 +83,7 @@ typedef xrltBool (*xrltTransformCallback)   (xrltContextPtr ctx,
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltElementRegister       (const xmlChar *ns, const xmlChar *name,
-                                   xrltBool toplevel,
-                                   xrltCompileFunction compile,
+                                   int flags, xrltCompileFunction compile,
                                    xrltFreeFunction free,
                                    xrltTransformFunction transform);
 XRLTPUBFUN xrltBool XRLTCALL

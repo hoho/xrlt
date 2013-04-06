@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <xrl:requestsheet xmlns:xrl="http://xrlt.net/Transform">
 
-    <xrl:transformation name="concatjs" type="javascript">
+<!--    <xrl:transformation name="concatjs" type="javascript">
         <xrl:param name="testpar" />
         return {aaa: this, ppp: testpar};
     </xrl:transformation>
@@ -10,10 +10,11 @@
         <xrl:transform name="xml-stringify">
             <bbb><xrl:copy-of select="/*" /></bbb>
         </xrl:transform>
-    </xrl:transformation>
+    </xrl:transformation>-->
 
     <xrl:response>
         <a/>
+        <xrl:if test="345" />
         <xrl:if test="345" />
         <xrl:if test="456">
             <xrl:if test="567">a<br/>aa</xrl:if>
@@ -49,8 +50,8 @@
 
     -->
 
-    <xrl:slice name="ololo">
+    <xrl:function name="ololo">
         <hello>world</hello>
-    </xrl:slice>
+    </xrl:function>
 
 </xrl:requestsheet>

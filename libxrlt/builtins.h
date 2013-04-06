@@ -22,14 +22,16 @@ typedef struct {
 
 
 void *
-        xrltResponseCompile     (xrltRequestsheetPtr sheet, xmlNodePtr node);
+        xrltResponseCompile     (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                 void *prevcomp);
 void
         xrltResponseFree        (void *data);
 xrltBool
         xrltResponseTransform   (xrltContextPtr ctx, void *data);
 
 void *
-        xrltIfCompile           (xrltRequestsheetPtr sheet, xmlNodePtr node);
+        xrltIfCompile           (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                 void *prevcomp);
 void
         xrltIfFree              (void *data);
 xrltBool
