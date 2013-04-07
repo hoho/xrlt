@@ -109,12 +109,15 @@ static inline void
 xrltJSArgumentListFree(xrltJSArgumentListPtr list)
 {
     if (list == NULL) { return; }
+
     int   i;
+
     for (i = list->len - 1; i >= 0; i--) {
         if (list->arg[i].name != NULL) {
             xrltFree(list->arg[i].name);
         }
     }
+
     xrltFree(list);
 }
 

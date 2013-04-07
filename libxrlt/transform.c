@@ -2,7 +2,6 @@
 
 #include "transform.h"
 #include "builtins.h"
-#include "xrlterror.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -48,14 +47,24 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
         return FALSE;
     }
 
-    xrltBool   ret = FALSE;
+    xrltBool   ret = TRUE;
 
-    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"response",
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
                                xrltResponseCompile, xrltResponseFree,
                                xrltResponseTransform);
 
-    ret |= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"function",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1 |
+                               XRLT_COMPILE_PASS2, xrltFunctionCompile,
+                               xrltFunctionFree, xrltFunctionTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"apply",
+                               XRLT_COMPILE_PASS1 | XRLT_COMPILE_PASS2,
+                               xrltApplyCompile, xrltApplyFree,
+                               xrltApplyTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
                                XRLT_COMPILE_PASS2,
                                xrltIfCompile, xrltIfFree, xrltIfTransform);
 
@@ -136,15 +145,15 @@ xrltCompiledElementPush(xrltRequestsheetPtr sheet,
     xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
     xrltCompiledElementPtr    arr;
 
-    if (priv->compiledLen >= priv->compiledSize) {
-        if (priv->compiledLen == 0) {
+    if (priv->compLen >= priv->compSize) {
+        if (priv->compLen == 0) {
             // We keep 0 index for non XRLT nodes.
-            priv->compiledLen++;
+            priv->compLen++;
         }
 
         arr = xrltRealloc(
-            priv->compiled,
-            sizeof(xrltCompiledElement) * (priv->compiledSize + 20)
+            priv->comp,
+            sizeof(xrltCompiledElement) * (priv->compSize + 20)
         );
 
         if (arr == NULL) {
@@ -153,17 +162,57 @@ xrltCompiledElementPush(xrltRequestsheetPtr sheet,
             return 0;
         }
 
-        memset(arr + sizeof(xrltCompiledElement) * priv->compiledSize, 0,
+        memset(arr + sizeof(xrltCompiledElement) * priv->compSize, 0,
                sizeof(xrltCompiledElement) * 20);
-        priv->compiled = arr;
-        priv->compiledSize += 20;
+        priv->comp = arr;
+        priv->compSize += 20;
     }
 
-    priv->compiled[priv->compiledLen].transform = transform;
-    priv->compiled[priv->compiledLen].free = free;
-    priv->compiled[priv->compiledLen].data = data;
+    priv->comp[priv->compLen].transform = transform;
+    priv->comp[priv->compLen].free = free;
+    priv->comp[priv->compLen].data = data;
 
-    return priv->compiledLen++;
+    return priv->compLen++;
+}
+
+
+inline static size_t
+xrltTransformingElementPush(xrltContextPtr ctx, int count,
+                            xrltFreeFunction free, void *data)
+{
+    if (ctx == NULL) { return 0; }
+
+    xrltContextPrivate          *priv = (xrltContextPrivate *)ctx->_private;
+    xrltTransformingElementPtr   arr;
+
+    if (priv->trLen >= priv->trSize) {
+        if (priv->trLen == 0) {
+            // We start indexing from 1.
+            priv->trLen++;
+        }
+
+        arr = xrltRealloc(
+                priv->tr,
+                sizeof(xrltTransformingElement) * (priv->trSize + 20)
+        );
+
+        if (arr == NULL) {
+            xrltTransformError(ctx, NULL, NULL,
+                               "xrltTransformingElementPush: Out of memory\n");
+            return 0;
+        }
+
+        memset(arr + sizeof(xrltTransformingElement) * priv->trSize, 0,
+               sizeof(xrltTransformingElement) * 20);
+        priv->tr = arr;
+        priv->trSize += 20;
+    }
+
+    priv->tr[priv->trLen].count = count;
+    priv->tr[priv->trLen].free = free;
+    priv->tr[priv->trLen].data = data;
+
+    return priv->trLen++;
 }
 
 
@@ -180,7 +229,6 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     const xmlChar            *_pass;
     xrltBool                  toplevel;
     xrltElementPtr            elem;
-    xmlNodePtr                tmp;
     void                     *comp, *prevcomp;
     size_t                    num;
 
@@ -206,15 +254,6 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     }
 
     while (first != NULL) {
-        if (xmlIsBlankNode(first)) {
-            // Remove blank nodes.
-            tmp = first->next;
-            xmlUnlinkNode(first);
-            xmlFreeNode(first);
-            first = tmp;
-            continue;
-        }
-
         ns = first->ns != NULL && first->ns->href != NULL
             ?
             first->ns->href
@@ -249,11 +288,22 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
             }
         } else {
             num = pass == XRLT_PASS2 ? (size_t)first->_private : 0;
-            prevcomp = num > 0 ? priv->compiled[num].data : NULL;
+            prevcomp = num > 0 ? priv->comp[num].data : NULL;
 
             if (elem->compile != NULL) {
                 comp = elem->compile(sheet, first, prevcomp);
-                if (comp == NULL) { return FALSE; }
+
+                if (comp == NULL) {
+                    if (num > 0) {
+                        // In case of error on the second compile pass, the
+                        // data from the first compile pass should be freed
+                        // by the compile function, so, we clean element's
+                        // data to avoid duplicate freeing.
+                        memset(priv->comp + num, 0,
+                               sizeof(xrltCompiledElement));
+                    }
+                    return FALSE;
+                }
             } else {
                 comp = NULL;
             }
@@ -263,9 +313,9 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
                     sheet, elem->transform, elem->free, comp
                 );
             } else {
-                priv->compiled[num].transform = elem->transform;
-                priv->compiled[num].free = elem->free;
-                priv->compiled[num].data = comp;
+                priv->comp[num].transform = elem->transform;
+                priv->comp[num].free = elem->free;
+                priv->comp[num].data = comp;
             }
 
             if (num > 0) {
@@ -275,6 +325,61 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
                 return FALSE;
             }
 
+        }
+
+        first = first->next;
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
+{
+    if (ctx == NULL || insert == NULL) { return FALSE; }
+
+    xrltContextPrivate       *priv = ctx->_private;
+    xrltRequestsheetPrivate  *spriv;
+    xrltCompiledElementPtr    c;
+    size_t                    index;
+    xmlNodePtr                newinsert;
+
+    spriv = (xrltRequestsheetPrivate *)ctx->sheet->_private;
+
+    while (first != NULL) {
+        index = (size_t)first->_private;
+
+        if (index == 0) {
+            newinsert = xmlDocCopyNode(first, priv->responseDoc, 2);
+
+            if (newinsert == NULL) {
+                xrltTransformError(ctx, NULL, first,
+                                   "Failed to copy element to response doc\n");
+                return FALSE;
+            }
+
+            if (xmlAddChild(insert, newinsert) == NULL) {
+                xmlFreeNode(newinsert);
+
+                xrltTransformError(ctx, NULL, first,
+                                   "Failed to add element to response doc\n");
+                return FALSE;
+            }
+
+            if (!xrltElementTransform(ctx, first->children, newinsert)) {
+                return FALSE;
+            }
+        } else {
+            c = &spriv->comp[index];
+
+            if (!xrltTransformCallbackQueuePush(ctx, &priv->tcb, c->transform,
+                                                c->data, insert, NULL))
+            {
+                xrltTransformError(ctx, NULL, first,
+                                   "Failed to push callback\n");
+                return FALSE;
+            }
         }
 
         first = first->next;

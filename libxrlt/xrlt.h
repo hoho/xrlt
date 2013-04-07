@@ -71,14 +71,16 @@ struct _xrltContext {
 
 typedef void *   (*xrltCompileFunction)     (xrltRequestsheetPtr sheet,
                                              xmlNodePtr node, void *prevcomp);
-typedef void     (*xrltFreeFunction)        (void *data);
-typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *data);
+typedef void     (*xrltFreeFunction)        (void *comp);
+typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
+                                             xmlNodePtr insert, void *data);
 
 
 typedef xrltBool (*xrltNodeReadyCallback)   (xrltContextPtr ctx,
                                              xmlNodePtr node, void *data);
-typedef xrltBool (*xrltTransformCallback)   (xrltContextPtr ctx,
-                                             xrltTransformValue *data);
+typedef xrltBool (*xrltInputCallback)       (xrltContextPtr ctx,
+                                             xrltTransformValue *value,
+                                             void *data);
 
 
 XRLTPUBFUN xrltBool XRLTCALL
@@ -89,7 +91,8 @@ XRLTPUBFUN xrltBool XRLTCALL
 XRLTPUBFUN xrltBool XRLTCALL
         xrltElementCompile        (xrltRequestsheetPtr sheet, xmlNodePtr first);
 XRLTPUBFUN xrltBool XRLTCALL
-        xrltElementTransform      (xrltRequestsheetPtr sheet, xmlNodePtr first);
+        xrltElementTransform      (xrltContextPtr ctx, xmlNodePtr first,
+                                   xmlNodePtr insert);
 
 
 XRLTPUBFUN void XRLTCALL
@@ -109,7 +112,7 @@ XRLTPUBFUN void XRLTCALL
         xrltContextFree           (xrltContextPtr ctx);
 XRLTPUBFUN int XRLTCALL
         xrltTransform             (xrltContextPtr ctx,
-                                   xrltTransformValue *data);
+                                   xrltTransformValue *value);
 
 
 XRLTPUBFUN xrltBool XRLTCALL
@@ -125,9 +128,9 @@ XRLTPUBFUN xrltBool XRLTCALL
 
 
 XRLTPUBFUN xrltBool XRLTCALL
-        xrltTransformSubscribe    (xrltContextPtr ctx,
+        xrltInputSubscribe        (xrltContextPtr ctx,
                                    xrltTransformValueType type, size_t id,
-                                   xrltTransformCallback callback);
+                                   xrltInputCallback callback, void *data);
 
 
 #ifdef __cplusplus

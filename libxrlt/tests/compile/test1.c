@@ -17,6 +17,17 @@ int main()
     if (sheet == NULL) {
         xmlFreeDoc(doc);
     } else {
+        int ret;
+        xrltContextPtr   ctx;
+
+        ctx = xrltContextCreate(sheet, NULL);
+
+        ret = xrltTransform(ctx, NULL);
+        //while (!(ret & XRLT_STATUS_DONE) | (ret & XRLT_STATUS_ERROR)) {
+        //    ret = xrltTransform(ctx, NULL);
+        //}
+
+        xrltContextFree(ctx);
         xrltRequestsheetFree(sheet);
     }
     xrltCleanup();

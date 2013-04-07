@@ -12,7 +12,22 @@ extern "C" {
 #endif
 
 
-#define XRLT_ELEMENT_ATTR_TEST (const xmlChar *)"test"
+#define XRLT_ELEMENT_ATTR_TEST    (const xmlChar *)"test"
+#define XRLT_ELEMENT_ATTR_NAME    (const xmlChar *)"name"
+#define XRLT_ELEMENT_PARAM        (const xmlChar *)"param"
+#define XRLT_ELEMENT_WITH_PARAM   (const xmlChar *)"with-param"
+
+
+typedef struct {
+    xmlChar      *name;
+    xrltBool      js;
+    xmlNodePtr    children;
+} xrltFunctionData;
+
+
+typedef struct {
+    xrltFunctionData  *func;
+} xrltApplyData;
 
 
 typedef struct {
@@ -22,20 +37,43 @@ typedef struct {
 
 
 void *
-        xrltResponseCompile     (xrltRequestsheetPtr sheet, xmlNodePtr node,
-                                 void *prevcomp);
+        xrltResponseCompile        (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
 void
-        xrltResponseFree        (void *data);
+        xrltResponseFree           (void *comp);
 xrltBool
-        xrltResponseTransform   (xrltContextPtr ctx, void *data);
+        xrltResponseTransform      (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
 
 void *
-        xrltIfCompile           (xrltRequestsheetPtr sheet, xmlNodePtr node,
-                                 void *prevcomp);
+        xrltFunctionCompile        (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
 void
-        xrltIfFree              (void *data);
+        xrltFunctionFree           (void *comp);
 xrltBool
-        xrltIfTransform         (xrltContextPtr ctx, void *data);
+        xrltFunctionTransform      (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
+
+void *
+        xrltApplyCompile           (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
+void
+        xrltApplyFree              (void *comp);
+xrltBool
+        xrltApplyTransform         (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
+
+void *
+        xrltIfCompile              (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
+void
+        xrltIfFree                 (void *comp);
+xrltBool
+        xrltIfTransform            (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
 
 
 #ifdef __cplusplus

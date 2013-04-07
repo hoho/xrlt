@@ -13,14 +13,14 @@
     </xrl:transformation>-->
 
     <xrl:response>
-        <a/>
+        <a/>f<b/>
         <xrl:if test="345" />
         <xrl:if test="345" />
         <xrl:if test="456">
             <xrl:if test="567">a<br/>aa</xrl:if>
         </xrl:if>
 
-        <xrl:transform name="xslt-stringify" href="file.xsl">
+        <!--<xrl:transform name="xslt-stringify" href="file.xsl">
             <xrl:transform name="xslt" href="file.xsl">
                 <xrl:apply name="ololo" />
             </xrl:transform>
@@ -37,9 +37,11 @@
         <xrl:transform name="concatjs">
             <xrl:with-param name="testpar" select="9494" />
             <xrl:apply name="ololo" />
-        </xrl:transform>
+        </xrl:transform>-->
 
         <xrl:apply name="ololo" />
+
+        <ololo/>
     </xrl:response>
 
     <!--
