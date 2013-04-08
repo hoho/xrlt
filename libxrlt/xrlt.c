@@ -22,6 +22,38 @@ xrltRemoveBlankNodesAndComments(xmlNodePtr first) {
 }
 
 
+static void
+xrltRegisterNodeFunc(xmlNodePtr node)
+{
+    xrltNodeDataPtr   data;
+
+    data = xrltMalloc(sizeof(xrltNodeData));
+
+    if (data != NULL) {
+        memset(data, 0, sizeof(xrltNodeData));
+    }
+
+    node->_private = data;
+}
+
+
+static void
+xrltDeregisterNodeFunc(xmlNodePtr node)
+{
+    xrltNodeDataPtr   data = (xrltNodeDataPtr)node->_private;
+
+    if (data != NULL) {
+        if (data->data != NULL && data->free != NULL) {
+            data->free(data->data);
+        }
+
+        xrltTransformCallbackQueueClear(&data->tcb);
+
+        xrltFree(data);
+    }
+}
+
+
 xrltRequestsheetPtr
 xrltRequestsheetCreate(xmlDocPtr doc)
 {
@@ -87,17 +119,6 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
     if (sheet == NULL) { return; }
 
     xrltRequestsheetPrivate  *priv = sheet->_private;
-    size_t                    i;
-
-    if (priv->comp != NULL) {
-        for (i = 1; i < priv->compLen; i++) {
-            if (priv->comp[i].data != NULL) {
-                priv->comp[i].free(priv->comp[i].data);
-            }
-        }
-
-        xrltFree(priv->comp);
-    }
 
     if (priv->funcs != NULL) {
         xmlHashFree(priv->funcs, NULL);
@@ -117,7 +138,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
     xrltContextPtr            ret;
     xrltContextPrivate       *priv;
     xrltRequestsheetPrivate  *spriv;
-    xrltCompiledElementPtr    r;
+    xrltNodeDataPtr           n;
 
     if (sheet == NULL) { return NULL; }
 
@@ -150,9 +171,9 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
     }
 
     spriv = (xrltRequestsheetPrivate *)sheet->_private;
-    r = &spriv->comp[(size_t)spriv->response->_private];
+    n = (xrltNodeDataPtr)spriv->response->_private;
 
-    if (!xrltTransformCallbackQueuePush(ret, &priv->tcb, r->transform, r->data,
+    if (!xrltTransformCallbackQueuePush(&priv->tcb, n->transform, n->data,
                                         (xmlNodePtr)priv->responseDoc, NULL))
     {
         xrltTransformError(NULL, NULL, NULL, "Failed to push callback\n");
@@ -174,7 +195,6 @@ void
 xrltContextFree(xrltContextPtr ctx)
 {
     xrltContextPrivate  *priv;
-    size_t               i;
 
     if (ctx == NULL) { return; }
 
@@ -189,19 +209,7 @@ xrltContextFree(xrltContextPtr ctx)
         xmlFreeDoc(priv->responseDoc);
     }
 
-    if (priv->tr != NULL) {
-        for (i = 1; i < priv->trLen; i++) {
-            if (priv->tr[i].data != NULL) {
-                priv->tr[i].free(priv->tr[i].data);
-            }
-
-            xrltTransformCallbackQueueClear(ctx, &priv->tr[i].tcb);
-        }
-
-        xrltFree(priv->tr);
-    }
-
-    xrltTransformCallbackQueueClear(ctx, &priv->tcb);
+    xrltTransformCallbackQueueClear(&priv->tcb);
 
     xrltFree(ctx);
 }
@@ -217,20 +225,34 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
     void                     *comp;
     xmlNodePtr                insert;
     void                     *data;
-    int                       ret = XRLT_STATUS_UNKNOWN;
 
-    while (xrltTransformCallbackQueueShift(ctx, &priv->tcb, &func, &comp,
-           &insert, &data))
+    ctx->cur = XRLT_STATUS_UNKNOWN;
+
+    while (xrltTransformCallbackQueueShift(&priv->tcb, &func, &comp,
+                                           &insert, &data))
     {
         if (!func(ctx, comp, insert, data)) {
-            ret |= XRLT_STATUS_ERROR;
-            break;
+            ctx->cur |= XRLT_STATUS_ERROR;
+            return ctx->cur;
+        }
+
+        if (ctx->cur != XRLT_STATUS_UNKNOWN) {
+            // There is something to send.
+            return ctx->cur;
         }
     }
 
-    ret |= XRLT_STATUS_DONE;
+    ctx->cur |= XRLT_STATUS_DONE;
 
-    return ret;
+    return ctx->cur;
+}
+
+
+void
+xrltInit(void)
+{
+    xmlRegisterNodeDefault(xrltRegisterNodeFunc);
+    xmlDeregisterNodeDefault(xrltDeregisterNodeFunc);
 }
 
 

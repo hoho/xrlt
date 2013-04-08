@@ -31,7 +31,7 @@ extern "C" {
 
 
 typedef enum {
-    XRLT_PROCESS_REQUEST_BODY,
+    XRLT_PROCESS_REQUEST_BODY = 1,
     XRLT_PROCESS_SUBREQUEST_HEADER,
     XRLT_PROCESS_SUBREQUEST_BODY
 } xrltTransformValueType;
@@ -59,6 +59,7 @@ struct _xrltContext {
     xrltRequestsheetPtr   sheet;
 
     xrltBool              error;
+    int                   cur;
 
     xrltHeaderList        header;
     xrltSubrequestList    sr;
@@ -76,8 +77,6 @@ typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
                                              xmlNodePtr insert, void *data);
 
 
-typedef xrltBool (*xrltNodeReadyCallback)   (xrltContextPtr ctx,
-                                             xmlNodePtr node, void *data);
 typedef xrltBool (*xrltInputCallback)       (xrltContextPtr ctx,
                                              xrltTransformValue *value,
                                              void *data);
@@ -96,6 +95,8 @@ XRLTPUBFUN xrltBool XRLTCALL
 
 
 XRLTPUBFUN void XRLTCALL
+        xrltInit                  (void);
+XRLTPUBFUN void XRLTCALL
         xrltCleanup               (void);
 
 
@@ -113,18 +114,6 @@ XRLTPUBFUN void XRLTCALL
 XRLTPUBFUN int XRLTCALL
         xrltTransform             (xrltContextPtr ctx,
                                    xrltTransformValue *value);
-
-
-XRLTPUBFUN xrltBool XRLTCALL
-        xrltOutputNodeInsert      (xrltContextPtr ctx, xmlNodePtr node,
-                                   xrltNodeReadyCallback ready,
-                                   xrltFreeFunction free, void *data);
-XRLTPUBFUN xrltBool XRLTCALL
-        xrltOutputNodeSubscribe   (xrltContextPtr ctx, xmlNodePtr node,
-                                   xrltNodeReadyCallback ready,
-                                   xrltFreeFunction free, void *data);
-XRLTPUBFUN xrltBool XRLTCALL
-        xrltOutputNodeReady       (xrltContextPtr ctx, xmlNodePtr node);
 
 
 XRLTPUBFUN xrltBool XRLTCALL

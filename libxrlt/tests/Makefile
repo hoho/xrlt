@@ -29,7 +29,7 @@ js:
 
 .PHONY: compile
 compile:
-	gcc -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 ../transform.c ../xrlt.c ../builtins.c ../xrlterror.c compile/test1.c -lxml2
+	gcc -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 ../transform.c ../xrlt.c ../builtins.c ../include.c ../xrlterror.c compile/test1.c -lxml2
 
 run:
 	@echo "\nRunning tests:"

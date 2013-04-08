@@ -31,13 +31,14 @@ xrltResponseFree(void *comp)
     (void)comp;
 }
 
+
 xrltBool
 xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                       void *data)
 {
     if (ctx == NULL || insert == NULL) { return FALSE; }
 
-    xrltContextPrivate  *priv = ctx->_private;
+    xrltContextPrivate  *priv = (xrltContextPrivate *)ctx->_private;
     xmlNodePtr           response;
 
     if (data == NULL) {
@@ -54,10 +55,13 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         xmlDocSetRootElement(priv->responseDoc, response);
 
-        xrltElementTransform(ctx, ((xmlNodePtr)comp)->children, response);
+        if (!xrltElementTransform(ctx, ((xmlNodePtr)comp)->children, response))
+        {
+            return FALSE;
+        }
 
         // Schedule the next call.
-        if (!xrltTransformCallbackQueuePush(ctx, &priv->tcb,
+        if (!xrltTransformCallbackQueuePush(&priv->tcb,
                                             xrltResponseTransform, comp,
                                             response, (void *)0x1))
         {
@@ -68,7 +72,10 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     } else {
         // On the second call, check if something is ready to be sent and send
         // it if it is.
-        xmlNodePtr   ret = (xmlNodePtr)data;
+        xmlNodePtr        ret = (xmlNodePtr)data;
+        xrltNodeDataPtr   n;
+        xrltString        chunk;
+        xrltBool          pushed;
 
         response = insert;
 
@@ -77,14 +84,46 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ret = response->children;
         }
 
-        while (ret != NULL && ret->_private == NULL) {
-            // Send response chunk out.
+        while (ret != NULL) {
+            ASSERT_NODE_DATA(ret, n);
+
+            if (n->count > 0) {
+                break;
+            }
+
+            if (!n->skip) {
+                // Send response chunk out.
+                chunk.data = (char *)xmlXPathCastNodeToString(ret);
+
+                if (chunk.data != NULL) {
+                    chunk.len = strlen(chunk.data);
+
+                    pushed = chunk.len > 0
+                        ?
+                        xrltChunkListPush(&ctx->chunk, &chunk)
+                        :
+                        TRUE;
+
+                    xmlFree(chunk.data);
+
+                    if (!pushed) {
+                        xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
+                                           "Failed to push response chunk\n");
+                        return FALSE;
+                    }
+
+                    if (chunk.len > 0) {
+                        ctx->cur |= XRLT_STATUS_CHUNK;
+                    }
+                }
+            }
+
             ret = ret->next;
         }
 
         if (ret != NULL) {
             // We still have some data that's not ready, schedule the next call.
-            if (!xrltTransformCallbackQueuePush(ctx, &priv->tcb,
+            if (!xrltTransformCallbackQueuePush(&priv->tcb,
                                                 xrltResponseTransform, comp,
                                                 response, ret))
             {
@@ -94,7 +133,168 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             }
         }
     }
-    printf("tratra\n");
+
+    return TRUE;
+}
+
+
+void *
+xrltLogCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
+{
+    xrltLogData  *ret = NULL;
+    xmlChar      *level = NULL;
+
+    ret = (xrltLogData *)xrltMalloc(sizeof(xrltLogData));
+
+    if (ret == NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "xrltLogCompile: Out of memory\n");
+        return NULL;
+    }
+
+    memset(ret, 0, sizeof(xrltLogData));
+
+    level = xmlGetProp(node, (const xmlChar *)"level");
+
+    if (level == NULL) {
+        ret->type = XRLT_INFO;
+    } else {
+        if (xmlStrEqual(level, (const xmlChar *)"warning")) {
+            ret->type = XRLT_WARNING;
+        } else if (xmlStrEqual(level, (const xmlChar *)"error")) {
+            ret->type = XRLT_ERROR;
+        } else if (xmlStrEqual(level, (const xmlChar *)"info")) {
+            ret->type = XRLT_INFO;
+        } else if (xmlStrEqual(level, (const xmlChar *)"debug")) {
+            ret->type = XRLT_DEBUG;
+        } else {
+            xrltTransformError(NULL, sheet, node,
+                               "Unknown 'level' attribute value\n");
+            xmlFree(level);
+            xrltLogFree(ret);
+            return NULL;
+        }
+
+        xmlFree(level);
+    }
+
+    ret->node = node;
+
+    return ret;
+}
+
+
+void
+xrltLogFree(void *comp)
+{
+    if (comp != NULL) {
+        xrltFree(comp);
+    }
+}
+
+
+xrltBool
+xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
+{
+    if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
+
+    xrltContextPrivate  *priv = (xrltContextPrivate *)ctx->_private;
+    xmlNodePtr           log;
+    xrltLogData         *logcomp = (xrltLogData *)comp;
+    xrltNodeDataPtr      n;
+
+    if (data == NULL) {
+        // On the first call, create log parent node.
+
+        if (logcomp->node->children == NULL) {
+            // Just skip empty log element.
+            return TRUE;
+        }
+
+        log = xmlNewChild(insert, NULL, (const xmlChar *)"log", NULL);
+
+        if (log == NULL) {
+            xrltTransformError(ctx, NULL, logcomp->node,
+                               "Failed to create log element\n");
+            return FALSE;
+        }
+
+        ASSERT_NODE_DATA(log, n);
+
+        // This node shouldn't appear in the response.
+        n->skip = TRUE;
+
+        // Mark node as not ready.
+        xrltNotReadyCounterIncrease(ctx, log);
+
+        // Schedule log content transforms.
+        if (!xrltElementTransform(ctx, logcomp->node->children, log)) {
+            return FALSE;
+        }
+
+        // Schedule the next call.
+        if (!xrltTransformCallbackQueuePush(&priv->tcb,
+                                            xrltLogTransform, comp, insert,
+                                            (void *)log))
+        {
+            xrltTransformError(ctx, NULL, logcomp->node,
+                               "Failed to push callback\n");
+            return FALSE;
+        }
+    } else {
+        log = (xmlNodePtr)data;
+
+        ASSERT_NODE_DATA(log, n);
+
+        if (n->count > 0) {
+            // The second call.
+            xrltNotReadyCounterDecrease(ctx, log);
+
+            if (n->count > 0) {
+                // Node is not ready. Schedule the third call of this function
+                // inside node's personal ready queue and return.
+                if (!xrltTransformCallbackQueuePush(&n->tcb,
+                                                    xrltLogTransform, comp,
+                                                    insert, (void *)log))
+                {
+                    xrltTransformError(ctx, NULL, logcomp->node,
+                                       "Failed to push callback\n");
+                    return FALSE;
+                }
+
+                return TRUE;
+            }
+        }
+
+        // Node is ready, sent it's contents out.
+        xrltString   msg;
+        xrltBool     pushed;
+
+        msg.data = (char *)xmlXPathCastNodeToString(log);
+
+        if (msg.data != NULL) {
+            msg.len = strlen(msg.data);
+
+            pushed = msg.len > 0
+                ?
+                xrltLogListPush(&ctx->log, logcomp->type, &msg)
+                :
+                TRUE;
+
+            xmlFree(msg.data);
+
+            if (!pushed) {
+                xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
+                                   "Failed to push log message\n");
+                return FALSE;
+            }
+
+            if (msg.len > 0) {
+                ctx->cur |= XRLT_STATUS_LOG;
+            }
+        }
+    }
+
     return TRUE;
 }
 
@@ -174,6 +374,7 @@ xrltFunctionFree(void *comp)
     }
 }
 
+
 xrltBool
 xrltFunctionTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                       void *data)
@@ -216,6 +417,7 @@ xrltApplyFree(void *comp)
         xrltFree(comp);
     }
 }
+
 
 xrltBool
 xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,

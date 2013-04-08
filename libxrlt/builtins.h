@@ -12,10 +12,10 @@ extern "C" {
 #endif
 
 
-#define XRLT_ELEMENT_ATTR_TEST    (const xmlChar *)"test"
-#define XRLT_ELEMENT_ATTR_NAME    (const xmlChar *)"name"
-#define XRLT_ELEMENT_PARAM        (const xmlChar *)"param"
-#define XRLT_ELEMENT_WITH_PARAM   (const xmlChar *)"with-param"
+typedef struct {
+    xrltLogType   type;
+    xmlNodePtr    node;
+} xrltLogData;
 
 
 typedef struct {
@@ -43,6 +43,16 @@ void
         xrltResponseFree           (void *comp);
 xrltBool
         xrltResponseTransform      (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
+
+void *
+        xrltLogCompile             (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
+void
+        xrltLogFree                (void *comp);
+xrltBool
+        xrltLogTransform           (xrltContextPtr ctx, void *comp,
                                     xmlNodePtr insert, void *data);
 
 

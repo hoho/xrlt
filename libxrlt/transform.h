@@ -15,6 +15,31 @@ extern "C" {
 #endif
 
 
+#define XRLT_ELEMENT_ATTR_TEST      (const xmlChar *)"test"
+#define XRLT_ELEMENT_ATTR_NAME      (const xmlChar *)"name"
+#define XRLT_ELEMENT_ATTR_SELECT    (const xmlChar *)"select"
+#define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
+#define XRLT_ELEMENT_WITH_PARAM     (const xmlChar *)"with-param"
+
+
+#define ASSERT_NODE_DATA(node, var) {                                         \
+    var = (xrltNodeDataPtr)node->_private;                                    \
+    if (var == NULL) {                                                        \
+        xrltTransformError(NULL, NULL, NULL, "Element has no data\n");        \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define ASSERT_NODE_DATA_GOTO(node, var) {                                    \
+    var = (xrltNodeDataPtr)node->_private;                                    \
+    if (var == NULL) {                                                        \
+        xrltTransformError(NULL, NULL, NULL, "Element has no data\n");        \
+        goto error;                                                           \
+    }                                                                         \
+}
+
+
 typedef enum {
     XRLT_PASS1 = 0,
     XRLT_PASS2,
@@ -54,34 +79,29 @@ struct _xrltElement {
 };
 
 
-typedef struct _xrltCompiledElement xrltCompiledElement;
-typedef xrltCompiledElement* xrltCompiledElementPtr;
-struct _xrltCompiledElement {
-    xrltTransformFunction   transform;
-    xrltFreeFunction        free;
-    void                   *data;
-};
-
-
-typedef struct _xrltTransformingElement xrltTransformingElement;
-typedef xrltTransformingElement* xrltTransformingElementPtr;
-struct _xrltTransformingElement {
-    int                          count; // How many unfinished subelements.
-    void                        *data;  // Some data allocated by transform
-                                        // function.
-    xrltFreeFunction             free;  // Free function to free *data.
-    xrltTransformCallbackQueue   tcb;   // Callbacks to be called when
-                                        // count == 0;
+typedef struct _xrltNodeData xrltNodeData;
+typedef xrltNodeData* xrltNodeDataPtr;
+struct _xrltNodeData {
+    xrltBool                     xrlt;       // Indicates XRLT element.
+    xrltBool                     response;   // Indicates that it's a node of
+                                             // the response doc.
+    xrltBool                     skip;       // Indicates that the node
+                                             // shouldn't go to response.
+    int                          count;      // Ready flag for response doc
+                                             // nodes, number of compile passes
+                                             // otherwise.
+    xrltTransformFunction        transform;  // Unused for response doc nodes.
+    xrltFreeFunction             free;       // Data free function.
+    void                        *data;
+    xrltTransformCallbackQueue   tcb;        // Callbacks to be called when
+                                             // count == 0, only for response
+                                             // doc nodes.
 };
 
 
 typedef struct {
     xrltCompilePass             pass;        // Indicates current compilation
                                              // pass.
-    xrltCompiledElementPtr      comp;        // Array of compiled elements.
-    size_t                      compLen;
-    size_t                      compSize;
-
     xmlNodePtr                  response;    // Node to begin transformation
                                              // from.
     xmlHashTablePtr             funcs;       // Functions of this requestsheet.
@@ -95,10 +115,6 @@ typedef struct {
     xmlDocPtr                    responseDoc;
     xrltTransformCallbackQueue   tcb;
 
-    xrltTransformingElementPtr   tr;
-    size_t                       trLen;
-    size_t                       trSize;
-
     xmlNodePtr                   subdoc;
     size_t                       subdocLen;
     size_t                       subdocSize;
@@ -107,15 +123,16 @@ typedef struct {
 
 void
         xrltUnregisterBuiltinElements   (void);
+xrltBool
+        xrltHasXRLTElement(xmlNodePtr node);
 
 
 static inline xrltBool
-xrltTransformCallbackQueuePush(xrltContextPtr ctx,
-                               xrltTransformCallbackQueue *tcb,
+xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
                                xmlNodePtr insert, void *data)
 {
-    if (ctx == NULL || tcb == NULL || func == NULL || insert == NULL) {
+    if (tcb == NULL || func == NULL || insert == NULL) {
         return FALSE;
     }
 
@@ -124,7 +141,7 @@ xrltTransformCallbackQueuePush(xrltContextPtr ctx,
     item = xrltMalloc(sizeof(xrltTransformCallback));
 
     if (item == NULL) {
-        xrltTransformError(ctx, NULL, NULL,
+        xrltTransformError(NULL, NULL, NULL,
                            "xrltTransformCallbackQueuePush: Out of memory\n");
         return FALSE;
     }
@@ -138,23 +155,21 @@ xrltTransformCallbackQueuePush(xrltContextPtr ctx,
 
     if (tcb->first == NULL) {
         tcb->first = item;
-        tcb->last = item;
     } else {
         tcb->last->next = item;
-        tcb->last = item;
     }
+    tcb->last = item;
 
     return TRUE;
 }
 
 
 static inline xrltBool
-xrltTransformCallbackQueueShift(xrltContextPtr ctx,
-                                xrltTransformCallbackQueue *tcb,
+xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
                                 xrltTransformFunction *func, void **comp,
                                 xmlNodePtr *insert, void **data)
 {
-    if (ctx == NULL || tcb == NULL) { return FALSE; }
+    if (tcb == NULL) { return FALSE; }
 
     xrltTransformCallbackPtr   item = tcb->first;
 
@@ -177,94 +192,77 @@ xrltTransformCallbackQueueShift(xrltContextPtr ctx,
 
 
 static inline void
-xrltTransformCallbackQueueClear(xrltContextPtr ctx,
-                                xrltTransformCallbackQueue *tcb)
+xrltTransformCallbackQueueClear(xrltTransformCallbackQueue *tcb)
 {
     xrltTransformFunction   func;
     void                   *comp;
     xmlNodePtr              insert;
     void                   *data;
 
-    while (xrltTransformCallbackQueueShift(ctx, tcb, &func, &comp, &insert,
-                                           &data));
+    while (xrltTransformCallbackQueueShift(tcb, &func, &comp, &insert, &data));
 }
 
 
-inline static size_t
-xrltCompiledElementPush(xrltRequestsheetPtr sheet,
-                        xrltTransformFunction transform, xrltFreeFunction free,
-                        void *data)
+inline static xrltBool
+xrltNotReadyCounterIncrease(xrltContextPtr ctx, xmlNodePtr node)
 {
-    xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
-    xrltCompiledElementPtr    arr;
+    if (ctx == NULL || node == NULL) { return FALSE; }
 
-    if (priv->compLen >= priv->compSize) {
-        if (priv->compLen == 0) {
-            // We keep 0 index for non XRLT nodes.
-            priv->compLen++;
+    xrltNodeDataPtr n;
+
+    while (node != NULL) {
+        n = (xrltNodeDataPtr)node->_private;
+
+        if (n != NULL) {
+            n->count++;
         }
 
-        arr = xrltRealloc(
-            priv->comp,
-            sizeof(xrltCompiledElement) * (priv->compSize + 20)
-        );
-
-        if (arr == NULL) {
-            xrltTransformError(NULL, sheet, NULL,
-                               "xrltCompiledElementPush: Out of memory\n");
-            return 0;
-        }
-
-        memset(arr + sizeof(xrltCompiledElement) * priv->compSize, 0,
-        sizeof(xrltCompiledElement) * 20);
-        priv->comp = arr;
-        priv->compSize += 20;
+        node = node->parent;
     }
 
-    priv->comp[priv->compLen].transform = transform;
-    priv->comp[priv->compLen].free = free;
-    priv->comp[priv->compLen].data = data;
-
-    return priv->compLen++;
+    return TRUE;
 }
 
 
-inline static size_t
-xrltTransformingElementPush(xrltContextPtr ctx,
-                            xrltFreeFunction free, void *data)
+inline static xrltBool
+xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
 {
-    if (ctx == NULL) { return 0; }
+    if (ctx == NULL || node == NULL) { return FALSE; }
 
-    xrltContextPrivate          *priv = (xrltContextPrivate *)ctx->_private;
-    xrltTransformingElementPtr   arr;
+    xrltNodeDataPtr n;
 
-    if (priv->trLen >= priv->trSize) {
-        if (priv->trLen == 0) {
-            // We start indexing from 1.
-            priv->trLen++;
+    while (node != NULL) {
+        n = (xrltNodeDataPtr)node->_private;
+
+        if (n != NULL) {
+            if (n->count == 0) {
+                xrltTransformError(ctx, NULL, NULL, "Can't decrease counter\n");
+                return FALSE;
+            }
+
+            n->count--;
+
+            if (n->count == 0) {
+                // Node has become ready. Call all the callbacks for this node.
+                xrltTransformFunction     func;
+                void                     *comp;
+                xmlNodePtr                insert;
+                void                     *data;
+
+                while (xrltTransformCallbackQueueShift(&n->tcb, &func, &comp,
+                                                       &insert, &data))
+                {
+                    if (!func(ctx, comp, insert, data)) {
+                        return FALSE;
+                    }
+                }
+            }
         }
 
-        arr = xrltRealloc(
-            priv->tr,
-            sizeof(xrltTransformingElement) * (priv->trSize + 20)
-        );
-
-        if (arr == NULL) {
-            xrltTransformError(ctx, NULL, NULL,
-                               "xrltTransformingElementPush: Out of memory\n");
-            return 0;
-        }
-
-        memset(arr + sizeof(xrltTransformingElement) * priv->trSize, 0,
-        sizeof(xrltTransformingElement) * 20);
-        priv->tr = arr;
-        priv->trSize += 20;
+        node = node->parent;
     }
 
-    priv->tr[priv->trLen].free = free;
-    priv->tr[priv->trLen].data = data;
-
-    return priv->trLen++;
+    return TRUE;
 }
 
 

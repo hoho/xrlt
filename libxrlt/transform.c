@@ -2,6 +2,7 @@
 
 #include "transform.h"
 #include "builtins.h"
+#include "include.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -53,6 +54,14 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
                                xrltResponseCompile, xrltResponseFree,
                                xrltResponseTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
+                               XRLT_COMPILE_PASS1, xrltIncludeCompile,
+                               xrltIncludeFree, xrltIncludeTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"log",
+                               XRLT_COMPILE_PASS1, xrltLogCompile, xrltLogFree,
+                               xrltLogTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"function",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1 |
@@ -150,8 +159,8 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     const xmlChar            *_pass;
     xrltBool                  toplevel;
     xrltElementPtr            elem;
-    void                     *comp, *prevcomp;
-    size_t                    num;
+    void                     *comp;
+    xrltNodeDataPtr           n;
 
     toplevel = first != NULL && first->parent != NULL &&
                xmlStrEqual(first->parent->name, XRLT_ROOT_NAME) &&
@@ -182,6 +191,8 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
             NULL;
         name = first->name;
 
+        ASSERT_NODE_DATA(first, n);
+
         elem = (xrltElementPtr)xmlHashLookup3(
             xrltRegisteredElements, name, _pass, ns
         );
@@ -189,13 +200,8 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
         printf("0000000 %s %d %s %p\n", (char *)first->name, pass, (char *)_pass, elem);
 
         if (elem == NULL) {
-            if (pass == XRLT_PASS1) {
-                // Set _private to zero on the first compile pass.
-                first->_private = NULL;
-            }
-
-            if (pass == XRLT_PASS2 && first->_private == NULL &&
-                first->ns != NULL && xmlStrEqual(first->ns->href, XRLT_NS))
+            if (pass == XRLT_PASS2 && !n->xrlt && first->ns != NULL &&
+                xmlStrEqual(first->ns->href, XRLT_NS))
             {
                 // Don't allow unknown elements from XRLT namespace.
                 xrltTransformError(NULL, sheet, first, "Unknown element\n");
@@ -208,47 +214,56 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
                 return FALSE;
             }
         } else {
-            num = pass == XRLT_PASS2 ? (size_t)first->_private : 0;
-            prevcomp = num > 0 ? priv->comp[num].data : NULL;
-
             if (elem->compile != NULL) {
-                comp = elem->compile(sheet, first, prevcomp);
+                comp = elem->compile(sheet, first, n->data);
 
                 if (comp == NULL) {
-                    if (num > 0) {
-                        // In case of error on the second compile pass, the
-                        // data from the first compile pass should be freed
-                        // by the compile function, so, we clean element's
-                        // data to avoid duplicate freeing.
-                        memset(priv->comp + num, 0,
-                               sizeof(xrltCompiledElement));
-                    }
                     return FALSE;
                 }
             } else {
                 comp = NULL;
             }
 
-            if (num == 0) {
-                num = xrltCompiledElementPush(
-                    sheet, elem->transform, elem->free, comp
-                );
-            } else {
-                priv->comp[num].transform = elem->transform;
-                priv->comp[num].free = elem->free;
-                priv->comp[num].data = comp;
-            }
-
-            if (num > 0) {
-                first->_private = (void *)num;
-            } else {
-                if (comp != NULL) { elem->free(comp); }
-                return FALSE;
-            }
-
+            n->transform = elem->transform;
+            n->free = elem->free;
+            n->data = comp;
+            n->xrlt = TRUE;
         }
 
         first = first->next;
+    }
+
+    return TRUE;
+}
+
+
+static xrltBool
+xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
+{
+    if (ctx == NULL || insert == NULL || data == NULL) { return FALSE; }
+
+    xrltContextPrivate  *priv = ctx->_private;
+    xmlNodePtr           node = (xmlNodePtr)data;
+    xmlNodePtr           newinsert;
+
+    newinsert = xmlDocCopyNode(node, priv->responseDoc, 2);
+
+    if (newinsert == NULL) {
+        xrltTransformError(ctx, NULL, node,
+                           "Failed to copy element to response doc\n");
+        return FALSE;
+    }
+
+    if (xmlAddChild(insert, newinsert) == NULL) {
+        xmlFreeNode(newinsert);
+
+        xrltTransformError(ctx, NULL, node,
+                           "Failed to add element to response doc\n");
+        return FALSE;
+    }
+
+    if (!xrltElementTransform(ctx, node->children, newinsert)) {
+        return FALSE;
     }
 
     return TRUE;
@@ -260,50 +275,44 @@ xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
 {
     if (ctx == NULL || insert == NULL) { return FALSE; }
 
-    xrltContextPrivate       *priv = ctx->_private;
-    xrltRequestsheetPrivate  *spriv;
-    xrltCompiledElementPtr    c;
-    size_t                    index;
-    xmlNodePtr                newinsert;
-
-    spriv = (xrltRequestsheetPrivate *)ctx->sheet->_private;
+    xrltContextPrivate  *priv = ctx->_private;
+    xrltNodeDataPtr      n;
+    xrltBool             ret;
 
     while (first != NULL) {
-        index = (size_t)first->_private;
+        ASSERT_NODE_DATA(first, n);
 
-        if (index == 0) {
-            newinsert = xmlDocCopyNode(first, priv->responseDoc, 2);
-
-            if (newinsert == NULL) {
-                xrltTransformError(ctx, NULL, first,
-                                   "Failed to copy element to response doc\n");
-                return FALSE;
-            }
-
-            if (xmlAddChild(insert, newinsert) == NULL) {
-                xmlFreeNode(newinsert);
-
-                xrltTransformError(ctx, NULL, first,
-                                   "Failed to add element to response doc\n");
-                return FALSE;
-            }
-
-            if (!xrltElementTransform(ctx, first->children, newinsert)) {
-                return FALSE;
-            }
+        if (!n->xrlt) {
+            ret = xrltTransformCallbackQueuePush(&priv->tcb, xrltCopyNonXRLT,
+                                                 NULL, insert, first);
         } else {
-            c = &spriv->comp[index];
+            ret = xrltTransformCallbackQueuePush(&priv->tcb, n->transform,
+                                                 n->data, insert, NULL);
+        }
 
-            if (!xrltTransformCallbackQueuePush(ctx, &priv->tcb, c->transform,
-                                                c->data, insert, NULL))
-            {
-                xrltTransformError(ctx, NULL, first,
-                                   "Failed to push callback\n");
-                return FALSE;
-            }
+        if (!ret) {
+            xrltTransformError(ctx, NULL, first, "Failed to push callback\n");
+            return FALSE;
         }
 
         first = first->next;
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltHasXRLTElement(xmlNodePtr node)
+{
+    while (node != NULL) {
+        if ((node->ns != NULL && xmlStrEqual(node->ns->href, XRLT_NS)) ||
+            (!xrltHasXRLTElement(node->children)))
+        {
+            return FALSE;
+        }
+
+        node = node->next;
     }
 
     return TRUE;

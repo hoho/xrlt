@@ -13,12 +13,36 @@
     </xrl:transformation>-->
 
     <xrl:response>
-        <a/>f<b/>
-        <xrl:if test="345" />
+        <zz>aaa</zz>
+        <xrl:log level="warning">test log</xrl:log>
+        <a/>f<b/>yoy&lt;&gt;oy<xrl:if test="345" />
         <xrl:if test="345" />
         <xrl:if test="456">
             <xrl:if test="567">a<br/>aa</xrl:if>
         </xrl:if>
+
+
+        <xrl:include proxy-headers="yes">
+            <xrl:href>/ololo</xrl:href>
+
+            <xrl:with-header name="Content-Type">text/plain</xrl:with-header>
+
+            <xrl:with-param name="test" type="querystring" select="'hello'" />
+            <xrl:with-param>
+                <xrl:type>GET</xrl:type>
+                <xrl:name>111</xrl:name>
+                <xrl:value>222</xrl:value>
+            </xrl:with-param>
+
+            <xrl:with-body>ololo</xrl:with-body>
+
+            <xrl:success>
+                <hello>world</hello>
+                <xrl:copy-of select="/" />
+            </xrl:success>
+
+            <xrl:failure select="404" />
+        </xrl:include>
 
         <!--<xrl:transform name="xslt-stringify" href="file.xsl">
             <xrl:transform name="xslt" href="file.xsl">
@@ -40,6 +64,9 @@
         </xrl:transform>-->
 
         <xrl:apply name="ololo" />
+
+        <xrl:log level="debug">test log2</xrl:log>
+        <xrl:log>test log3</xrl:log>
 
         <ololo/>
     </xrl:response>
