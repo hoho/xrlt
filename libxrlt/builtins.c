@@ -65,11 +65,34 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                "Failed to push callback\n");
             return FALSE;
         }
-
     } else {
         // On the second call, check if something is ready to be sent and send
         // it if it is.
+        xmlNodePtr   ret = (xmlNodePtr)data;
 
+        response = insert;
+
+        if (ret == (void *)0x1) {
+            // It's the second call.
+            ret = response->children;
+        }
+
+        while (ret != NULL && ret->_private == NULL) {
+            // Send response chunk out.
+            ret = ret->next;
+        }
+
+        if (ret != NULL) {
+            // We still have some data that's not ready, schedule the next call.
+            if (!xrltTransformCallbackQueuePush(ctx, &priv->tcb,
+                                                xrltResponseTransform, comp,
+                                                response, ret))
+            {
+                xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
+                                   "Failed to push callback\n");
+                return FALSE;
+            }
+        }
     }
     printf("tratra\n");
     return TRUE;

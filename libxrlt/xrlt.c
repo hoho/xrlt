@@ -174,6 +174,7 @@ void
 xrltContextFree(xrltContextPtr ctx)
 {
     xrltContextPrivate  *priv;
+    size_t               i;
 
     if (ctx == NULL) { return; }
 
@@ -186,6 +187,18 @@ xrltContextFree(xrltContextPtr ctx)
     if (priv->responseDoc != NULL) {
         xmlDocFormatDump(stdout, priv->responseDoc, 1);
         xmlFreeDoc(priv->responseDoc);
+    }
+
+    if (priv->tr != NULL) {
+        for (i = 1; i < priv->trLen; i++) {
+            if (priv->tr[i].data != NULL) {
+                priv->tr[i].free(priv->tr[i].data);
+            }
+
+            xrltTransformCallbackQueueClear(ctx, &priv->tr[i].tcb);
+        }
+
+        xrltFree(priv->tr);
     }
 
     xrltTransformCallbackQueueClear(ctx, &priv->tcb);
