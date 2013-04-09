@@ -15,6 +15,10 @@ extern "C" {
 typedef struct _xrltCompiledIncludeParam xrltCompiledIncludeParam;
 typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
+    xmlChar                      *test;
+    xmlNodePtr                    ntest;
+    xmlXPathCompExprPtr           xtest;
+
     xrltBool                      body;
     xmlNodePtr                    nbody;
     xmlXPathCompExprPtr           xbody;

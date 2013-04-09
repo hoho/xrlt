@@ -18,8 +18,18 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_TEST      (const xmlChar *)"test"
 #define XRLT_ELEMENT_ATTR_NAME      (const xmlChar *)"name"
 #define XRLT_ELEMENT_ATTR_SELECT    (const xmlChar *)"select"
+#define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
+#define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
+#define XRLT_ELEMENT_WITH_HEADER    (const xmlChar *)"with-header"
 #define XRLT_ELEMENT_WITH_PARAM     (const xmlChar *)"with-param"
+#define XRLT_ELEMENT_WITH_BODY      (const xmlChar *)"with-body"
+#define XRLT_ELEMENT_SUCCESS        (const xmlChar *)"success"
+#define XRLT_ELEMENT_FAILURE        (const xmlChar *)"failure"
+#define XRLT_ELEMENT_TEST           (const xmlChar *)"test"
+#define XRLT_ELEMENT_TYPE           (const xmlChar *)"type"
+#define XRLT_ELEMENT_NAME           (const xmlChar *)"name"
+#define XRLT_ELEMENT_VALUE          (const xmlChar *)"value"
 
 
 #define ASSERT_NODE_DATA(node, var) {                                         \

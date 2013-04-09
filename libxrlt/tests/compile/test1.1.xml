@@ -25,10 +25,12 @@
         <xrl:include proxy-headers="yes">
             <xrl:href>/ololo</xrl:href>
 
-            <xrl:with-header name="Content-Type">text/plain</xrl:with-header>
+            <xrl:with-header name="Content-Type">plain/text</xrl:with-header>
+            <xrl:with-header test="true()" name="Content-Type">plain/text</xrl:with-header>
 
             <xrl:with-param name="test" type="querystring" select="'hello'" />
             <xrl:with-param>
+                <xrl:test>true</xrl:test>
                 <xrl:type>GET</xrl:type>
                 <xrl:name>111</xrl:name>
                 <xrl:value>222</xrl:value>
