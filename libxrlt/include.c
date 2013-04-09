@@ -3,9 +3,9 @@
 
 
 static inline xrltBool
-xrltIncludeFillVariables(xrltRequestsheetPtr sheet, xmlNodePtr node,
-                         xrltBool tostring,  xmlChar **val, xmlNodePtr *nval,
-                         xmlXPathCompExprPtr *xval)
+xrltIncludeStrNodeXPath(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                        xrltBool tostring,  xmlChar **val, xmlNodePtr *nval,
+                        xmlXPathCompExprPtr *xval)
 {
     xmlChar              *value;
     xmlXPathCompExprPtr   expr;
@@ -203,8 +203,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
     if (ntype != NULL) {
         // The same with previous one, but we have an <xrl:type> node.
-        if (!xrltIncludeFillVariables(sheet, ntype, TRUE, &type, &ret->nbody,
-                                      &ret->xbody))
+        if (!xrltIncludeStrNodeXPath(sheet, ntype, TRUE, &type, &ret->nbody,
+                                     &ret->xbody))
         {
             goto error;
         }
@@ -226,8 +226,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (nname != NULL) {
-        if (!xrltIncludeFillVariables(sheet, nname, TRUE, &ret->name,
-                                      &ret->nname, &ret->xname))
+        if (!xrltIncludeStrNodeXPath(sheet, nname, TRUE, &ret->name,
+                                     &ret->nname, &ret->xname))
         {
             goto error;
         }
@@ -250,8 +250,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (nvalue != NULL) {
-        if (!xrltIncludeFillVariables(sheet, nvalue, TRUE, &ret->value,
-                                      &ret->nvalue, &ret->xvalue))
+        if (!xrltIncludeStrNodeXPath(sheet, nvalue, TRUE, &ret->value,
+                                     &ret->nvalue, &ret->xvalue))
         {
             goto error;
         }
@@ -275,8 +275,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (ntest != NULL) {
-        if (!xrltIncludeFillVariables(sheet, ntest, TRUE, &ret->test,
-                                      &ret->ntest, &ret->xtest))
+        if (!xrltIncludeStrNodeXPath(sheet, ntest, TRUE, &ret->test,
+                                     &ret->ntest, &ret->xtest))
         {
             goto error;
         }
@@ -340,8 +340,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         if (xmlStrEqual(tmp->name, XRLT_ELEMENT_HREF)) {
-            if (!xrltIncludeFillVariables(sheet, tmp, TRUE, &ret->href,
-                                          &ret->nhref, &ret->xhref))
+            if (!xrltIncludeStrNodeXPath(sheet, tmp, TRUE, &ret->href,
+                                         &ret->nhref, &ret->xhref))
             {
                 goto error;
             }
@@ -372,20 +372,20 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
             ret->lparam = param;
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_BODY)) {
-            if (!xrltIncludeFillVariables(sheet, tmp, TRUE, &ret->body,
-                                          &ret->nbody, &ret->xbody))
+            if (!xrltIncludeStrNodeXPath(sheet, tmp, TRUE, &ret->body,
+                                         &ret->nbody, &ret->xbody))
             {
                 goto error;
             }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_SUCCESS)) {
-            if (!xrltIncludeFillVariables(sheet, tmp, FALSE, NULL,
-                                          &ret->nsuccess, &ret->xsuccess))
+            if (!xrltIncludeStrNodeXPath(sheet, tmp, FALSE, NULL,
+                                         &ret->nsuccess, &ret->xsuccess))
             {
                 goto error;
             }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_FAILURE)) {
-            if (!xrltIncludeFillVariables(sheet, tmp, FALSE, NULL,
-                                          &ret->nfailure, &ret->xfailure))
+            if (!xrltIncludeStrNodeXPath(sheet, tmp, FALSE, NULL,
+                                         &ret->nfailure, &ret->xfailure))
             {
                 goto error;
             }
