@@ -15,7 +15,7 @@ extern "C" {
 typedef struct _xrltCompiledIncludeParam xrltCompiledIncludeParam;
 typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
-    xmlChar                      *test;
+    xrltBool                      test;
     xmlNodePtr                    ntest;
     xmlXPathCompExprPtr           xtest;
 
@@ -44,9 +44,11 @@ typedef struct {
 
     xrltCompiledIncludeParamPtr   fheader;
     xrltCompiledIncludeParamPtr   lheader;
+    size_t                        headerCount;
 
     xrltCompiledIncludeParamPtr   fparam;
     xrltCompiledIncludeParamPtr   lparam;
+    size_t                        paramCount;
 
     xmlChar                      *body;
     xmlNodePtr                    nbody;
@@ -58,6 +60,25 @@ typedef struct {
     xmlNodePtr                    nfailure;
     xmlXPathCompExprPtr           xfailure;
 } xrltCompiledIncludeData;
+
+
+typedef struct {
+    xrltBool   body;
+    xrltBool   test;
+    xmlChar   *name;
+    xmlChar   *value;
+} xrltTransformingParam;
+
+
+typedef struct {
+    xmlNodePtr              node;
+    xmlChar                *href;
+    xrltTransformingParam  *header;
+    size_t                  headerCount;
+    xrltTransformingParam  *param;
+    size_t                  paramCount;
+    xmlChar                *body;
+} xrltTransformingIncludeData;
 
 
 void *

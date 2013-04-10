@@ -5,16 +5,8 @@
 void *
 xrltResponseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
-
-    if (priv->response == NULL) {
-        priv->response = node;
-
-        if (node->children != NULL &&
-            !xrltElementCompile(sheet, node->children))
-        {
-            return NULL;
-        }
+    if (sheet->response == NULL) {
+        sheet->response = node;
 
         return node;
     } else {
@@ -38,13 +30,12 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 {
     if (ctx == NULL || insert == NULL) { return FALSE; }
 
-    xrltContextPrivate  *priv = (xrltContextPrivate *)ctx->_private;
     xmlNodePtr           response;
 
     if (data == NULL) {
         // On the first call, create response parent node and schedule next
         // call.
-        response = xmlNewDocNode(priv->responseDoc, NULL,
+        response = xmlNewDocNode(ctx->responseDoc, NULL,
                                  (const xmlChar *)"response", NULL);
 
         if (response == NULL) {
@@ -53,7 +44,9 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             return FALSE;
         }
 
-        xmlDocSetRootElement(priv->responseDoc, response);
+        xmlDocSetRootElement(ctx->responseDoc, response);
+
+        ctx->response = response;
 
         if (!xrltElementTransform(ctx, ((xmlNodePtr)comp)->children, response))
         {
@@ -61,76 +54,61 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         }
 
         // Schedule the next call.
-        if (!xrltTransformCallbackQueuePush(&priv->tcb,
-                                            xrltResponseTransform, comp,
-                                            response, (void *)0x1))
-        {
-            xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
-                               "Failed to push callback\n");
-            return FALSE;
-        }
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseTransform, comp,
+                          insert, (void *)0x1);
     } else {
         // On the second call, check if something is ready to be sent and send
         // it if it is.
-        xmlNodePtr        ret = (xmlNodePtr)data;
         xrltNodeDataPtr   n;
         xrltString        chunk;
         xrltBool          pushed;
 
-        response = insert;
+        response = ctx->response;
 
-        if (ret == (void *)0x1) {
+        if (data == (void *)0x1) {
             // It's the second call.
-            ret = response->children;
+            ctx->responseCur = response->children;
         }
 
-        while (ret != NULL) {
-            ASSERT_NODE_DATA(ret, n);
+        while (ctx->responseCur != NULL) {
+            ASSERT_NODE_DATA(ctx->responseCur, n);
 
             if (n->count > 0) {
                 break;
             }
 
-            if (!n->skip) {
-                // Send response chunk out.
-                chunk.data = (char *)xmlXPathCastNodeToString(ret);
+            // Send response chunk out.
+            chunk.data = (char *)xmlXPathCastNodeToString(ctx->responseCur);
 
-                if (chunk.data != NULL) {
-                    chunk.len = strlen(chunk.data);
+            if (chunk.data != NULL) {
+                chunk.len = strlen(chunk.data);
 
-                    pushed = chunk.len > 0
-                        ?
-                        xrltChunkListPush(&ctx->chunk, &chunk)
-                        :
-                        TRUE;
+                pushed = chunk.len > 0
+                    ?
+                    xrltChunkListPush(&ctx->chunk, &chunk)
+                    :
+                    TRUE;
 
-                    xmlFree(chunk.data);
+                xmlFree(chunk.data);
 
-                    if (!pushed) {
-                        xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
-                                           "Failed to push response chunk\n");
-                        return FALSE;
-                    }
+                if (!pushed) {
+                    xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
+                                       "Failed to push response chunk\n");
+                    return FALSE;
+                }
 
-                    if (chunk.len > 0) {
-                        ctx->cur |= XRLT_STATUS_CHUNK;
-                    }
+                if (chunk.len > 0) {
+                    ctx->cur |= XRLT_STATUS_CHUNK;
                 }
             }
 
-            ret = ret->next;
+            ctx->responseCur = ctx->responseCur->next;
         }
 
-        if (ret != NULL) {
+        if (ctx->responseCur != NULL) {
             // We still have some data that's not ready, schedule the next call.
-            if (!xrltTransformCallbackQueuePush(&priv->tcb,
-                                                xrltResponseTransform, comp,
-                                                response, ret))
-            {
-                xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
-                                   "Failed to push callback\n");
-                return FALSE;
-            }
+            SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseTransform, comp,
+                              response, (void *)0x2);
         }
     }
 
@@ -198,7 +176,6 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 {
     if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
 
-    xrltContextPrivate  *priv = (xrltContextPrivate *)ctx->_private;
     xmlNodePtr           log;
     xrltLogData         *logcomp = (xrltLogData *)comp;
     xrltNodeDataPtr      n;
@@ -221,9 +198,6 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 
         ASSERT_NODE_DATA(log, n);
 
-        // This node shouldn't appear in the response.
-        n->skip = TRUE;
-
         // Mark node as not ready.
         xrltNotReadyCounterIncrease(ctx, log);
 
@@ -233,14 +207,8 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
         }
 
         // Schedule the next call.
-        if (!xrltTransformCallbackQueuePush(&priv->tcb,
-                                            xrltLogTransform, comp, insert,
-                                            (void *)log))
-        {
-            xrltTransformError(ctx, NULL, logcomp->node,
-                               "Failed to push callback\n");
-            return FALSE;
-        }
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltLogTransform, comp, insert,
+                          (void *)log);
     } else {
         log = (xmlNodePtr)data;
 
@@ -253,14 +221,8 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
             if (n->count > 0) {
                 // Node is not ready. Schedule the third call of this function
                 // inside node's personal ready queue and return.
-                if (!xrltTransformCallbackQueuePush(&n->tcb,
-                                                    xrltLogTransform, comp,
-                                                    insert, (void *)log))
-                {
-                    xrltTransformError(ctx, NULL, logcomp->node,
-                                       "Failed to push callback\n");
-                    return FALSE;
-                }
+                SCHEDULE_CALLBACK(ctx, &n->tcb,xrltLogTransform, comp,
+                                  insert, (void *)log);
 
                 return TRUE;
             }
@@ -271,6 +233,8 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
         xrltBool     pushed;
 
         msg.data = (char *)xmlXPathCastNodeToString(log);
+
+        REMOVE_RESPONSE_NODE(ctx, log);
 
         if (msg.data != NULL) {
             msg.len = strlen(msg.data);
@@ -302,7 +266,6 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 void *
 xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
     xrltFunctionData         *ret = NULL;
 
     if (prevcomp == NULL) {
@@ -317,10 +280,10 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
         memset(ret, 0, sizeof(xrltFunctionData));
 
-        if (priv->funcs == NULL) {
-            priv->funcs = xmlHashCreate(20);
+        if (sheet->funcs == NULL) {
+            sheet->funcs = xmlHashCreate(20);
 
-            if (priv->funcs == NULL) {
+            if (sheet->funcs == NULL) {
                 xrltTransformError(NULL, sheet, node,
                                    "Functions hash creation failed\n");
                 goto error;
@@ -334,7 +297,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             goto error;
         }
 
-        if (xmlHashAddEntry3(priv->funcs, ret->name, NULL, NULL, ret)) {
+        if (xmlHashAddEntry3(sheet->funcs, ret->name, NULL, NULL, ret)) {
             // Yeah, it could be out of memory error, but it's a duplicate name
             // most likely.
             xrltTransformError(NULL, sheet, node, "Duplicate function name\n");
@@ -345,12 +308,6 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     } else {
         // Second compile pass.
         ret = prevcomp;
-    }
-
-    if (ret->children != NULL &&
-        !xrltElementCompile(sheet, ret->children))
-    {
-        goto error;
     }
 
     return ret;
@@ -386,7 +343,6 @@ xrltFunctionTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 void *
 xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltRequestsheetPrivate  *priv = (xrltRequestsheetPrivate *)sheet->_private;
     xrltApplyData            *ret = NULL;
 
     if (prevcomp == NULL) {
@@ -456,12 +412,6 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     if (ret->test == NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Failed to compile expression\n");
-        goto error;
-    }
-
-    if (node->children != NULL &&
-        !xrltElementCompile(sheet, node->children))
-    {
         goto error;
     }
 

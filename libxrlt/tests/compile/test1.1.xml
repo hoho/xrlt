@@ -14,7 +14,7 @@
 
     <xrl:response>
         <zz>aaa</zz>
-        <xrl:log level="warning">test log</xrl:log>
+        <!--<xrl:log level="warning">test log</xrl:log>-->
         <a/>f<b/>yoy&lt;&gt;oy<xrl:if test="345" />
         <xrl:if test="345" />
         <xrl:if test="456">
@@ -23,7 +23,7 @@
 
 
         <xrl:include proxy-headers="yes">
-            <xrl:href>/ololo</xrl:href>
+            <xrl:href><xrl:log>llll</xrl:log>/ololo</xrl:href>
 
             <xrl:with-header name="Content-Type">plain/text</xrl:with-header>
             <xrl:with-header test="true()" name="Content-Type">plain/text</xrl:with-header>
@@ -40,7 +40,7 @@
 
             <xrl:success>
                 <hello>world</hello>
-                <xrl:copy-of select="/" />
+                <!--<xrl:copy-of select="/" />-->
             </xrl:success>
 
             <xrl:failure select="404" />
@@ -67,8 +67,8 @@
 
         <xrl:apply name="ololo" />
 
-        <xrl:log level="debug">test log2</xrl:log>
-        <xrl:log>test log3</xrl:log>
+        <!--<xrl:log level="debug">test log2</xrl:log>
+        <xrl:log>test log3</xrl:log>-->
 
         <ololo/>
     </xrl:response>

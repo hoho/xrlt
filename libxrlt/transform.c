@@ -152,8 +152,7 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     if (sheet == NULL || first == NULL) { return FALSE; }
     if (!xrltRegisterBuiltinElementsIfUnregistered()) { return FALSE; }
 
-    xrltRequestsheetPrivate  *priv = sheet->_private;
-    xrltCompilePass           pass = priv->pass;
+    xrltCompilePass           pass = sheet->pass;
     const xmlChar            *ns;
     const xmlChar            *name;
     const xmlChar            *_pass;
@@ -184,6 +183,12 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
     }
 
     while (first != NULL) {
+        if (first->children != NULL &&
+            !xrltElementCompile(sheet, first->children))
+        {
+            return FALSE;
+        }
+
         ns = first->ns != NULL && first->ns->href != NULL
             ?
             first->ns->href
@@ -205,12 +210,6 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
             {
                 // Don't allow unknown elements from XRLT namespace.
                 xrltTransformError(NULL, sheet, first, "Unknown element\n");
-                return FALSE;
-            }
-
-            if (first->children != NULL &&
-                !xrltElementCompile(sheet, first->children))
-            {
                 return FALSE;
             }
         } else {
@@ -242,11 +241,10 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 {
     if (ctx == NULL || insert == NULL || data == NULL) { return FALSE; }
 
-    xrltContextPrivate  *priv = ctx->_private;
     xmlNodePtr           node = (xmlNodePtr)data;
     xmlNodePtr           newinsert;
 
-    newinsert = xmlDocCopyNode(node, priv->responseDoc, 2);
+    newinsert = xmlDocCopyNode(node, ctx->responseDoc, 2);
 
     if (newinsert == NULL) {
         xrltTransformError(ctx, NULL, node,
@@ -275,7 +273,6 @@ xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
 {
     if (ctx == NULL || insert == NULL) { return FALSE; }
 
-    xrltContextPrivate  *priv = ctx->_private;
     xrltNodeDataPtr      n;
     xrltBool             ret;
 
@@ -283,10 +280,10 @@ xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
         ASSERT_NODE_DATA(first, n);
 
         if (!n->xrlt) {
-            ret = xrltTransformCallbackQueuePush(&priv->tcb, xrltCopyNonXRLT,
+            ret = xrltTransformCallbackQueuePush(&ctx->tcb, xrltCopyNonXRLT,
                                                  NULL, insert, first);
         } else {
-            ret = xrltTransformCallbackQueuePush(&priv->tcb, n->transform,
+            ret = xrltTransformCallbackQueuePush(&ctx->tcb, n->transform,
                                                  n->data, insert, NULL);
         }
 
@@ -307,13 +304,13 @@ xrltHasXRLTElement(xmlNodePtr node)
 {
     while (node != NULL) {
         if ((node->ns != NULL && xmlStrEqual(node->ns->href, XRLT_NS)) ||
-            (!xrltHasXRLTElement(node->children)))
+            (xrltHasXRLTElement(node->children)))
         {
-            return FALSE;
+            return TRUE;
         }
 
         node = node->next;
     }
 
-    return TRUE;
+    return FALSE;
 }

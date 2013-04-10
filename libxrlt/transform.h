@@ -50,33 +50,21 @@ extern "C" {
 }
 
 
-typedef enum {
-    XRLT_PASS1 = 0,
-    XRLT_PASS2,
-    XRLT_COMPILED
-} xrltCompilePass;
+#define REMOVE_RESPONSE_NODE(ctx, node) {                                     \
+    if (ctx->responseCur == node) {                                           \
+        ctx->responseCur = ctx->responseCur->next;                            \
+    }                                                                         \
+    xmlUnlinkNode(node);                                                      \
+    xmlFreeNode(node);                                                        \
+}
 
 
-typedef struct _xrltTransformCallback xrltTransformCallback;
-typedef xrltTransformCallback* xrltTransformCallbackPtr;
-struct _xrltTransformCallback {
-    xrltTransformFunction      func;    // Function to call.
-    void                      *comp;    // Compiled element's data.
-    xmlNodePtr                 insert;  // Place to insert the result.
-    void                      *data;    // Data allocated by transform
-                                        // function. These datas are stored in
-                                        // the transformation context. They are
-                                        // freed by free function of
-                                        // xrltTransformingElement, when the
-                                        // context is being freed.
-    xrltTransformCallbackPtr   next;    // Next callback in this queue.
-};
-
-
-typedef struct {
-    xrltTransformCallbackPtr   first;
-    xrltTransformCallbackPtr   last;
-} xrltTransformCallbackQueue;
+#define SCHEDULE_CALLBACK(ctx, tcb, func, comp, insert, data) {               \
+    if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert, data)) {     \
+        xrltTransformError(ctx, NULL, NULL, "Failed to push callback\n");     \
+        return FALSE;                                                         \
+    }                                                                         \
+}
 
 
 typedef struct _xrltElement xrltElement;
@@ -95,8 +83,6 @@ struct _xrltNodeData {
     xrltBool                     xrlt;       // Indicates XRLT element.
     xrltBool                     response;   // Indicates that it's a node of
                                              // the response doc.
-    xrltBool                     skip;       // Indicates that the node
-                                             // shouldn't go to response.
     int                          count;      // Ready flag for response doc
                                              // nodes, number of compile passes
                                              // otherwise.
@@ -107,28 +93,6 @@ struct _xrltNodeData {
                                              // count == 0, only for response
                                              // doc nodes.
 };
-
-
-typedef struct {
-    xrltCompilePass             pass;        // Indicates current compilation
-                                             // pass.
-    xmlNodePtr                  response;    // Node to begin transformation
-                                             // from.
-    xmlHashTablePtr             funcs;       // Functions of this requestsheet.
-    xmlHashTablePtr             transforms;  // Transformations of this
-                                             // requestsheet.
-} xrltRequestsheetPrivate;
-
-
-typedef struct {
-    xrltHeaderList               header;
-    xmlDocPtr                    responseDoc;
-    xrltTransformCallbackQueue   tcb;
-
-    xmlNodePtr                   subdoc;
-    size_t                       subdocLen;
-    size_t                       subdocSize;
-} xrltContextPrivate;
 
 
 void
@@ -221,11 +185,9 @@ xrltNotReadyCounterIncrease(xrltContextPtr ctx, xmlNodePtr node)
     xrltNodeDataPtr n;
 
     while (node != NULL) {
-        n = (xrltNodeDataPtr)node->_private;
+        ASSERT_NODE_DATA(node, n);
 
-        if (n != NULL) {
-            n->count++;
-        }
+        n->count++;
 
         node = node->parent;
     }
@@ -242,30 +204,26 @@ xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
     xrltNodeDataPtr n;
 
     while (node != NULL) {
-        n = (xrltNodeDataPtr)node->_private;
+        ASSERT_NODE_DATA(node, n);
 
-        if (n != NULL) {
-            if (n->count == 0) {
-                xrltTransformError(ctx, NULL, NULL, "Can't decrease counter\n");
-                return FALSE;
-            }
+        if (n->count == 0) {
+            xrltTransformError(ctx, NULL, NULL, "Can't decrease counter\n");
+            return FALSE;
+        }
 
-            n->count--;
+        n->count--;
 
-            if (n->count == 0) {
-                // Node has become ready. Call all the callbacks for this node.
-                xrltTransformFunction     func;
-                void                     *comp;
-                xmlNodePtr                insert;
-                void                     *data;
+        if (n->count == 0) {
+            // Node has become ready. Call all the callbacks for this node.
+            xrltTransformFunction     func;
+            void                     *comp;
+            xmlNodePtr                insert;
+            void                     *data;
 
-                while (xrltTransformCallbackQueueShift(&n->tcb, &func, &comp,
-                                                       &insert, &data))
-                {
-                    if (!func(ctx, comp, insert, data)) {
-                        return FALSE;
-                    }
-                }
+            while (xrltTransformCallbackQueueShift(&n->tcb, &func, &comp,
+                                                   &insert, &data))
+            {
+                SCHEDULE_CALLBACK(ctx, &ctx->tcb, func, comp, insert, data);
             }
         }
 

@@ -45,29 +45,27 @@ typedef struct {
 } xrltTransformValue;
 
 
-typedef struct _xrltRequestsheet xrltRequestsheet;
-typedef xrltRequestsheet* xrltRequestsheetPtr;
-struct _xrltRequestsheet {
-    xmlDocPtr   doc;
-    void       *_private;
-};
+typedef enum {
+    XRLT_PASS1 = 0,
+    XRLT_PASS2,
+    XRLT_COMPILED
+} xrltCompilePass;
 
 
-typedef struct _xrltContext xrltContext;
-typedef xrltContext* xrltContextPtr;
-struct _xrltContext {
-    xrltRequestsheetPtr   sheet;
+typedef struct _xrltTransformCallback   xrltTransformCallback;
+typedef xrltTransformCallback*          xrltTransformCallbackPtr;
 
-    xrltBool              error;
-    int                   cur;
+typedef struct _xrltRequestsheet        xrltRequestsheet;
+typedef xrltRequestsheet*               xrltRequestsheetPtr;
 
-    xrltHeaderList        header;
-    xrltSubrequestList    sr;
-    xrltChunkList         chunk;
-    xrltLogList           log;
+typedef struct _xrltContext             xrltContext;
+typedef xrltContext*                    xrltContextPtr;
 
-    void                 *_private;
-};
+
+typedef struct {
+    xrltTransformCallbackPtr   first;
+    xrltTransformCallbackPtr   last;
+} xrltTransformCallbackQueue;
 
 
 typedef void *   (*xrltCompileFunction)     (xrltRequestsheetPtr sheet,
@@ -80,6 +78,51 @@ typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
 typedef xrltBool (*xrltInputCallback)       (xrltContextPtr ctx,
                                              xrltTransformValue *value,
                                              void *data);
+
+
+struct _xrltRequestsheet {
+    xmlDocPtr   doc;
+
+    xrltCompilePass   pass;        // Indicates current compilation
+                                   // pass.
+    xmlNodePtr        response;    // Node to begin transformation
+                                   // from.
+    xmlHashTablePtr   funcs;       // Functions of this requestsheet.
+    xmlHashTablePtr   transforms;  // Transformations of this requestsheet.
+};
+
+
+struct _xrltContext {
+    xrltRequestsheetPtr          sheet;
+
+    xrltBool                     error;
+    int                          cur;      // Current combination of
+                                           // XRLT_STATUS_*
+    xrltHeaderList               header;   // Response headers.
+    xrltSubrequestList           sr;       // Subrequests to make.
+    xrltChunkList                chunk;    // Response chunk.
+    xrltLogList                  log;
+
+    xrltHeaderList               inheader;
+    xmlDocPtr                    responseDoc;
+    xmlNodePtr                   response;
+    xmlNodePtr                   responseCur;
+    xrltTransformCallbackQueue   tcb;
+};
+
+
+struct _xrltTransformCallback {
+    xrltTransformFunction      func;    // Function to call.
+    void                      *comp;    // Compiled element's data.
+    xmlNodePtr                 insert;  // Place to insert the result.
+    void                      *data;    // Data allocated by transform
+                                        // function. These datas are stored in
+                                        // the transformation context. They are
+                                        // freed by free function of
+                                        // xrltTransformingElement, when the
+                                        // context is being freed.
+    xrltTransformCallbackPtr   next;    // Next callback in this queue.
+};
 
 
 XRLTPUBFUN xrltBool XRLTCALL
