@@ -3,7 +3,6 @@
 
 
 #include <libxml/tree.h>
-#include <libxml/xpath.h>
 #include <xrlt.h>
 
 
@@ -27,9 +26,9 @@ struct _xrltCompiledIncludeParam {
     xmlNodePtr                    nname;
     xmlXPathCompExprPtr           xname;
 
-    xmlChar                      *value;
-    xmlNodePtr                    nvalue;
-    xmlXPathCompExprPtr           xvalue;
+    xmlChar                      *val;
+    xmlNodePtr                    nval;
+    xmlXPathCompExprPtr           xval;
 
     xrltCompiledIncludeParamPtr   next;
 };
@@ -66,19 +65,27 @@ typedef struct {
     xrltBool   body;
     xrltBool   test;
     xmlChar   *name;
-    xmlChar   *value;
+    xmlChar   *val;
 } xrltTransformingParam;
 
 
+typedef enum {
+    XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN = 0,
+    XRLT_INCLUDE_TRANSFORM_PARAMS_END,
+    XRLT_INCLUDE_TRANSFORM_RESULT
+} xrltIncludeTransformStage;
+
 typedef struct {
-    xmlNodePtr              node;
-    xmlChar                *href;
-    xrltTransformingParam  *header;
-    size_t                  headerCount;
-    xrltTransformingParam  *param;
-    size_t                  paramCount;
-    xmlChar                *body;
-} xrltTransformingIncludeData;
+    xmlNodePtr                  node;
+    xmlNodePtr                  pnode;
+    xrltIncludeTransformStage   stage;
+    xmlChar                    *href;
+    xrltTransformingParam      *header;
+    size_t                      headerCount;
+    xrltTransformingParam      *param;
+    size_t                      paramCount;
+    xmlChar                    *body;
+} xrltIncludeTransformingData;
 
 
 void *

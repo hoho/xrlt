@@ -80,7 +80,7 @@ xrltTestFailurePush(char *msg)
 {
     xrltTestFailurePtr   f;
 
-    f = malloc(sizeof(xrltTestFailure));
+    f = (xrltTestFailurePtr)malloc(sizeof(xrltTestFailure));
     f->msg = strdup(msg);
     f->next = NULL;
 

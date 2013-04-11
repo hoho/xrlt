@@ -46,16 +46,16 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         xmlDocSetRootElement(ctx->responseDoc, response);
 
-        ctx->response = response;
+        NEW_CHILD(ctx, ctx->response, response, "response");
+        NEW_CHILD(ctx, ctx->var, response, "var");
+        NEW_CHILD(ctx, ctx->xpathDefault, response, "x");
 
-        if (!xrltElementTransform(ctx, ((xmlNodePtr)comp)->children, response))
-        {
-            return FALSE;
-        }
+        TRANSFORM_SUBTREE(ctx, ((xmlNodePtr)comp)->children, ctx->response);
 
         // Schedule the next call.
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseTransform, comp,
-                          insert, (void *)0x1);
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltResponseTransform, comp, insert, (void *)0x1
+        );
     } else {
         // On the second call, check if something is ready to be sent and send
         // it if it is.
@@ -122,15 +122,7 @@ xrltLogCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltLogData  *ret = NULL;
     xmlChar      *level = NULL;
 
-    ret = (xrltLogData *)xrltMalloc(sizeof(xrltLogData));
-
-    if (ret == NULL) {
-        xrltTransformError(NULL, sheet, node,
-                           "xrltLogCompile: Out of memory\n");
-        return NULL;
-    }
-
-    memset(ret, 0, sizeof(xrltLogData));
+    XRLT_MALLOC(ret, xrltLogData*, sizeof(xrltLogData), "xrltLogCompile", NULL);
 
     level = xmlGetProp(node, (const xmlChar *)"level");
 
@@ -196,33 +188,29 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
             return FALSE;
         }
 
-        ASSERT_NODE_DATA(log, n);
-
-        // Mark node as not ready.
-        xrltNotReadyCounterIncrease(ctx, log);
-
         // Schedule log content transforms.
-        if (!xrltElementTransform(ctx, logcomp->node->children, log)) {
-            return FALSE;
-        }
+        TRANSFORM_SUBTREE(ctx, logcomp->node->children, log);
+
+        COUNTER_INCREASE(ctx, log);
 
         // Schedule the next call.
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltLogTransform, comp, insert,
-                          (void *)log);
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltLogTransform, comp, insert, (void *)log
+        );
     } else {
         log = (xmlNodePtr)data;
 
         ASSERT_NODE_DATA(log, n);
 
         if (n->count > 0) {
-            // The second call.
-            xrltNotReadyCounterDecrease(ctx, log);
+            COUNTER_DECREASE(ctx, log);
 
             if (n->count > 0) {
                 // Node is not ready. Schedule the third call of this function
                 // inside node's personal ready queue and return.
-                SCHEDULE_CALLBACK(ctx, &n->tcb,xrltLogTransform, comp,
-                                  insert, (void *)log);
+                SCHEDULE_CALLBACK(
+                    ctx, &n->tcb, xrltLogTransform, comp, insert, (void *)log
+                );
 
                 return TRUE;
             }
@@ -266,19 +254,12 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 void *
 xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltFunctionData         *ret = NULL;
+    xrltFunctionData  *ret = NULL;
 
     if (prevcomp == NULL) {
         // First compile pass.
-        ret = xrltMalloc(sizeof(xrltFunctionData));
-
-        if (ret == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "xrltFunctionCompile: Out of memory\n");
-            return NULL;
-        }
-
-        memset(ret, 0, sizeof(xrltFunctionData));
+        XRLT_MALLOC(ret, xrltFunctionData*, sizeof(xrltFunctionData),
+                    "xrltFunctionCompile", NULL);
 
         if (sheet->funcs == NULL) {
             sheet->funcs = xmlHashCreate(20);
@@ -307,7 +288,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         ret->children = node->children;
     } else {
         // Second compile pass.
-        ret = prevcomp;
+        ret = (xrltFunctionData *)prevcomp;
     }
 
     return ret;
@@ -343,23 +324,15 @@ xrltFunctionTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 void *
 xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltApplyData            *ret = NULL;
+    xrltApplyData  *ret = NULL;
 
     if (prevcomp == NULL) {
         // First compile pass.
-        ret = xrltMalloc(sizeof(xrltApplyData));
-
-        if (ret == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "xrltApplyCompile: Out of memory\n");
-            return NULL;
-        }
-
-        memset(ret, 0, sizeof(xrltApplyData));
-
+        XRLT_MALLOC(ret, xrltApplyData*, sizeof(xrltApplyData),
+                    "xrltApplyCompile", NULL);
     } else {
         // Second compile pass.
-        ret = prevcomp;
+        ret = (xrltApplyData *)prevcomp;
     }
 
     return ret;
@@ -389,6 +362,8 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltIfData  *ret = NULL;
     xmlChar     *expr = NULL;
 
+    XRLT_MALLOC(ret, xrltIfData*, sizeof(xrltIfData), "xrltIfCompile", NULL);
+
     expr = xmlGetProp(node, XRLT_ELEMENT_ATTR_TEST);
 
     if (expr == NULL) {
@@ -396,16 +371,6 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                            "Failed to get 'test' attribute\n");
         goto error;
     }
-
-    ret = (xrltIfData *)xrltMalloc(sizeof(xrltIfData));
-
-    if (ret == NULL) {
-        xrltTransformError(NULL, sheet, node,
-                           "xrltIfCompile: Out of memory\n");
-        goto error;
-    }
-
-    memset(ret, 0, sizeof(xrltIfData));
 
     ret->test = xmlXPathCompile(expr);
 

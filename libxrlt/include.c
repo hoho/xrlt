@@ -2,66 +2,20 @@
 #include "include.h"
 
 
-static inline xrltBool
-xrltIncludeStrNodeXPath(xrltRequestsheetPtr sheet, xmlNodePtr node,
-                        xrltBool tostring,  xmlChar **val, xmlNodePtr *nval,
-                        xmlXPathCompExprPtr *xval)
-{
-    xmlChar              *value;
-    xmlXPathCompExprPtr   expr;
-
-    value = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
-
-    if (value != NULL && node->children != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element should be empty to have 'select' attribute\n"
-        );
-
-        xmlFree(value);
-        return FALSE;
-    }
-
-    if (node->children != NULL) {
-        if (!tostring || xrltHasXRLTElement(node->children)) {
-            *nval = node->children;
-        } else {
-            *val = xmlXPathCastNodeToString(node);
-        }
-    }
-
-    if (value != NULL) {
-        expr = xmlXPathCompile(value);
-
-        xmlFree(value);
-
-        if (expr == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "Failed to compile expression\n");
-            return FALSE;
-        }
-
-        *xval = expr;
-    }
-
-    return TRUE;
-}
-
-
 static inline xrltCompiledIncludeParamPtr
 xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                         xrltBool header)
 {
     xmlNodePtr                    ntype = NULL;
     xmlNodePtr                    nname = NULL;
-    xmlNodePtr                    nvalue = NULL;
+    xmlNodePtr                    nval = NULL;
     xmlNodePtr                    ntest = NULL;
     xmlNodePtr                    tmp;
     xrltBool                      other = FALSE;
     xmlNodePtr                    dup = NULL;
     xmlChar                      *type = NULL;
     xmlChar                      *name = NULL;
-    xmlChar                      *value = NULL;
+    xmlChar                      *val = NULL;
     xmlChar                      *test = NULL;
     xrltCompiledIncludeParamPtr   ret = NULL;
     xrltNodeDataPtr               n;
@@ -83,11 +37,11 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                 }
                 nname = tmp;
             } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_VALUE)) {
-                if (nvalue != NULL) {
+                if (nval != NULL) {
                     dup = tmp;
                     break;
                 }
-                nvalue = tmp;
+                nval = tmp;
             } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_TEST)) {
                 if (ntest != NULL) {
                     dup = tmp;
@@ -109,7 +63,7 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         return NULL;
     }
 
-    if ((ntype != NULL || nname != NULL || nvalue != NULL || ntest != NULL) &&
+    if ((ntype != NULL || nname != NULL || nval != NULL || ntest != NULL) &&
         other)
     {
         xrltTransformError(
@@ -143,8 +97,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         goto error;
     }
 
-    value = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
-    if (value != NULL && nvalue != NULL) {
+    val = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
+    if (val != NULL && nval != NULL) {
         xrltTransformError(
             NULL, sheet, node,
             "Element shouldn't have <xrl:value> to have 'select' attribute\n"
@@ -167,14 +121,14 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (!header &&
-        name == NULL && nname == NULL && value == NULL && nvalue == NULL)
+        name == NULL && nname == NULL && val == NULL && nval == NULL)
     {
         xrltTransformError(NULL, sheet, node,
                            "Parameter has no name and no value\n");
         goto error;
     }
 
-    if (value != NULL && other) {
+    if (val != NULL && other) {
         xrltTransformError(
             NULL, sheet, node,
             "Element should be empty to have 'select' attribute\n"
@@ -182,15 +136,9 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         goto error;
     }
 
-    ret = xrltMalloc(sizeof(xrltCompiledIncludeParam));
-
-    if (ret == NULL) {
-        xrltTransformError(NULL, sheet, node,
-                           "xrltIncludeParamCompile: Out of memory\n");
-        goto error;
-    }
-
-    memset(ret, 0, sizeof(xrltCompiledIncludeParam));
+    XRLT_MALLOC(ret, xrltCompiledIncludeParamPtr,
+                sizeof(xrltCompiledIncludeParam), "xrltIncludeParamCompile",
+                NULL);
 
     if (type != NULL) {
         // We have type attribute for a parameter. It should be 'body' or
@@ -236,30 +184,38 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         n->xrlt = TRUE;
     }
 
-    if (value != NULL) {
-        ret->xvalue = xmlXPathCompile(value);
+    if (val != NULL) {
+        ret->xval = xmlXPathCompile(val);
 
-        xmlFree(value);
-        value = NULL;
+        xmlFree(val);
+        val = NULL;
 
-        if (ret->xvalue == NULL) {
+        if (ret->xval == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile select expression\n");
             goto error;
         }
     }
 
-    if (nvalue != NULL) {
-        if (!xrltIncludeStrNodeXPath(sheet, nvalue, TRUE, &ret->value,
-                                     &ret->nvalue, &ret->xvalue))
+    if (nval == NULL && node->children != NULL) {
+        nval = node;
+    }
+
+    if (nval != NULL) {
+        if (!xrltIncludeStrNodeXPath(sheet, nval, TRUE, &ret->val,
+                                     &ret->nval, &ret->xval))
         {
             goto error;
         }
 
-        ASSERT_NODE_DATA_GOTO(nvalue, n);
+        ASSERT_NODE_DATA_GOTO(nval, n);
         n->xrlt = TRUE;
     }
 
+    if (test == NULL && ntest == NULL) {
+        // Default value for test is TRUE.
+        ret->test = TRUE;
+    }
 
     if (test != NULL) {
         ret->xtest = xmlXPathCompile(test);
@@ -296,7 +252,7 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
   error:
     if (type != NULL) { xmlFree(type); }
     if (name != NULL) { xmlFree(name); }
-    if (value != NULL) { xmlFree(value); }
+    if (val != NULL) { xmlFree(val); }
     if (test != NULL) { xmlFree(test); }
 
     if (ret != NULL) {
@@ -307,8 +263,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         if (ret->name != NULL) { xmlFree(ret->name); }
         if (ret->xname != NULL) { xmlXPathFreeCompExpr(ret->xname); }
 
-        if (ret->value != NULL) { xmlFree(ret->value); }
-        if (ret->xvalue != NULL) { xmlXPathFreeCompExpr(ret->xvalue); }
+        if (ret->val != NULL) { xmlFree(ret->val); }
+        if (ret->xval != NULL) { xmlXPathFreeCompExpr(ret->xval); }
 
         xrltFree(ret);
     }
@@ -325,16 +281,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltNodeDataPtr               n;
     xrltCompiledIncludeParamPtr   param;
 
-    ret = \
-        (xrltCompiledIncludeData *)xrltMalloc(sizeof(xrltCompiledIncludeData));
-
-    if (ret == NULL) {
-        xrltTransformError(NULL, sheet, node,
-                           "xrltIncludeCompile: Out of memory\n");
-        return NULL;
-    }
-
-    memset(ret, 0, sizeof(xrltCompiledIncludeData));
+    XRLT_MALLOC(ret, xrltCompiledIncludeData*,
+                sizeof(xrltCompiledIncludeData), "xrltIncludeCompile", NULL);
 
     tmp = node->children;
 
@@ -448,8 +396,8 @@ xrltIncludeFree(void *comp)
             if (param->name != NULL) { xmlFree(param->name); }
             if (param->xname != NULL) { xmlXPathFreeCompExpr(param->xname); }
 
-            if (param->value != NULL) { xmlFree(param->value); }
-            if (param->xvalue != NULL) { xmlXPathFreeCompExpr(param->xvalue); }
+            if (param->val != NULL) { xmlFree(param->val); }
+            if (param->xval != NULL) { xmlXPathFreeCompExpr(param->xval); }
 
             tmp = param->next;
             xrltFree(param);
@@ -465,8 +413,8 @@ xrltIncludeFree(void *comp)
             if (param->name != NULL) { xmlFree(param->name); }
             if (param->xname != NULL) { xmlXPathFreeCompExpr(param->xname); }
 
-            if (param->value != NULL) { xmlFree(param->value); }
-            if (param->xvalue != NULL) { xmlXPathFreeCompExpr(param->xvalue); }
+            if (param->val != NULL) { xmlFree(param->val); }
+            if (param->xval != NULL) { xmlXPathFreeCompExpr(param->xval); }
 
             tmp = param->next;
             xrltFree(param);
@@ -482,10 +430,10 @@ static void
 xrltIncludeTransformingFree(void *data)
 {
     if (data != NULL) {
-        xrltTransformingIncludeData  *tdata;
+        xrltIncludeTransformingData  *tdata;
         size_t                        i;
 
-        tdata = (xrltTransformingIncludeData *)data;
+        tdata = (xrltIncludeTransformingData *)data;
 
         printf("jjjjjjjjjj %s\n", (char *)tdata->href);
 
@@ -494,25 +442,25 @@ xrltIncludeTransformingFree(void *data)
 
         for (i = 0; i < tdata->headerCount; i++) {
             if (tdata->header[i].name != NULL) {
-                printf("jjjjjjjjjj %s\n", (char *)tdata->header[i].name);
+                printf("aaaaaaaaaaa %s\n", (char *)tdata->header[i].name);
                 xmlFree(tdata->header[i].name);
             }
 
-            if (tdata->header[i].value != NULL) {
-                printf("jjjjjjjjjj %s\n", (char *)tdata->header[i].value);
-                xmlFree(tdata->header[i].value);
+            if (tdata->header[i].val != NULL) {
+                printf("bbbbbbbbbbb %s\n", (char *)tdata->header[i].val);
+                xmlFree(tdata->header[i].val);
             }
         }
 
         for (i = 0; i < tdata->paramCount; i++) {
             if (tdata->param[i].name != NULL) {
-                printf("jjjjjjjjjj %s\n", (char *)tdata->param[i].name);
+                printf("ccccccccccc %s\n", (char *)tdata->param[i].name);
                 xmlFree(tdata->param[i].name);
             }
 
-            if (tdata->param[i].value != NULL) {
-                printf("jjjjjjjjjj %s\n", (char *)tdata->param[i].value);
-                xmlFree(tdata->param[i].value);
+            if (tdata->param[i].val != NULL) {
+                printf("ddddddddddd %s\n", (char *)tdata->param[i].val);
+                xmlFree(tdata->param[i].val);
             }
         }
 
@@ -522,19 +470,19 @@ xrltIncludeTransformingFree(void *data)
 
 
 static xrltBool
-xrltIncludeParamTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
-                          void *data)
+xrltIncludeSetStringResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                           void *data)
 {
     xmlNodePtr        node = (xmlNodePtr)comp;
     xrltNodeDataPtr   n;
-    xmlChar          *ret;
 
     ASSERT_NODE_DATA(node, n);
 
     if (n->count > 0) {
         // Node is not ready.
-        SCHEDULE_CALLBACK(ctx, &n->tcb, xrltIncludeParamTransform, comp,
-                          insert, data);
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltIncludeSetStringResult, comp, insert, data
+        );
     } else {
         *((xmlChar **)data) = xmlXPathCastNodeToString(node);
     }
@@ -549,30 +497,111 @@ xrltIncludeTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
                              xmlXPathCompExprPtr xval, xmlChar **ret)
 {
     if (val != NULL) {
-        printf("98887878787 %s\n", (char *)val);
         *ret = xmlStrdup(val);
     } else if (nval != NULL) {
-        xmlNodePtr           node;
+        xmlNodePtr   node;
 
-        node = xmlNewChild(insert, NULL, (const xmlChar *)"tmp", NULL);
+        NEW_CHILD(ctx, node, insert, "tmp");
 
-        if (node == NULL) {
-            xrltTransformError(ctx, NULL, NULL,
-                               "Failed to create include subelement\n");
-            return FALSE;
-        }
+        TRANSFORM_SUBTREE(ctx, nval, node);
 
-        if (!xrltElementTransform(ctx, nval, node)) {
-            return FALSE;
-        }
-
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeParamTransform,
-                          (void *)node, insert, (void *)ret);
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltIncludeSetStringResult, node, insert, ret
+        );
     } else if (xval != NULL) {
+        xmlXPathObjectPtr  v;
 
+        if (!xrltXPathEval(ctx, NULL, insert, xval, &v)) {
+            return FALSE;
+        }
+
+        if (ret == NULL) {
+            // Some variables are not ready.
+        } else {
+            *ret = xmlXPathCastToString(v);
+
+            xmlXPathFreeObject(v);
+        }
     }
 
     return TRUE;
+}
+
+
+static xrltBool
+xrltIncludeSetBooleanResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                            void *data)
+{
+    xmlNodePtr        node = (xmlNodePtr)comp;
+    xrltNodeDataPtr   n;
+    xmlChar          *ret;
+
+    ASSERT_NODE_DATA(node, n);
+
+    if (n->count > 0) {
+        // Node is not ready.
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltIncludeSetBooleanResult, comp, insert, data
+        );
+    } else {
+        ret = xmlXPathCastNodeToString(node);
+        *((xrltBool *)data) = xmlXPathCastStringToBoolean(ret) ? TRUE : FALSE;
+        xmlFree(ret);
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
+xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
+                              xrltBool val, xmlNodePtr nval,
+                              xmlXPathCompExprPtr xval, xrltBool *ret)
+{
+    if (nval != NULL) {
+        xmlNodePtr   node;
+
+        NEW_CHILD(ctx, node, insert, "tmp");
+
+        TRANSFORM_SUBTREE(ctx, nval, node);
+
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltIncludeSetBooleanResult, node, insert, ret
+        );
+    } else if (xval != NULL) {
+        xmlXPathObjectPtr  v;
+
+        printf("85858585858585858 %p\n", ctx->xpath);
+        if (!xrltXPathEval(ctx, NULL, insert, xval, &v)) {
+            return FALSE;
+        }
+
+        if (ret == NULL) {
+            // Some variables are not ready.
+        } else {
+            *ret = xmlXPathCastToBoolean(v) ? TRUE : FALSE;
+
+            xmlXPathFreeObject(v);
+        }
+    } else {
+        *ret = val;
+    }
+
+    return TRUE;
+}
+
+
+#define TRANSFORM_TO_STRING(ctx, node, val, nval, xval, ret) {                \
+    if (!xrltIncludeTransformToString(ctx, node, val, nval, xval, ret)) {     \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define TRANSFORM_TO_BOOLEAN(ctx, node, val, nval, xval, ret) {               \
+    if (!xrltIncludeTransformToBoolean(ctx, node, val, nval, xval, ret)) {    \
+        return FALSE;                                                         \
+    }                                                                         \
 }
 
 
@@ -583,37 +612,21 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltCompiledIncludeData      *icomp = (xrltCompiledIncludeData *)comp;
     xmlNodePtr                    node;
     xrltNodeDataPtr               n;
-    xrltTransformingIncludeData  *tdata;
+    xrltIncludeTransformingData  *tdata;
     xrltCompiledIncludeParamPtr   p;
     size_t                        i;
 
     if (data == NULL) {
         // First call.
-        node = xmlNewChild(insert, NULL, (const xmlChar *)"include", NULL);
-
-        if (node == NULL) {
-            xrltTransformError(ctx, NULL, icomp->node,
-                               "Failed to create include element\n");
-            return FALSE;
-        }
+        NEW_CHILD(ctx, node, insert, "include");
 
         ASSERT_NODE_DATA(node, n);
 
-        tdata = (xrltTransformingIncludeData *)xrltMalloc(
-            sizeof(xrltTransformingIncludeData) +
-            sizeof(xrltTransformingParam) * icomp->headerCount +
-            sizeof(xrltTransformingParam) * icomp->paramCount
-        );
-
-        if (tdata == NULL) {
-            xrltTransformError(ctx, NULL, icomp->node,
-                               "xrltIncludeTransform: Out of memory\n");
-            return FALSE;
-        }
-
-        memset(tdata, 0, sizeof(xrltTransformingIncludeData) +
-                         sizeof(xrltTransformingParam) * icomp->headerCount +
-                         sizeof(xrltTransformingParam) * icomp->paramCount);
+        XRLT_MALLOC(tdata, xrltIncludeTransformingData*,
+                    sizeof(xrltIncludeTransformingData) +
+                    sizeof(xrltTransformingParam) * icomp->headerCount +
+                    sizeof(xrltTransformingParam) * icomp->paramCount,
+                    "xrltIncludeTransform", FALSE;);
 
         tdata->header = (xrltTransformingParam *)(tdata + 1);
 
@@ -631,68 +644,133 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         n->data = tdata;
         n->free = xrltIncludeTransformingFree;
 
-        // Mark node as not ready.
-        //xrltNotReadyCounterIncrease(ctx, node);
+        tdata->node = node;
 
-        if (!xrltIncludeTransformToString(ctx, node, icomp->href, icomp->nhref,
-                                          icomp->xhref, &tdata->href))
-        {
-            return FALSE;
-        }
+        COUNTER_INCREASE(ctx, node);
+
+        NEW_CHILD(ctx, node, node, "params");
+
+        tdata->pnode = node;
+
+        TRANSFORM_TO_STRING(
+            ctx, node, icomp->href, icomp->nhref, icomp->xhref, &tdata->href
+        );
+
+        TRANSFORM_TO_STRING(
+            ctx, node, icomp->body, icomp->nbody, icomp->xbody, &tdata->body
+        );
 
         p = icomp->fheader;
 
         for (i = 0; i < tdata->headerCount; i++) {
-            if (!xrltIncludeTransformToString(ctx, node, p->name, p->nname,
-                                              p->xname, &tdata->header[i].name))
-            {
-                return FALSE;
-            }
-
-            if (!xrltIncludeTransformToString(ctx, node, p->value, p->nvalue,
-                                              p->xvalue,
-                                              &tdata->header[i].value))
-            {
-                return FALSE;
-            }
+            TRANSFORM_TO_BOOLEAN(
+                ctx, node, p->test, p->ntest, p->xtest, &tdata->header[i].test
+            );
+            p = p->next;
         }
 
         p = icomp->fparam;
 
         for (i = 0; i < tdata->paramCount; i++) {
-            if (!xrltIncludeTransformToString(ctx, node, p->name, p->nname,
-                    p->xname, &tdata->param[i].name))
-            {
-                return FALSE;
-            }
-
-            if (!xrltIncludeTransformToString(ctx, node, p->value, p->nvalue,
-                    p->xvalue,
-                    &tdata->param[i].value))
-            {
-                return FALSE;
-            }
+            TRANSFORM_TO_BOOLEAN(
+                ctx, node, p->test, p->ntest, p->xtest, &tdata->param[i].test
+            );
+            p = p->next;
         }
 
+        COUNTER_INCREASE(ctx, node);
+
         // Schedule the next call.
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform, comp, insert,
-                          (void *)node);
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, tdata
+        );
     } else {
-        node = (xmlNodePtr)data;
+        tdata = (xrltIncludeTransformingData *)data;
+
+        switch (tdata->stage) {
+            case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
+            case XRLT_INCLUDE_TRANSFORM_PARAMS_END:
+                node = tdata->pnode;
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_RESULT:
+                node = tdata->node;
+                break;
+        }
 
         ASSERT_NODE_DATA(node, n);
 
         if (n->count > 0) {
-            //xrltNotReadyCounterDecrease(ctx, node);
 
-            //if (n->count > 0) {
-                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltIncludeTransform, comp,
-                                  insert, (void *)node);
+            COUNTER_DECREASE(ctx, node);
+
+            if (n->count > 0) {
+                SCHEDULE_CALLBACK(
+                    ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
+                );
+
                 return TRUE;
-            //}
+            }
         }
 
+        switch (tdata->stage) {
+            case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
+                p = icomp->fheader;
 
+                for (i = 0; i < tdata->headerCount; i++) {
+                    if (tdata->header[i].test) {
+                        TRANSFORM_TO_STRING(
+                            ctx, node, p->name, p->nname, p->xname,
+                            &tdata->header[i].name
+                        );
+                        TRANSFORM_TO_STRING(
+                            ctx, node, p->val, p->nval, p->xval,
+                            &tdata->header[i].val
+                        );
+                    }
+                    p = p->next;
+                }
+
+                p = icomp->fparam;
+
+                for (i = 0; i < tdata->paramCount; i++) {
+                    if (tdata->param[i].test) {
+                        TRANSFORM_TO_BOOLEAN(
+                            ctx, node, p->body, p->nbody, p->xbody,
+                            &tdata->param[i].body
+                        );
+                        TRANSFORM_TO_STRING(
+                            ctx, node, p->name, p->nname, p->xname,
+                            &tdata->param[i].name
+                        );
+                        TRANSFORM_TO_STRING(
+                            ctx, node, p->val, p->nval, p->xval,
+                            &tdata->param[i].val
+                        );
+                    }
+                    p = p->next;
+                }
+
+                COUNTER_INCREASE(ctx, node);
+
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
+                );
+
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_PARAMS_END:
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
+                );
+
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_RESULT;
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_RESULT:
+                break;
+        }
 
     }
 

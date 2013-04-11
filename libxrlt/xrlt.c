@@ -1,4 +1,5 @@
 #include <string.h>
+#include <libxml/xpathInternals.h>
 
 #include "xrlt.h"
 #include "transform.h"
@@ -27,7 +28,7 @@ xrltRegisterNodeFunc(xmlNodePtr node)
 {
     xrltNodeDataPtr   data;
 
-    data = xrltMalloc(sizeof(xrltNodeData));
+    data = (xrltNodeDataPtr)xrltMalloc(sizeof(xrltNodeData));
 
     if (data != NULL) {
         memset(data, 0, sizeof(xrltNodeData));
@@ -62,14 +63,8 @@ xrltRequestsheetCreate(xmlDocPtr doc)
     xrltRequestsheetPtr       ret;
     xmlNodePtr                root;
 
-    ret = (xrltRequestsheetPtr)xrltMalloc(sizeof(xrltRequestsheet));
-    if (ret == NULL) {
-        xrltTransformError(NULL, NULL, NULL,
-                           "xrltRequestsheetCreate: Out of memory\n");
-        return NULL;
-    }
-
-    memset(ret, 0, sizeof(xrltRequestsheet));
+    XRLT_MALLOC(ret, xrltRequestsheetPtr, sizeof(xrltRequestsheet),
+                "xrltRequestsheetCreate", NULL);
 
     root = xmlDocGetRootElement(doc);
 
@@ -124,6 +119,51 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 }
 
 
+static xmlXPathObjectPtr
+xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
+{
+    xmlChar              id[sizeof(size_t) * 2];
+    xmlXPathObjectPtr    ret;
+    xmlXPathContextPtr   xctx = (xmlXPathContextPtr)ctxt;
+    xrltContextPtr       ctx = (xrltContextPtr)xctx->varLookupData;
+    xmlNodePtr           node;
+    xrltNodeDataPtr      n;
+
+    printf("23874747474747474747474774 %p\n", xctx);
+
+
+    if (ctx == NULL) { return NULL; }
+
+    node = ctx->varContext;
+
+    while (node != NULL) {
+        sprintf((char *)id, "%p", node);
+
+        ret = (xmlXPathObjectPtr)xmlHashLookup2(xctx->varHash, id, name);
+
+        if (ret != NULL) {
+            if (ret->type == XPATH_NODESET) {
+                node = xmlXPathNodeSetItem(ret->nodesetval, 0);
+
+                n = (xrltNodeDataPtr)node->_private;
+
+                if (n != NULL && n->count > 0) {
+                    ctx->xpathWait = node;
+
+                    return xmlXPathNewNodeSet(NULL);
+                }
+            }
+
+            return xmlXPathObjectCopy(ret);
+        }
+
+        node = node->parent;
+    }
+
+    return NULL;
+}
+
+
 xrltContextPtr
 xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
 {
@@ -132,15 +172,8 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
 
     if (sheet == NULL) { return NULL; }
 
-    ret = xrltMalloc(sizeof(xrltContext));
-
-    if (ret == NULL) {
-        xrltTransformError(NULL, NULL, NULL,
-                           "xrltContextCreate: Out of memory\n");
-        goto error;
-    }
-
-    memset(ret, 0, sizeof(xrltContext));
+    XRLT_MALLOC(ret, xrltContextPtr, sizeof(xrltContext),
+                "xrltContextCreate", NULL);
 
     ret->sheet = sheet;
 
@@ -160,10 +193,19 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
 
     ASSERT_NODE_DATA_GOTO(sheet->response, n);
 
+    ret->xpath = xmlXPathNewContext(ret->responseDoc);
+
+    xmlXPathRegisterVariableLookup(ret->xpath, xrltVariableLookupFunc, ret);
+
+    if (ret->xpath == NULL) {
+        xrltTransformError(ret, NULL, NULL, "Failed to create XPath context\n");
+        goto error;
+    }
+
     if (!xrltTransformCallbackQueuePush(&ret->tcb, n->transform, n->data,
                                         (xmlNodePtr)ret->responseDoc, NULL))
     {
-        xrltTransformError(NULL, NULL, NULL, "Failed to push callback\n");
+        xrltTransformError(ret, NULL, NULL, "Failed to push callback\n");
         goto error;
     }
 
@@ -186,6 +228,8 @@ xrltContextFree(xrltContextPtr ctx)
     if (ctx != NULL) {
         xrltHeaderListClear(&ctx->inheader);
     }
+
+    if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 
     if (ctx->responseDoc != NULL) {
         xmlDocFormatDump(stdout, ctx->responseDoc, 1);
@@ -227,6 +271,33 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
     ctx->cur |= XRLT_STATUS_DONE;
 
     return ctx->cur;
+}
+
+
+xrltBool
+xrltXPathEval(xrltContextPtr ctx, xmlNodePtr root, xmlNodePtr insert,
+              xmlXPathCompExprPtr expr, xmlXPathObjectPtr *ret)
+{
+    xmlXPathObjectPtr  r;
+
+    ctx->xpath->node = root == NULL ? ctx->xpathDefault : root;
+    ctx->varContext = insert;
+    ctx->xpathWait = NULL;
+
+    r = xmlXPathCompiledEval(expr, ctx->xpath);
+
+    if (r == NULL) {
+        return FALSE;
+    }
+
+    if (ctx->xpathWait != NULL) {
+        xmlXPathFreeObject(r);
+        *ret = NULL;
+    } else {
+        *ret = r;
+    }
+
+    return TRUE;
 }
 
 

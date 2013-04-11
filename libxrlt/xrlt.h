@@ -3,6 +3,7 @@
 
 
 #include <libxml/tree.h>
+#include <libxml/xpath.h>
 #include <xrltstruct.h>
 #include <xrltexports.h>
 
@@ -107,6 +108,11 @@ struct _xrltContext {
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
     xmlNodePtr                   responseCur;
+    xmlNodePtr                   var;
+    xmlNodePtr                   varContext;
+    xmlNodePtr                   xpathDefault;
+    xmlXPathContextPtr           xpath;
+    xmlNodePtr                   xpathWait;
     xrltTransformCallbackQueue   tcb;
 };
 
@@ -158,6 +164,9 @@ XRLTPUBFUN int XRLTCALL
         xrltTransform             (xrltContextPtr ctx,
                                    xrltTransformValue *value);
 
+XRLTPUBFUN xrltBool XRLTCALL
+        xrltXPathEval(xrltContextPtr ctx, xmlNodePtr root, xmlNodePtr insert,
+                      xmlXPathCompExprPtr expr, xmlXPathObjectPtr *ret);
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltInputSubscribe        (xrltContextPtr ctx,

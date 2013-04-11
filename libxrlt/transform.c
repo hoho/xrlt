@@ -3,6 +3,7 @@
 #include "transform.h"
 #include "builtins.h"
 #include "include.h"
+#include "variable.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -48,7 +49,7 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
         return FALSE;
     }
 
-    xrltBool   ret = TRUE;
+    int   ret = 1;
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
@@ -58,6 +59,16 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
                                XRLT_COMPILE_PASS1, xrltIncludeCompile,
                                xrltIncludeFree, xrltIncludeTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"variable",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltVariableCompile, xrltVariableFree,
+                               xrltVariableTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"variable",
+                               XRLT_COMPILE_PASS1,
+                               xrltVariableCompile, xrltVariableFree,
+                               xrltVariableTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"log",
                                XRLT_COMPILE_PASS1, xrltLogCompile, xrltLogFree,
@@ -97,7 +108,7 @@ xrltElementRegister(const xmlChar *ns, const xmlChar *name,
 
     xrltElementPtr   elem;
     const xmlChar   *pass1, *pass2;
-    xrltBool         ret = TRUE;
+    int              ret = 1;
 
     if (flags & XRLT_REGISTER_TOPLEVEL) {
         pass1 = flags & XRLT_COMPILE_PASS1 ? (const xmlChar *)"top1" : NULL;
@@ -113,15 +124,8 @@ xrltElementRegister(const xmlChar *ns, const xmlChar *name,
         return TRUE;
     }
 
-    elem = xrltMalloc(sizeof(xrltElement));
-
-    if (elem == NULL) {
-        xrltTransformError(NULL, NULL, NULL,
-                           "xrltElementRegister: Out of memory\n");
-        return FALSE;
-    }
-
-    memset(elem, 0, sizeof(xrltElement));
+    XRLT_MALLOC(elem, xrltElement*, sizeof(xrltElement),
+                "xrltElementRegister", FALSE);
 
     elem->compile = compile;
     elem->free = free;
@@ -274,22 +278,18 @@ xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
     if (ctx == NULL || insert == NULL) { return FALSE; }
 
     xrltNodeDataPtr      n;
-    xrltBool             ret;
 
     while (first != NULL) {
         ASSERT_NODE_DATA(first, n);
 
         if (!n->xrlt) {
-            ret = xrltTransformCallbackQueuePush(&ctx->tcb, xrltCopyNonXRLT,
-                                                 NULL, insert, first);
+            SCHEDULE_CALLBACK(
+                ctx, &ctx->tcb, xrltCopyNonXRLT, NULL, insert, first
+            );
         } else {
-            ret = xrltTransformCallbackQueuePush(&ctx->tcb, n->transform,
-                                                 n->data, insert, NULL);
-        }
-
-        if (!ret) {
-            xrltTransformError(ctx, NULL, first, "Failed to push callback\n");
-            return FALSE;
+            SCHEDULE_CALLBACK(
+                ctx, &ctx->tcb, n->transform, n->data, insert, NULL
+            );
         }
 
         first = first->next;

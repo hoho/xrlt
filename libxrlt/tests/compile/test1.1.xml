@@ -12,7 +12,10 @@
         </xrl:transform>
     </xrl:transformation>-->
 
+    <xrl:variable name="love" select="123"/>
+
     <xrl:response>
+        <xrl:variable name="love">pipi<xrl:log>FACK</xrl:log>zzi</xrl:variable>
         <zz>aaa</zz>
         <!--<xrl:log level="warning">test log</xrl:log>-->
         <a/>f<b/>yoy&lt;&gt;oy<xrl:if test="345" />
@@ -25,14 +28,16 @@
         <xrl:include proxy-headers="yes">
             <xrl:href><xrl:log>llll</xrl:log>/ololo</xrl:href>
 
-            <xrl:with-header name="Content-Type">plain/text</xrl:with-header>
-            <xrl:with-header test="true()" name="Content-Type">plain/text</xrl:with-header>
+            <xrl:with-header name="Content-Type">plain/hhh</xrl:with-header>
+            <xrl:with-header test="true()" name="Content-Length">plain/text</xrl:with-header>
 
-            <xrl:with-param name="test" type="querystring" select="'hello'" />
+            <xrl:with-param name="test" type="querystring">blow</xrl:with-param>
+            <xrl:with-param name="test2" type="querystring" select="'hello'" />
+            <xrl:with-param name="test2" select="local-name($love)" />
             <xrl:with-param>
                 <xrl:test>true</xrl:test>
                 <xrl:type>GET</xrl:type>
-                <xrl:name>111</xrl:name>
+                <xrl:name><xrl:log>fff</xrl:log>111</xrl:name>
                 <xrl:value>222</xrl:value>
             </xrl:with-param>
 
@@ -70,7 +75,7 @@
         <!--<xrl:log level="debug">test log2</xrl:log>
         <xrl:log>test log3</xrl:log>-->
 
-        <ololo/>
+        <ololo>ololo</ololo>
     </xrl:response>
 
     <!--

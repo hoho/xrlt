@@ -4,6 +4,7 @@
 
 #include <libxml/tree.h>
 #include <libxml/hash.h>
+#include <libxml/xpath.h>
 
 #include "xrltstruct.h"
 #include "xrlt.h"
@@ -30,6 +31,16 @@ extern "C" {
 #define XRLT_ELEMENT_TYPE           (const xmlChar *)"type"
 #define XRLT_ELEMENT_NAME           (const xmlChar *)"name"
 #define XRLT_ELEMENT_VALUE          (const xmlChar *)"value"
+
+
+#define XRLT_MALLOC(ret, type, size, from, error) {                           \
+    ret = (type)xrltMalloc(size);                                             \
+    if (ret == NULL) {                                                        \
+        xrltTransformError(NULL, NULL, NULL, from ": Out of memory\n");       \
+        return error;                                                         \
+    }                                                                         \
+    memset(ret, 0, size);                                                     \
+}
 
 
 #define ASSERT_NODE_DATA(node, var) {                                         \
@@ -64,6 +75,31 @@ extern "C" {
         xrltTransformError(ctx, NULL, NULL, "Failed to push callback\n");     \
         return FALSE;                                                         \
     }                                                                         \
+}
+
+
+#define COUNTER_INCREASE(ctx, node) {                                         \
+    if (!xrltNotReadyCounterIncrease(ctx, node)) { return FALSE; }            \
+}
+
+
+#define COUNTER_DECREASE(ctx, node) {                                         \
+    if (!xrltNotReadyCounterDecrease(ctx, node)) { return FALSE; }            \
+}
+
+
+#define NEW_CHILD(ctx, ret, parent, name) {                                   \
+    ret = xmlNewChild(parent, NULL, (const xmlChar *)name, NULL);             \
+    if (ret == NULL) {                                                        \
+        xrltTransformError(ctx, NULL, NULL,                                   \
+                           "Failed to create element\n");                     \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define TRANSFORM_SUBTREE(ctx, first, insert) {                               \
+    if (!xrltElementTransform(ctx, first, insert)) { return FALSE; }          \
 }
 
 
@@ -112,15 +148,8 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
 
     xrltTransformCallbackPtr   item;
 
-    item = xrltMalloc(sizeof(xrltTransformCallback));
-
-    if (item == NULL) {
-        xrltTransformError(NULL, NULL, NULL,
-                           "xrltTransformCallbackQueuePush: Out of memory\n");
-        return FALSE;
-    }
-
-    memset(item, 0, sizeof(xrltTransformCallback));
+    XRLT_MALLOC(item, xrltTransformCallbackPtr, sizeof(xrltTransformCallback),
+                "xrltTransformCallbackQueuePush", FALSE);
 
     item->func = func;
     item->insert = insert;
@@ -213,21 +242,67 @@ xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
 
         n->count--;
 
-        if (n->count == 0) {
-            // Node has become ready. Call all the callbacks for this node.
-            xrltTransformFunction     func;
-            void                     *comp;
-            xmlNodePtr                insert;
-            void                     *data;
-
-            while (xrltTransformCallbackQueueShift(&n->tcb, &func, &comp,
-                                                   &insert, &data))
-            {
-                SCHEDULE_CALLBACK(ctx, &ctx->tcb, func, comp, insert, data);
+        if (n->count == 0 && n->tcb.first != NULL) {
+            // Node has become ready. Move all the node's callbacks to the
+            // main queue.
+            if (ctx->tcb.first == NULL) {
+                ctx->tcb.first = n->tcb.first;
+            } else {
+                ctx->tcb.last->next = n->tcb.first;
             }
+            ctx->tcb.last = n->tcb.last;
+
+            n->tcb.first = NULL;
+            n->tcb.last = NULL;
         }
 
         node = node->parent;
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
+xrltIncludeStrNodeXPath(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                        xrltBool tostring,  xmlChar **val, xmlNodePtr *nval,
+                        xmlXPathCompExprPtr *xval)
+{
+    xmlChar              *value;
+    xmlXPathCompExprPtr   expr;
+
+    value = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
+
+    if (value != NULL && node->children != NULL) {
+        xrltTransformError(
+            NULL, sheet, node,
+            "Element should be empty to have 'select' attribute\n"
+        );
+
+        xmlFree(value);
+        return FALSE;
+    }
+
+    if (node->children != NULL) {
+        if (!tostring || xrltHasXRLTElement(node->children)) {
+            *nval = node->children;
+        } else {
+            *val = xmlXPathCastNodeToString(node);
+        }
+    }
+
+    if (value != NULL) {
+        expr = xmlXPathCompile(value);
+
+        xmlFree(value);
+
+        if (expr == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile expression\n");
+            return FALSE;
+        }
+
+        *xval = expr;
     }
 
     return TRUE;
