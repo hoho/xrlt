@@ -42,18 +42,20 @@ main()
         int              ret;
         xrltContextPtr   ctx;
 
-        ctx = xrltContextCreate(sheet, NULL);
+        int i;
 
+        for (i = 0; i < 1; i++) {
+        ctx = xrltContextCreate(sheet, NULL);
         ret = xrltTransform(ctx, NULL);
         printData(ctx);
-
         while (!((ret & XRLT_STATUS_DONE) | (ret & XRLT_STATUS_ERROR))) {
             ret = xrltTransform(ctx, NULL);
             printData(ctx);
         }
-
-
         xrltContextFree(ctx);
+        }
+
+
         xrltRequestsheetFree(sheet);
     }
     xrltCleanup();

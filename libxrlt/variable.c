@@ -116,7 +116,12 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                        "Variable already exists\n");
                     return FALSE;
                 }
+            } else {
+                COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
 
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltVariableTransform, comp, insert, vdoc
+                );
             }
         }
     } else {

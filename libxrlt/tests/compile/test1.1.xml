@@ -34,7 +34,7 @@
             <xrl:with-header test="true()" name="Content-Length">plain/text</xrl:with-header>
 
             <xrl:with-param name="test" type="querystring">blow</xrl:with-param>
-            <xrl:with-param name="test2" type="querystring" select="'hello'" />
+            <xrl:with-param name="test2" type="querystring" test="false()" select="'hello'" />
             <xrl:with-param name="test2" select="concat(local-name($love/*[last()]), ' ', /*, $love, ' ', $love23)" />
             <xrl:with-param>
                 <xrl:test>true</xrl:test>
