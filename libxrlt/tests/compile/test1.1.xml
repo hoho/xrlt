@@ -12,10 +12,12 @@
         </xrl:transform>
     </xrl:transformation>-->
 
-    <xrl:variable name="love" select="123"/>
+    <xrl:variable name="love3" select="123"/>
+    <xrl:variable name="love23" select="$love3 * 2"/>
 
     <xrl:response>
-        <xrl:variable name="love">pipi<xrl:log>FACK</xrl:log>zzi</xrl:variable>
+        <xrl:variable name="love">pipi<xrl:log>FACK</xrl:log>zzi<aaaa/><bbb/>ii</xrl:variable>
+        <xrl:variable name="love2" select="12345" />
         <zz>aaa</zz>
         <!--<xrl:log level="warning">test log</xrl:log>-->
         <a/>f<b/>yoy&lt;&gt;oy<xrl:if test="345" />
@@ -33,7 +35,7 @@
 
             <xrl:with-param name="test" type="querystring">blow</xrl:with-param>
             <xrl:with-param name="test2" type="querystring" select="'hello'" />
-            <xrl:with-param name="test2" select="local-name($love)" />
+            <xrl:with-param name="test2" select="concat(local-name($love/*[last()]), ' ', /*, $love, ' ', $love23)" />
             <xrl:with-param>
                 <xrl:test>true</xrl:test>
                 <xrl:type>GET</xrl:type>

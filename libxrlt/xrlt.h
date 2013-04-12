@@ -82,7 +82,7 @@ typedef xrltBool (*xrltInputCallback)       (xrltContextPtr ctx,
 
 
 struct _xrltRequestsheet {
-    xmlDocPtr   doc;
+    xmlDocPtr         doc;
 
     xrltCompilePass   pass;        // Indicates current compilation
                                    // pass.
@@ -110,7 +110,7 @@ struct _xrltContext {
     xmlNodePtr                   responseCur;
     xmlNodePtr                   var;
     xmlNodePtr                   varContext;
-    xmlNodePtr                   xpathDefault;
+    xmlDocPtr                    xpathDefault;
     xmlXPathContextPtr           xpath;
     xmlNodePtr                   xpathWait;
     xrltTransformCallbackQueue   tcb;

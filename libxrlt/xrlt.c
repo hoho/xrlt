@@ -124,22 +124,18 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 {
     xmlChar              id[sizeof(size_t) * 2];
     xmlXPathObjectPtr    ret;
-    xmlXPathContextPtr   xctx = (xmlXPathContextPtr)ctxt;
-    xrltContextPtr       ctx = (xrltContextPtr)xctx->varLookupData;
+    xrltContextPtr       ctx = (xrltContextPtr)ctxt;
     xmlNodePtr           node;
     xrltNodeDataPtr      n;
-
-    printf("23874747474747474747474774 %p\n", xctx);
-
 
     if (ctx == NULL) { return NULL; }
 
     node = ctx->varContext;
 
-    while (node != NULL) {
+    while (TRUE) {
         sprintf((char *)id, "%p", node);
 
-        ret = (xmlXPathObjectPtr)xmlHashLookup2(xctx->varHash, id, name);
+        ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
 
         if (ret != NULL) {
             if (ret->type == XPATH_NODESET) {
@@ -157,7 +153,12 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
             return xmlXPathObjectCopy(ret);
         }
 
-        node = node->parent;
+        // Try upper scope.
+        if (node != NULL) {
+            node = node->parent;
+        } else {
+            break;
+        }
     }
 
     return NULL;
@@ -167,8 +168,8 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 xrltContextPtr
 xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
 {
-    xrltContextPtr            ret;
-    xrltNodeDataPtr           n;
+    xrltContextPtr    ret;
+    xmlNodePtr        response;
 
     if (sheet == NULL) { return NULL; }
 
@@ -191,7 +192,21 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
         goto error;
     }
 
-    ASSERT_NODE_DATA_GOTO(sheet->response, n);
+    response = xmlNewDocNode(ret->responseDoc, NULL,
+                             (const xmlChar *)"response", NULL);
+
+    if (response == NULL) {
+        xrltTransformError(ret, NULL, NULL,
+                           "Failed to create response element\n");
+        goto error;
+    }
+
+    xmlDocSetRootElement(ret->responseDoc, response);
+
+    NEW_CHILD_GOTO(ret, ret->response, response, "response");
+    NEW_CHILD_GOTO(ret, ret->var, response, "var");
+
+    ret->xpathDefault = xmlNewDoc(NULL);
 
     ret->xpath = xmlXPathNewContext(ret->responseDoc);
 
@@ -202,12 +217,9 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
         goto error;
     }
 
-    if (!xrltTransformCallbackQueuePush(&ret->tcb, n->transform, n->data,
-                                        (xmlNodePtr)ret->responseDoc, NULL))
-    {
-        xrltTransformError(ret, NULL, NULL, "Failed to push callback\n");
-        goto error;
-    }
+    TRANSFORM_SUBTREE_GOTO(
+        ret, xmlDocGetRootElement(sheet->doc)->children, NULL
+    );
 
     return ret;
 
@@ -230,6 +242,21 @@ xrltContextFree(xrltContextPtr ctx)
     }
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
+
+    if (ctx->xpathDefault != NULL) {
+        xmlFreeDoc(ctx->xpathDefault);
+    }
+
+    if (ctx->var != NULL) {
+        xmlNodePtr   n = ctx->var->children;
+        xmlDocPtr    d;
+        while (n != NULL) {
+            d = (xmlDocPtr)n;
+            n = n->next;
+            xmlUnlinkNode((xmlNodePtr)d);
+            xmlFreeDoc(d);
+        }
+    }
 
     if (ctx->responseDoc != NULL) {
         xmlDocFormatDump(stdout, ctx->responseDoc, 1);
@@ -280,7 +307,14 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr root, xmlNodePtr insert,
 {
     xmlXPathObjectPtr  r;
 
-    ctx->xpath->node = root == NULL ? ctx->xpathDefault : root;
+    if (root == NULL) {
+        ctx->xpath->doc = ctx->xpathDefault;
+        ctx->xpath->node = (xmlNodePtr)ctx->xpathDefault;
+    } else {
+        ctx->xpath->doc = (xmlDocPtr)root;
+        ctx->xpath->node = root;
+    }
+
     ctx->varContext = insert;
     ctx->xpathWait = NULL;
 

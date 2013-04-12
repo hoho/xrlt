@@ -492,6 +492,35 @@ xrltIncludeSetStringResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
 
 static inline xrltBool
+xrltIncludeSetStringResultByXPath(xrltContextPtr ctx, void *comp,
+                                  xmlNodePtr insert, void *data)
+{
+    xmlXPathObjectPtr  v;
+
+    if (!xrltXPathEval(ctx, NULL, insert, (xmlXPathCompExprPtr)comp, &v)) {
+        return FALSE;
+    }
+
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltIncludeSetStringResultByXPath, comp, insert, data
+        );
+    } else {
+        *((xmlChar **)data) = xmlXPathCastToString(v);
+
+        xmlXPathFreeObject(v);
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
 xrltIncludeTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
                              xmlChar *val, xmlNodePtr nval,
                              xmlXPathCompExprPtr xval, xmlChar **ret)
@@ -509,19 +538,7 @@ xrltIncludeTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
             ctx, &ctx->tcb, xrltIncludeSetStringResult, node, insert, ret
         );
     } else if (xval != NULL) {
-        xmlXPathObjectPtr  v;
-
-        if (!xrltXPathEval(ctx, NULL, insert, xval, &v)) {
-            return FALSE;
-        }
-
-        if (ret == NULL) {
-            // Some variables are not ready.
-        } else {
-            *ret = xmlXPathCastToString(v);
-
-            xmlXPathFreeObject(v);
-        }
+        return xrltIncludeSetStringResultByXPath(ctx, xval, insert, ret);
     }
 
     return TRUE;
@@ -554,6 +571,35 @@ xrltIncludeSetBooleanResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
 
 static inline xrltBool
+xrltIncludeSetBooleanResultByXPath(xrltContextPtr ctx, void *comp,
+                                   xmlNodePtr insert, void *data)
+{
+    xmlXPathObjectPtr  v;
+
+    if (!xrltXPathEval(ctx, NULL, insert, (xmlXPathCompExprPtr)comp, &v)) {
+        return FALSE;
+    }
+
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltIncludeSetBooleanResultByXPath, comp, insert, data
+        );
+    } else {
+        *((xrltBool *)data) = xmlXPathCastToBoolean(v) ? TRUE : FALSE;
+
+        xmlXPathFreeObject(v);
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
 xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
                               xrltBool val, xmlNodePtr nval,
                               xmlXPathCompExprPtr xval, xrltBool *ret)
@@ -569,20 +615,7 @@ xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
             ctx, &ctx->tcb, xrltIncludeSetBooleanResult, node, insert, ret
         );
     } else if (xval != NULL) {
-        xmlXPathObjectPtr  v;
-
-        printf("85858585858585858 %p\n", ctx->xpath);
-        if (!xrltXPathEval(ctx, NULL, insert, xval, &v)) {
-            return FALSE;
-        }
-
-        if (ret == NULL) {
-            // Some variables are not ready.
-        } else {
-            *ret = xmlXPathCastToBoolean(v) ? TRUE : FALSE;
-
-            xmlXPathFreeObject(v);
-        }
+        return xrltIncludeSetBooleanResultByXPath(ctx, xval, insert, ret);
     } else {
         *ret = val;
     }

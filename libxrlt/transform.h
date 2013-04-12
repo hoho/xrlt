@@ -98,8 +98,22 @@ extern "C" {
 }
 
 
+#define NEW_CHILD_GOTO(ctx, ret, parent, name) {                              \
+    ret = xmlNewChild(parent, NULL, (const xmlChar *)name, NULL);             \
+    if (ret == NULL) {                                                        \
+        xrltTransformError(ctx, NULL, NULL,                                   \
+                           "Failed to create element\n");                     \
+        goto error;                                                           \
+    }                                                                         \
+}
+
+
 #define TRANSFORM_SUBTREE(ctx, first, insert) {                               \
     if (!xrltElementTransform(ctx, first, insert)) { return FALSE; }          \
+}
+
+#define TRANSFORM_SUBTREE_GOTO(ctx, first, insert) {                          \
+    if (!xrltElementTransform(ctx, first, insert)) { goto error; }            \
 }
 
 
@@ -117,8 +131,6 @@ typedef struct _xrltNodeData xrltNodeData;
 typedef xrltNodeData* xrltNodeDataPtr;
 struct _xrltNodeData {
     xrltBool                     xrlt;       // Indicates XRLT element.
-    xrltBool                     response;   // Indicates that it's a node of
-                                             // the response doc.
     int                          count;      // Ready flag for response doc
                                              // nodes, number of compile passes
                                              // otherwise.
@@ -142,7 +154,7 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
                                xmlNodePtr insert, void *data)
 {
-    if (tcb == NULL || func == NULL || insert == NULL) {
+    if (tcb == NULL || func == NULL) {
         return FALSE;
     }
 
@@ -155,6 +167,7 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
     item->insert = insert;
     item->comp = comp;
     item->data = data;
+
 
     if (tcb->first == NULL) {
         tcb->first = item;

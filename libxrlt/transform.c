@@ -275,9 +275,9 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 xrltBool
 xrltElementTransform(xrltContextPtr ctx, xmlNodePtr first, xmlNodePtr insert)
 {
-    if (ctx == NULL || insert == NULL) { return FALSE; }
+    if (ctx == NULL) { return FALSE; }
 
-    xrltNodeDataPtr      n;
+    xrltNodeDataPtr   n;
 
     while (first != NULL) {
         ASSERT_NODE_DATA(first, n);

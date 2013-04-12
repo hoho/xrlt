@@ -28,33 +28,16 @@ xrltBool
 xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                       void *data)
 {
-    if (ctx == NULL || insert == NULL) { return FALSE; }
+    if (ctx == NULL) { return FALSE; }
 
     xmlNodePtr           response;
 
     if (data == NULL) {
-        // On the first call, create response parent node and schedule next
-        // call.
-        response = xmlNewDocNode(ctx->responseDoc, NULL,
-                                 (const xmlChar *)"response", NULL);
-
-        if (response == NULL) {
-            xrltTransformError(ctx, NULL, (xmlNodePtr)comp,
-                               "Failed to create response element\n");
-            return FALSE;
-        }
-
-        xmlDocSetRootElement(ctx->responseDoc, response);
-
-        NEW_CHILD(ctx, ctx->response, response, "response");
-        NEW_CHILD(ctx, ctx->var, response, "var");
-        NEW_CHILD(ctx, ctx->xpathDefault, response, "x");
-
         TRANSFORM_SUBTREE(ctx, ((xmlNodePtr)comp)->children, ctx->response);
 
         // Schedule the next call.
         SCHEDULE_CALLBACK(
-            ctx, &ctx->tcb, xrltResponseTransform, comp, insert, (void *)0x1
+            ctx, &ctx->tcb, xrltResponseTransform, comp, NULL, (void *)0x1
         );
     } else {
         // On the second call, check if something is ready to be sent and send

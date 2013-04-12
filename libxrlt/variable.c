@@ -53,7 +53,7 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                       void *data)
 {
     xrltCompiledVariableData  *vdata = (xrltCompiledVariableData *)comp;
-    xmlNodePtr                 node;
+    xmlDocPtr                  vdoc;
     xmlXPathObjectPtr          val;
     xmlChar                    id[sizeof(size_t) * 2];
 
@@ -67,25 +67,60 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             }
         }
 
-        NEW_CHILD(ctx, node, ctx->var, "v");
-
-        val = xmlXPathNewNodeSet(node);
-
-        if (val == NULL) {
-            xrltTransformError(ctx, NULL, NULL,
-                               "Failed to initialize variable\n");
-            return FALSE;
-        }
-
         sprintf((char *)id, "%p", insert);
 
-        if (xmlHashAddEntry2(ctx->xpath->varHash, id, vdata->name, val)) {
+        if (vdata->nval != NULL) {
+            // Variable from content.
+            vdoc = xmlNewDoc(NULL);
+            xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
 
+            val = xmlXPathNewNodeSet((xmlNodePtr)vdoc);
+
+            if (val == NULL) {
+                xrltTransformError(ctx, NULL, NULL,
+                                   "Failed to initialize variable\n");
+                return FALSE;
+            }
+
+            if (xmlHashAddEntry2(ctx->xpath->varHash, id, vdata->name, val)) {
+                // It could be out of memory, but it's redefenition of the
+                // variable most likely.
+                xmlXPathFreeObject(val);
+
+                xrltTransformError(ctx, NULL, vdata->node,
+                                   "Variable already exists\n");
+                return FALSE;
+            }
+
+            COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
+
+            TRANSFORM_SUBTREE(ctx, vdata->node->children, (xmlNodePtr)vdoc);
+
+            SCHEDULE_CALLBACK(
+                ctx, &ctx->tcb, xrltVariableTransform, comp, insert, vdoc
+            );
+        } else if (vdata->xval != NULL) {
+            // Variable from XPath expression.
+            if (!xrltXPathEval(ctx, NULL, insert, vdata->xval, &val)) {
+                return FALSE;
+            }
+
+            if (ctx->xpathWait == NULL) {
+                if (xmlHashAddEntry2(ctx->xpath->varHash, id, vdata->name, val))
+                {
+                    // It could be out of memory, but it's redefenition of the
+                    // variable most likely.
+                    xmlXPathFreeObject(val);
+
+                    xrltTransformError(ctx, NULL, vdata->node,
+                                       "Variable already exists\n");
+                    return FALSE;
+                }
+
+            }
         }
-        printf("hahahahah %p\n", ctx->xpath->varHash);
-
     } else {
-
+        COUNTER_DECREASE(ctx, (xmlNodePtr)data);
     }
 
     return TRUE;
