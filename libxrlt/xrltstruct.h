@@ -98,7 +98,9 @@ static inline void
         xrltStringMove            (xrltString *dst, xrltString *src);
 
 static inline void
-        xrltStringClear            (xrltString *str);
+        xrltStringClear           (xrltString *str);
+static inline void
+        xrltStringSet             (xrltString *str, char *val);
 
 
 static inline void
@@ -185,6 +187,14 @@ xrltStringClear(xrltString *str)
         str->data = NULL;
         str->len = 0;
     }
+}
+
+
+static inline void
+xrltStringSet(xrltString *str, char *val)
+{
+    str->len = strlen(val);
+    str->data = val;
 }
 
 

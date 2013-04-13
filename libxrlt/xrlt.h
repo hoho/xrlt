@@ -104,6 +104,8 @@ struct _xrltContext {
     xrltChunkList                chunk;    // Response chunk.
     xrltLogList                  log;
 
+    size_t                       includeId;
+
     xrltHeaderList               inheader;
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
@@ -165,8 +167,9 @@ XRLTPUBFUN int XRLTCALL
                                    xrltTransformValue *value);
 
 XRLTPUBFUN xrltBool XRLTCALL
-        xrltXPathEval(xrltContextPtr ctx, xmlNodePtr root, xmlNodePtr insert,
-                      xmlXPathCompExprPtr expr, xmlXPathObjectPtr *ret);
+        xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr root,
+                                   xmlNodePtr insert, xmlXPathCompExprPtr expr,
+                                   xmlXPathObjectPtr *ret);
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltInputSubscribe        (xrltContextPtr ctx,

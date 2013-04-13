@@ -237,9 +237,8 @@ xrltContextFree(xrltContextPtr ctx)
 {
     if (ctx == NULL) { return; }
 
-    if (ctx != NULL) {
-        xrltHeaderListClear(&ctx->inheader);
-    }
+    xrltHeaderListClear(&ctx->inheader);
+    xrltSubrequestListClear(&ctx->sr);
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 

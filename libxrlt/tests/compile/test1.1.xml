@@ -33,8 +33,8 @@
             <xrl:with-header name="Content-Type">plain/hhh</xrl:with-header>
             <xrl:with-header test="true()" name="Content-Length">plain/text</xrl:with-header>
 
-            <xrl:with-param name="test" type="querystring">blow</xrl:with-param>
-            <xrl:with-param name="test2" type="querystring" test="false()" select="'hello'" />
+            <xrl:with-param name="test" type="body">blow</xrl:with-param>
+            <xrl:with-param name="test2" type="body" test="true()" select="'привет'" />
             <xrl:with-param name="test2" select="concat(local-name($love/*[last()]), ' ', /*, $love, ' ', $love23)" />
             <xrl:with-param>
                 <xrl:test>true</xrl:test>
@@ -43,7 +43,7 @@
                 <xrl:value>222</xrl:value>
             </xrl:with-param>
 
-            <xrl:with-body>ololo</xrl:with-body>
+            <!--<xrl:with-body>привет</xrl:with-body>-->
 
             <xrl:success>
                 <hello>world</hello>

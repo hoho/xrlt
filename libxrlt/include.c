@@ -1,5 +1,76 @@
+#include <ctype.h>
 #include "transform.h"
 #include "include.h"
+
+
+static inline char
+xrltFromHex(char ch)
+{
+    return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+}
+
+
+static inline char
+xrltToHex(char code)
+{
+    static char hex[] = "0123456789ABCDEF";
+    return hex[code & 15];
+}
+
+
+static inline size_t
+xrltURLEncode(char *str, char *out)
+{
+    char *pstr = str;
+    char *pbuf = out;
+
+    while (*pstr) {
+        if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' ||
+            *pstr == '~')
+        {
+            *pbuf++ = *pstr;
+        } else if (*pstr == ' ') {
+            *pbuf++ = '+';
+        } else {
+            *pbuf++ = '%';
+            *pbuf++ = xrltToHex(*pstr >> 4);
+            *pbuf++ = xrltToHex(*pstr & 15);
+        }
+
+        pstr++;
+    }
+
+    *pbuf = '\0';
+
+    return pbuf - out;
+}
+
+
+static inline char *
+xrltURLDecode(char *str)
+{
+    char *pstr = str;
+    char *buf = (char *)xrltMalloc(strlen(str) + 1);
+    char *pbuf = buf;
+
+    while (*pstr) {
+        if (*pstr == '%') {
+            if (pstr[1] && pstr[2]) {
+                *pbuf++ = xrltFromHex(pstr[1]) << 4 | xrltFromHex(pstr[2]);
+                pstr += 2;
+            }
+        } else if (*pstr == '+') {
+            *pbuf++ = ' ';
+        } else {
+            *pbuf++ = *pstr;
+        }
+        pstr++;
+    }
+
+    *pbuf = '\0';
+
+    return buf;
+}
 
 
 static inline xrltCompiledIncludeParamPtr
@@ -646,6 +717,174 @@ xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
 }
 
 
+static xrltBool
+xrltIncludeSubrequestHeader(xrltContextPtr ctx, xrltTransformValue *value,
+                            void *data)
+{
+    return TRUE;
+}
+
+
+static xrltBool
+xrltIncludeSubrequestBody(xrltContextPtr ctx, xrltTransformValue *value,
+                          void *data)
+{
+    return TRUE;
+}
+
+
+static inline xrltBool
+xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
+{
+    size_t           id;
+    size_t           i, blen, qlen;
+    xrltHeaderList   header;
+    xrltString       href;
+    xrltString       query;
+    xrltString       body;
+    char            *bp, *qp;
+    char            *ebody = NULL;
+    char            *equery = NULL;
+    xrltBool         ret = TRUE;
+
+    xrltHeaderListInit(&header);
+
+    for (i = 0; i < data->headerCount; i++) {
+        if (data->header[i].test) {
+            // Use query and body variables as name and value to reduce
+            // declared variables count.
+            xrltStringSet(&query, (char *)data->header[i].name);
+            xrltStringSet(&body, (char *)data->header[i].val);
+
+            if (!xrltHeaderListPush(&header, &query, &body)) {
+                xrltTransformError(ctx, NULL, data->inode,
+                                   "xrltIncludeAddSubrequest: Out of memory\n");
+                ret = FALSE;
+                goto error;
+            }
+        }
+    }
+
+    xrltStringSet(&href, (char *)data->href);
+
+    memset(&query, 0, sizeof(xrltString));
+    memset(&body, 0, sizeof(xrltString));
+
+    blen = 0;
+    qlen = 0;
+
+    for (i = 0; i < data->paramCount; i++) {
+        if (data->param[i].test) {
+            if (data->param[i].body) {
+                blen += xmlStrlen(data->param[i].name);
+                blen += xmlStrlen(data->param[i].val);
+                blen += 2;
+            } else {
+                qlen += xmlStrlen(data->param[i].name);
+                qlen += xmlStrlen(data->param[i].val);
+                qlen += 2;
+            }
+        }
+    }
+
+    body.len = (size_t)xmlStrlen(data->body);
+
+    if (blen > 0 && body.len > 0) {
+        xrltTransformError(
+            ctx, NULL, data->inode,
+            "Can't have request body and body parameters at the same time\n"
+        );
+        ret = FALSE;
+        goto error;
+    }
+
+    if (body.len > 0) {
+        body.data = (char *)data->body;
+    }
+
+    if (blen > 0 || qlen > 0) {
+        if (blen > 0) {
+            ebody = (char *)xrltMalloc((blen * 3) + 1);
+        }
+
+        if (qlen > 0) {
+            equery = (char *)xrltMalloc((qlen * 3) + 1);
+        }
+
+        if ((blen > 0 && ebody == NULL) || (qlen > 0 && equery == NULL)) {
+            xrltTransformError(ctx, NULL, data->inode,
+                               "xrltIncludeAddSubrequest: Out of memory\n");
+            ret = FALSE;
+            goto error;
+        }
+
+        bp = ebody;
+        qp = equery;
+
+        for (i = 0; i < data->paramCount; i++) {
+            if (data->param[i].test) {
+                if (data->param[i].body) {
+                    if (bp != ebody) { *bp++ = '&'; }
+
+                    blen = xrltURLEncode((char *)data->param[i].name, bp);
+                    bp += blen;
+                    if (blen > 0) { *bp++ = '='; }
+
+                    blen = xrltURLEncode((char *)data->param[i].val, bp);
+                    bp += blen;
+                } else {
+                    if (qp != equery) { *qp++ = '&'; }
+
+                    qlen = xrltURLEncode((char *)data->param[i].name, qp);
+                    qp += qlen;
+                    if (qlen > 0) { *qp++ = '='; }
+
+                    qlen = xrltURLEncode((char *)data->param[i].val, qp);
+                    qp += qlen;
+                }
+            }
+        }
+
+        if (ebody != NULL) {
+            *bp = '\0';
+            body.len = bp - ebody;
+            body.data = ebody;
+        }
+
+        if (equery != NULL) {
+            *qp = '\0';
+            query.len = qp - equery;
+            query.data = equery;
+        }
+
+        printf("Reqbody: %s\n", ebody);
+        printf("Reqquery: %s\n", equery);
+    }
+
+
+    id = ++ctx->includeId;
+
+    xrltSubrequestListPush(&ctx->sr, id, &header, &href, &query, &body);
+
+
+    /*
+    xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_HEADER, id,
+                       xrltIncludeSubrequestHeader, data);
+
+    xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_BODY, id,
+                       xrltIncludeSubrequestBody, data);
+                       */
+
+  error:
+    xrltHeaderListClear(&header);
+
+    if (ebody != NULL) { xrltFree(ebody); }
+    if (equery != NULL) { xrltFree(equery); }
+
+    return ret;
+}
+
+
 xrltBool
 xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                      void *data)
@@ -686,6 +925,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         n->free = xrltIncludeTransformingFree;
 
         tdata->node = node;
+        tdata->inode = icomp->node;
 
         COUNTER_INCREASE(ctx, node);
 
@@ -734,7 +974,8 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 node = tdata->pnode;
                 break;
 
-            case XRLT_INCLUDE_TRANSFORM_RESULT:
+            case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
+            case XRLT_INCLUDE_TRANSFORM_RESULT_END:
                 node = tdata->node;
                 break;
         }
@@ -806,10 +1047,15 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
                 );
 
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_RESULT;
+                xrltIncludeAddSubrequest(ctx, tdata);
+
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN;
                 break;
 
-            case XRLT_INCLUDE_TRANSFORM_RESULT:
+            case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_RESULT_END:
                 break;
         }
 

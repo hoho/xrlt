@@ -72,12 +72,15 @@ typedef struct {
 typedef enum {
     XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN = 0,
     XRLT_INCLUDE_TRANSFORM_PARAMS_END,
-    XRLT_INCLUDE_TRANSFORM_RESULT
+    XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN,
+    XRLT_INCLUDE_TRANSFORM_RESULT_END
 } xrltIncludeTransformStage;
+
 
 typedef struct {
     xmlNodePtr                  node;
     xmlNodePtr                  pnode;
+    xmlNodePtr                  inode;
     xrltIncludeTransformStage   stage;
     xmlChar                    *href;
     xrltTransformingParam      *header;
