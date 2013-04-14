@@ -7,11 +7,9 @@ xrltResponseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     if (sheet->response == NULL) {
         sheet->response = node;
-
         return node;
     } else {
-        xrltTransformError(NULL, sheet, node,
-                           "Duplicate response element\n");
+        xrltTransformError(NULL, sheet, node, "Duplicate response element\n");
         return NULL;
     }
 }

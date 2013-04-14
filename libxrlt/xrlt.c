@@ -168,8 +168,8 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 xrltContextPtr
 xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
 {
-    xrltContextPtr    ret;
-    xmlNodePtr        response;
+    xrltContextPtr   ret;
+    xmlNodePtr       response;
 
     if (sheet == NULL) { return NULL; }
 
@@ -237,8 +237,39 @@ xrltContextFree(xrltContextPtr ctx)
 {
     if (ctx == NULL) { return; }
 
+    xrltInputCallbackPtr     cb, tmp;
+    size_t                   i;
+
     xrltHeaderListClear(&ctx->inheader);
     xrltSubrequestListClear(&ctx->sr);
+
+    cb = ctx->icb.body.first;
+
+    while (cb != NULL) {
+        tmp = cb->next;
+        xrltFree(cb);
+        cb = tmp;
+    }
+
+    for (i = 0; i < ctx->icb.srheaderSize; i++) {
+        cb = ctx->icb.srheader[i].first;
+        while (cb != NULL) {
+            tmp = cb->next;
+            xrltFree(cb);
+            cb = tmp;
+        }
+    }
+    if (ctx->icb.srheader != NULL) { xrltFree(ctx->icb.srheader); }
+
+    for (i = 0; i < ctx->icb.srbodySize; i++) {
+        cb = ctx->icb.srbody[i].first;
+        while (cb != NULL) {
+            tmp = cb->next;
+            xrltFree(cb);
+            cb = tmp;
+        }
+    }
+    if (ctx->icb.srbody != NULL) { xrltFree(ctx->icb.srbody); }
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 
@@ -277,8 +308,45 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
     void                     *comp;
     xmlNodePtr                insert;
     void                     *data;
+    size_t                    len;
+    xrltInputCallbackPtr      cb = NULL;
 
     ctx->cur = XRLT_STATUS_UNKNOWN;
+
+    if (value != NULL) {
+        switch (value->type) {
+            case XRLT_PROCESS_REQUEST_BODY:
+                cb = ctx->icb.body.first;
+                break;
+
+            case XRLT_PROCESS_SUBREQUEST_HEADER:
+            case XRLT_PROCESS_SUBREQUEST_BODY:
+
+                if (value->type == XRLT_PROCESS_SUBREQUEST_HEADER) {
+                    len = ctx->icb.srheaderSize;
+
+                    if (value->id < len) {
+                        cb = ctx->icb.srheader[value->id].first;
+                    }
+                } else {
+                    len = ctx->icb.srbodySize;
+
+                    if (value->id < len) {
+                        cb = ctx->icb.srbody[value->id].first;
+                    }
+                }
+
+                break;
+        }
+
+        while (cb != NULL) {
+            if (!cb->func(ctx, value, cb->data)) {
+                ctx->cur |= XRLT_STATUS_ERROR;
+                return ctx->cur;
+            }
+            cb = cb->next;
+        }
+    }
 
     while (xrltTransformCallbackQueueShift(&ctx->tcb, &func, &comp,
                                            &insert, &data))
@@ -294,7 +362,9 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
         }
     }
 
-    ctx->cur |= XRLT_STATUS_DONE;
+    if (((xrltNodeDataPtr)ctx->responseDoc->_private)->count == 0) {
+        ctx->cur |= XRLT_STATUS_DONE;
+    }
 
     return ctx->cur;
 }
@@ -346,4 +416,84 @@ void
 xrltCleanup(void)
 {
     xrltUnregisterBuiltinElements();
+}
+
+
+xrltBool
+xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
+                   size_t id, xrltInputFunction callback, void *data)
+{
+    xrltInputCallbackPtr     cb = NULL;
+    xrltInputCallbackQueue  *q, *newq;
+    size_t                   len;
+
+    XRLT_MALLOC(cb, xrltInputCallbackPtr, sizeof(xrltInputCallback),
+                "xrltInputSubscribe", FALSE);
+
+    cb->type = type;
+    cb->id = id;
+    cb->func = callback;
+    cb->data = data;
+
+    switch (type) {
+        case XRLT_PROCESS_REQUEST_BODY:
+            if (ctx->icb.body.first == NULL) {
+                ctx->icb.body.first = cb;
+            } else {
+                ctx->icb.body.last->next = cb;
+            }
+            ctx->icb.body.last = cb;
+            break;
+
+        case XRLT_PROCESS_SUBREQUEST_HEADER:
+        case XRLT_PROCESS_SUBREQUEST_BODY:
+
+            if (type == XRLT_PROCESS_SUBREQUEST_HEADER) {
+                q = ctx->icb.srheader;
+                len = ctx->icb.srheaderSize;
+            } else {
+                q = ctx->icb.srbody;
+                len = ctx->icb.srbodySize;
+            }
+
+            if (id >= len) {
+                newq = (xrltInputCallbackQueue *)xrltRealloc(
+                        q,
+                        sizeof(xrltInputCallbackQueue) * (id + 10)
+                );
+
+                if (newq == NULL) {
+                    xrltTransformError(ctx, NULL, NULL,
+                                       "xrltInputSubscribe: Out of memory\n");
+                    goto error;
+                }
+
+                memset(newq + len, 0,
+                       sizeof(xrltInputCallbackQueue) * (id - len + 10));
+
+                if (type == XRLT_PROCESS_SUBREQUEST_HEADER) {
+                    ctx->icb.srheaderSize = id + 10;
+                    ctx->icb.srheader = newq;
+                } else {
+                    ctx->icb.srbodySize = id + 10;
+                    ctx->icb.srbody = newq;
+                }
+
+                q = newq;
+            }
+
+            if (q[id].first == NULL) {
+                q[id].first = cb;
+            } else {
+                q[id].last->next = cb;
+            }
+            q[id].last = cb;
+            break;
+    }
+
+    return TRUE;
+
+  error:
+    if (cb != NULL) { xrltFree(cb); }
+    return FALSE;
 }

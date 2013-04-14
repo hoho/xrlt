@@ -165,9 +165,9 @@ static inline xrltBool
 xrltStringCopy(xrltString *dst, xrltString *src)
 {
     //if (src == NULL || src->data == NULL || dst == NULL) { return FALSE; }
-    dst->data = strndup(src->data, src->len);
     dst->len = src->len;
-    return dst->data == NULL ? FALSE : TRUE;
+    dst->data = src->len > 0 ? strndup(src->data, src->len) : NULL;
+    return dst->data == NULL && dst->len > 0 ? FALSE : TRUE;
 }
 
 

@@ -248,24 +248,32 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
     xmlNodePtr           node = (xmlNodePtr)data;
     xmlNodePtr           newinsert;
 
-    newinsert = xmlDocCopyNode(node, ctx->responseDoc, 2);
+    if (comp == NULL) {
+        newinsert = xmlDocCopyNode(node, ctx->responseDoc, 2);
 
-    if (newinsert == NULL) {
-        xrltTransformError(ctx, NULL, node,
-                           "Failed to copy element to response doc\n");
-        return FALSE;
-    }
+        if (newinsert == NULL) {
+            xrltTransformError(ctx, NULL, node,
+                               "Failed to copy element to response doc\n");
+            return FALSE;
+        }
 
-    if (xmlAddChild(insert, newinsert) == NULL) {
-        xmlFreeNode(newinsert);
+        if (xmlAddChild(insert, newinsert) == NULL) {
+            xmlFreeNode(newinsert);
 
-        xrltTransformError(ctx, NULL, node,
-                           "Failed to add element to response doc\n");
-        return FALSE;
-    }
+            xrltTransformError(ctx, NULL, node,
+                               "Failed to add element to response doc\n");
+            return FALSE;
+        }
 
-    if (!xrltElementTransform(ctx, node->children, newinsert)) {
-        return FALSE;
+        TRANSFORM_SUBTREE(ctx, node->children, newinsert);
+
+        COUNTER_INCREASE(ctx, newinsert);
+
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltCopyNonXRLT, (void *)0x1, newinsert, data
+        );
+    } else {
+        COUNTER_DECREASE(ctx, insert);
     }
 
     return TRUE;

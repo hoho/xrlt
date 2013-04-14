@@ -14,11 +14,23 @@
 
     <xrl:variable name="love3" select="123"/>
     <xrl:variable name="love23" select="$love3 * 2"/>
+    <xrl:variable name="testvar">
+        <xrl:include>
+            <xrl:href>/some/href</xrl:href>
+            <xrl:with-header name="Content-Type">text/html</xrl:with-header>
+            <xrl:with-header name="XXX">aaa</xrl:with-header>
+            <xrl:with-param>par&amp;am1</xrl:with-param>
+            <xrl:with-param select="'param2'" />
+            <xrl:with-param name="param3" select="$love3" />
+        </xrl:include>
+    </xrl:variable>
 
     <xrl:response>
         <xrl:variable name="love">pipi<xrl:log>FACK</xrl:log>zzi<aaaa/><bbb/>ii</xrl:variable>
         <xrl:variable name="love2" select="12345" />
-        <zz>aaa</zz>
+
+        <ololo>ololo</ololo>
+        <zz>aafaa</zz>
         <!--<xrl:log level="warning">test log</xrl:log>-->
         <a/>f<b/>yoy&lt;&gt;oy<xrl:if test="345" />
         <xrl:if test="345" />

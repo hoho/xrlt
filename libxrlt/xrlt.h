@@ -56,6 +56,9 @@ typedef enum {
 typedef struct _xrltTransformCallback   xrltTransformCallback;
 typedef xrltTransformCallback*          xrltTransformCallbackPtr;
 
+typedef struct _xrltInputCallback       xrltInputCallback;
+typedef xrltInputCallback*              xrltInputCallbackPtr;
+
 typedef struct _xrltRequestsheet        xrltRequestsheet;
 typedef xrltRequestsheet*               xrltRequestsheetPtr;
 
@@ -69,6 +72,23 @@ typedef struct {
 } xrltTransformCallbackQueue;
 
 
+typedef struct {
+    xrltInputCallbackPtr   first;
+    xrltInputCallbackPtr   last;
+} xrltInputCallbackQueue;
+
+
+typedef struct {
+    xrltInputCallbackQueue   body;
+
+    xrltInputCallbackQueue  *srheader;
+    size_t                   srheaderSize;
+
+    xrltInputCallbackQueue  *srbody;
+    size_t                   srbodySize;
+} xrltInputCallbackQueues;
+
+
 typedef void *   (*xrltCompileFunction)     (xrltRequestsheetPtr sheet,
                                              xmlNodePtr node, void *prevcomp);
 typedef void     (*xrltFreeFunction)        (void *comp);
@@ -76,7 +96,7 @@ typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
                                              xmlNodePtr insert, void *data);
 
 
-typedef xrltBool (*xrltInputCallback)       (xrltContextPtr ctx,
+typedef xrltBool (*xrltInputFunction)       (xrltContextPtr ctx,
                                              xrltTransformValue *value,
                                              void *data);
 
@@ -115,7 +135,9 @@ struct _xrltContext {
     xmlDocPtr                    xpathDefault;
     xmlXPathContextPtr           xpath;
     xmlNodePtr                   xpathWait;
+
     xrltTransformCallbackQueue   tcb;
+    xrltInputCallbackQueues      icb;
 };
 
 
@@ -130,6 +152,15 @@ struct _xrltTransformCallback {
                                         // xrltTransformingElement, when the
                                         // context is being freed.
     xrltTransformCallbackPtr   next;    // Next callback in this queue.
+};
+
+
+struct _xrltInputCallback {
+    xrltInputFunction        func;
+    xrltTransformValueType   type;
+    size_t                   id;
+    void                    *data;
+    xrltInputCallbackPtr     next;
 };
 
 
@@ -174,7 +205,7 @@ XRLTPUBFUN xrltBool XRLTCALL
 XRLTPUBFUN xrltBool XRLTCALL
         xrltInputSubscribe        (xrltContextPtr ctx,
                                    xrltTransformValueType type, size_t id,
-                                   xrltInputCallback callback, void *data);
+                                   xrltInputFunction callback, void *data);
 
 
 #ifdef __cplusplus

@@ -21,6 +21,8 @@ xrltToHex(char code)
 static inline size_t
 xrltURLEncode(char *str, char *out)
 {
+    if (str == NULL || out == NULL) { return 0; }
+
     char *pstr = str;
     char *pbuf = out;
 
@@ -49,6 +51,8 @@ xrltURLEncode(char *str, char *out)
 static inline char *
 xrltURLDecode(char *str)
 {
+    if (str == NULL) { return 0; }
+
     char *pstr = str;
     char *buf = (char *)xrltMalloc(strlen(str) + 1);
     char *pbuf = buf;
@@ -192,7 +196,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (!header &&
-        name == NULL && nname == NULL && val == NULL && nval == NULL)
+        name == NULL && nname == NULL && val == NULL && nval == NULL &&
+        node->children == NULL)
     {
         xrltTransformError(NULL, sheet, node,
                            "Parameter has no name and no value\n");
@@ -506,31 +511,25 @@ xrltIncludeTransformingFree(void *data)
 
         tdata = (xrltIncludeTransformingData *)data;
 
-        printf("jjjjjjjjjj %s\n", (char *)tdata->href);
-
         if (tdata->href != NULL) { xmlFree(tdata->href); }
         if (tdata->body != NULL) { xmlFree(tdata->body); }
 
         for (i = 0; i < tdata->headerCount; i++) {
             if (tdata->header[i].name != NULL) {
-                printf("aaaaaaaaaaa %s\n", (char *)tdata->header[i].name);
                 xmlFree(tdata->header[i].name);
             }
 
             if (tdata->header[i].val != NULL) {
-                printf("bbbbbbbbbbb %s\n", (char *)tdata->header[i].val);
                 xmlFree(tdata->header[i].val);
             }
         }
 
         for (i = 0; i < tdata->paramCount; i++) {
             if (tdata->param[i].name != NULL) {
-                printf("ccccccccccc %s\n", (char *)tdata->param[i].name);
                 xmlFree(tdata->param[i].name);
             }
 
             if (tdata->param[i].val != NULL) {
-                printf("ddddddddddd %s\n", (char *)tdata->param[i].val);
                 xmlFree(tdata->param[i].val);
             }
         }
@@ -729,6 +728,7 @@ static xrltBool
 xrltIncludeSubrequestBody(xrltContextPtr ctx, xrltTransformValue *value,
                           void *data)
 {
+    printf("SR RESULT: %s\n", value->data);
     return TRUE;
 }
 
@@ -856,24 +856,24 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
             query.len = qp - equery;
             query.data = equery;
         }
-
-        printf("Reqbody: %s\n", ebody);
-        printf("Reqquery: %s\n", equery);
     }
-
 
     id = ++ctx->includeId;
 
-    xrltSubrequestListPush(&ctx->sr, id, &header, &href, &query, &body);
+    if (!xrltSubrequestListPush(&ctx->sr, id, &header, &href, &query, &body)) {
+        xrltTransformError(ctx, NULL, data->inode,
+                           "xrltIncludeAddSubrequest: Out of memory\n");
+        ret = FALSE;
+        goto error;
+    }
 
+    ctx->cur |= XRLT_STATUS_SUBREQUEST;
 
-    /*
     xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_HEADER, id,
                        xrltIncludeSubrequestHeader, data);
 
     xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_BODY, id,
                        xrltIncludeSubrequestBody, data);
-                       */
 
   error:
     xrltHeaderListClear(&header);
