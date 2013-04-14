@@ -717,18 +717,19 @@ xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
 
 
 static xrltBool
-xrltIncludeSubrequestHeader(xrltContextPtr ctx, xrltTransformValue *value,
-                            void *data)
+xrltIncludeSubrequestHeader(xrltContextPtr ctx, size_t id,
+                            xrltTransformValue *val, void *data)
 {
+
     return TRUE;
 }
 
 
 static xrltBool
-xrltIncludeSubrequestBody(xrltContextPtr ctx, xrltTransformValue *value,
-                          void *data)
+xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
+                          xrltTransformValue *val, void *data)
 {
-    printf("SR RESULT: %s\n", value->data);
+    printf("SR RESULT: %d %s\n", (int)id, val->data.data);
     return TRUE;
 }
 
@@ -869,11 +870,16 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 
     ctx->cur |= XRLT_STATUS_SUBREQUEST;
 
-    xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_HEADER, id,
-                       xrltIncludeSubrequestHeader, data);
+    if (!xrltInputSubscribe(ctx, XRLT_PROCESS_HEADER, id,
+                            xrltIncludeSubrequestHeader, data)
+        ||
 
-    xrltInputSubscribe(ctx, XRLT_PROCESS_SUBREQUEST_BODY, id,
-                       xrltIncludeSubrequestBody, data);
+        !xrltInputSubscribe(ctx, XRLT_PROCESS_BODY, id,
+                            xrltIncludeSubrequestBody, data))
+    {
+        ret = FALSE;
+        goto error;
+    }
 
   error:
     xrltHeaderListClear(&header);
@@ -906,7 +912,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     sizeof(xrltIncludeTransformingData) +
                     sizeof(xrltTransformingParam) * icomp->headerCount +
                     sizeof(xrltTransformingParam) * icomp->paramCount,
-                    "xrltIncludeTransform", FALSE;);
+                    "xrltIncludeTransform", FALSE);
 
         tdata->header = (xrltTransformingParam *)(tdata + 1);
 
@@ -1043,11 +1049,13 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_PARAMS_END:
+                xrltIncludeAddSubrequest(ctx, tdata);
+
+                COUNTER_INCREASE(ctx, tdata->node);
+
                 SCHEDULE_CALLBACK(
                     ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
                 );
-
-                xrltIncludeAddSubrequest(ctx, tdata);
 
                 tdata->stage = XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN;
                 break;

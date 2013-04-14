@@ -88,7 +88,7 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         if (ctx->responseCur != NULL) {
             // We still have some data that's not ready, schedule the next call.
-            SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseTransform, comp,
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltResponseTransform, comp,
                               response, (void *)0x2);
         }
     }

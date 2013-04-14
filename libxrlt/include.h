@@ -88,6 +88,7 @@ typedef struct {
     xrltTransformingParam      *param;
     size_t                      paramCount;
     xmlChar                    *body;
+    xmlHashTablePtr             srheader;
 } xrltIncludeTransformingData;
 
 

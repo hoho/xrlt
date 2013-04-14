@@ -13,17 +13,20 @@ extern "C" {
 #endif
 
 
-#define XRLT_NS (const xmlChar *)"http://xrlt.net/Transform"
-#define XRLT_ROOT_NAME (const xmlChar *)"requestsheet"
+#define XRLT_NS          (const xmlChar *)"http://xrlt.net/Transform"
+#define XRLT_ROOT_NAME   (const xmlChar *)"requestsheet"
 
 
-#define XRLT_STATUS_UNKNOWN      0
-#define XRLT_STATUS_ERROR        2
-#define XRLT_STATUS_DONE         4
-#define XRLT_STATUS_HEADER       8
-#define XRLT_STATUS_SUBREQUEST   16
-#define XRLT_STATUS_CHUNK        32
-#define XRLT_STATUS_LOG          64
+#define XRLT_STATUS_UNKNOWN             0
+#define XRLT_STATUS_ERROR               2
+#define XRLT_STATUS_WAITING             4
+#define XRLT_STATUS_DONE                8
+#define XRLT_STATUS_NEED_HEADER         16
+#define XRLT_STATUS_HEADER              32
+#define XRLT_STATUS_SUBREQUEST          64
+#define XRLT_STATUS_CHUNK               128
+#define XRLT_STATUS_LOG                 256
+#define XRLT_STATUS_REFUSE_SUBREQUEST   512
 
 
 #define XRLT_REGISTER_TOPLEVEL   2
@@ -32,17 +35,15 @@ extern "C" {
 
 
 typedef enum {
-    XRLT_PROCESS_REQUEST_BODY = 1,
-    XRLT_PROCESS_SUBREQUEST_HEADER,
-    XRLT_PROCESS_SUBREQUEST_BODY
+    XRLT_PROCESS_HEADER = 1,
+    XRLT_PROCESS_BODY
 } xrltTransformValueType;
 
 
 typedef struct {
     xrltTransformValueType   type;
-    size_t                   id;
-    xrltBool                 last;
     xrltString               data;
+    xrltBool                 last;
 } xrltTransformValue;
 
 
@@ -79,13 +80,11 @@ typedef struct {
 
 
 typedef struct {
-    xrltInputCallbackQueue   body;
+    xrltInputCallbackQueue  *header;
+    size_t                   headerSize;
 
-    xrltInputCallbackQueue  *srheader;
-    size_t                   srheaderSize;
-
-    xrltInputCallbackQueue  *srbody;
-    size_t                   srbodySize;
+    xrltInputCallbackQueue  *body;
+    size_t                   bodySize;
 } xrltInputCallbackQueues;
 
 
@@ -95,9 +94,8 @@ typedef void     (*xrltFreeFunction)        (void *comp);
 typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
                                              xmlNodePtr insert, void *data);
 
-
-typedef xrltBool (*xrltInputFunction)       (xrltContextPtr ctx,
-                                             xrltTransformValue *value,
+typedef xrltBool (*xrltInputFunction)       (xrltContextPtr ctx, size_t id,
+                                             xrltTransformValue *val,
                                              void *data);
 
 
@@ -123,6 +121,7 @@ struct _xrltContext {
     xrltSubrequestList           sr;       // Subrequests to make.
     xrltChunkList                chunk;    // Response chunk.
     xrltLogList                  log;
+    xrltNeedHeaderList           needHeader;
 
     size_t                       includeId;
 
@@ -156,11 +155,9 @@ struct _xrltTransformCallback {
 
 
 struct _xrltInputCallback {
-    xrltInputFunction        func;
-    xrltTransformValueType   type;
-    size_t                   id;
-    void                    *data;
-    xrltInputCallbackPtr     next;
+    xrltInputFunction      func;
+    void                  *data;
+    xrltInputCallbackPtr   next;
 };
 
 
@@ -194,8 +191,8 @@ XRLTPUBFUN xrltContextPtr XRLTCALL
 XRLTPUBFUN void XRLTCALL
         xrltContextFree           (xrltContextPtr ctx);
 XRLTPUBFUN int XRLTCALL
-        xrltTransform             (xrltContextPtr ctx,
-                                   xrltTransformValue *value);
+        xrltTransform             (xrltContextPtr ctx, size_t id,
+                                   xrltTransformValue *val);
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr root,

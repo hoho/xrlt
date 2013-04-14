@@ -2,6 +2,7 @@
 
 #include "../test.h"
 #include "xrltstruct.h"
+#include "xrlt.h"
 
 
 void
@@ -68,19 +69,28 @@ main()
 
         for (i = 0; i < 1; i++) {
         ctx = xrltContextCreate(sheet, NULL);
-        ret = xrltTransform(ctx, NULL);
+        ret = xrltTransform(ctx, 0, NULL);
         printData(ctx);
         while (!((ret & XRLT_STATUS_DONE) | (ret & XRLT_STATUS_ERROR))) {
-            ret = xrltTransform(ctx, NULL);
+            ret = xrltTransform(ctx, 0, NULL);
             printData(ctx);
+            printf("333\n");
+            if (ret == XRLT_STATUS_WAITING) {
+                break;
+            }
         }
+            printf("3555\n");
 
             xrltTransformValue  v;
-            v.type = XRLT_PROCESS_SUBREQUEST_BODY;
-            v.id = 2;
+            v.type = XRLT_PROCESS_BODY;
             v.data.len = 10;
+            v.last = TRUE;
             v.data.data = "abcde12345";
-            ret = xrltTransform(ctx, &v);
+            ret = xrltTransform(ctx, 2, &v);
+
+            v.data.data = "09876poiuy";
+            ret = xrltTransform(ctx, 1, &v);
+
         xrltContextFree(ctx);
         }
 

@@ -243,33 +243,25 @@ xrltContextFree(xrltContextPtr ctx)
     xrltHeaderListClear(&ctx->inheader);
     xrltSubrequestListClear(&ctx->sr);
 
-    cb = ctx->icb.body.first;
-
-    while (cb != NULL) {
-        tmp = cb->next;
-        xrltFree(cb);
-        cb = tmp;
-    }
-
-    for (i = 0; i < ctx->icb.srheaderSize; i++) {
-        cb = ctx->icb.srheader[i].first;
+    for (i = 0; i < ctx->icb.headerSize; i++) {
+        cb = ctx->icb.header[i].first;
         while (cb != NULL) {
             tmp = cb->next;
             xrltFree(cb);
             cb = tmp;
         }
     }
-    if (ctx->icb.srheader != NULL) { xrltFree(ctx->icb.srheader); }
+    if (ctx->icb.header != NULL) { xrltFree(ctx->icb.header); }
 
-    for (i = 0; i < ctx->icb.srbodySize; i++) {
-        cb = ctx->icb.srbody[i].first;
+    for (i = 0; i < ctx->icb.bodySize; i++) {
+        cb = ctx->icb.body[i].first;
         while (cb != NULL) {
             tmp = cb->next;
             xrltFree(cb);
             cb = tmp;
         }
     }
-    if (ctx->icb.srbody != NULL) { xrltFree(ctx->icb.srbody); }
+    if (ctx->icb.body != NULL) { xrltFree(ctx->icb.body); }
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 
@@ -300,7 +292,7 @@ xrltContextFree(xrltContextPtr ctx)
 
 
 int
-xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
+xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 {
     if (ctx == NULL) { return XRLT_STATUS_ERROR; }
 
@@ -309,42 +301,55 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
     xmlNodePtr                insert;
     void                     *data;
     size_t                    len;
-    xrltInputCallbackPtr      cb = NULL;
+    xrltInputCallbackQueue   *q = NULL;
+    xrltInputCallbackPtr      cb;
+    xrltInputCallbackPtr      prevcb;
 
     ctx->cur = XRLT_STATUS_UNKNOWN;
 
-    if (value != NULL) {
-        switch (value->type) {
-            case XRLT_PROCESS_REQUEST_BODY:
-                cb = ctx->icb.body.first;
-                break;
+    if (val != NULL) {
+        if (val->type == XRLT_PROCESS_HEADER) {
+            len = ctx->icb.headerSize;
 
-            case XRLT_PROCESS_SUBREQUEST_HEADER:
-            case XRLT_PROCESS_SUBREQUEST_BODY:
+            if (id < len) {
+                q = &ctx->icb.header[id];
+            }
+        } else {
+            len = ctx->icb.bodySize;
 
-                if (value->type == XRLT_PROCESS_SUBREQUEST_HEADER) {
-                    len = ctx->icb.srheaderSize;
-
-                    if (value->id < len) {
-                        cb = ctx->icb.srheader[value->id].first;
-                    }
-                } else {
-                    len = ctx->icb.srbodySize;
-
-                    if (value->id < len) {
-                        cb = ctx->icb.srbody[value->id].first;
-                    }
-                }
-
-                break;
+            if (id < len) {
+                q = &ctx->icb.body[id];
+            }
         }
 
-        while (cb != NULL) {
-            if (!cb->func(ctx, value, cb->data)) {
-                ctx->cur |= XRLT_STATUS_ERROR;
-                return ctx->cur;
+        if (q != NULL) {
+            prevcb = NULL;
+            cb = q->first;
+
+            while (cb != NULL) {
+                if (!cb->func(ctx, id, val, cb->data)) {
+                    ctx->cur |= XRLT_STATUS_ERROR;
+                    return ctx->cur;
+                }
+
+                if (val->type == XRLT_PROCESS_HEADER || val->last == TRUE) {
+                    // If it's a header callback or it's a last body callback,
+                    // then remove it from the queue.
+                    if (prevcb == NULL) {
+                        q->first = cb->next;
+                        if (q->first == NULL) { q->last = NULL; }
+                    } else {
+                        prevcb->next = cb->next;
+                        if (prevcb->next == NULL) { q->last = prevcb; }
+                    }
+
+                    xrltFree(cb);
+                    cb = prevcb == NULL ? NULL : prevcb->next;
+                } else {
+                    prevcb = cb;
+                    cb = cb->next;
+                }
             }
-            cb = cb->next;
         }
     }
 
@@ -364,6 +369,8 @@ xrltTransform(xrltContextPtr ctx, xrltTransformValue *value)
 
     if (((xrltNodeDataPtr)ctx->responseDoc->_private)->count == 0) {
         ctx->cur |= XRLT_STATUS_DONE;
+    } else {
+        ctx->cur |= XRLT_STATUS_WAITING;
     }
 
     return ctx->cur;
@@ -430,66 +437,51 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     XRLT_MALLOC(cb, xrltInputCallbackPtr, sizeof(xrltInputCallback),
                 "xrltInputSubscribe", FALSE);
 
-    cb->type = type;
-    cb->id = id;
+    //cb->type = type;
+    //cb->id = id;
     cb->func = callback;
     cb->data = data;
 
-    switch (type) {
-        case XRLT_PROCESS_REQUEST_BODY:
-            if (ctx->icb.body.first == NULL) {
-                ctx->icb.body.first = cb;
-            } else {
-                ctx->icb.body.last->next = cb;
-            }
-            ctx->icb.body.last = cb;
-            break;
-
-        case XRLT_PROCESS_SUBREQUEST_HEADER:
-        case XRLT_PROCESS_SUBREQUEST_BODY:
-
-            if (type == XRLT_PROCESS_SUBREQUEST_HEADER) {
-                q = ctx->icb.srheader;
-                len = ctx->icb.srheaderSize;
-            } else {
-                q = ctx->icb.srbody;
-                len = ctx->icb.srbodySize;
-            }
-
-            if (id >= len) {
-                newq = (xrltInputCallbackQueue *)xrltRealloc(
-                        q,
-                        sizeof(xrltInputCallbackQueue) * (id + 10)
-                );
-
-                if (newq == NULL) {
-                    xrltTransformError(ctx, NULL, NULL,
-                                       "xrltInputSubscribe: Out of memory\n");
-                    goto error;
-                }
-
-                memset(newq + len, 0,
-                       sizeof(xrltInputCallbackQueue) * (id - len + 10));
-
-                if (type == XRLT_PROCESS_SUBREQUEST_HEADER) {
-                    ctx->icb.srheaderSize = id + 10;
-                    ctx->icb.srheader = newq;
-                } else {
-                    ctx->icb.srbodySize = id + 10;
-                    ctx->icb.srbody = newq;
-                }
-
-                q = newq;
-            }
-
-            if (q[id].first == NULL) {
-                q[id].first = cb;
-            } else {
-                q[id].last->next = cb;
-            }
-            q[id].last = cb;
-            break;
+    if (type == XRLT_PROCESS_HEADER) {
+        q = ctx->icb.header;
+        len = ctx->icb.headerSize;
+    } else {
+        q = ctx->icb.body;
+        len = ctx->icb.bodySize;
     }
+
+    if (id >= len) {
+        newq = (xrltInputCallbackQueue *)xrltRealloc(
+                q,
+                sizeof(xrltInputCallbackQueue) * (id + 10)
+        );
+
+        if (newq == NULL) {
+            xrltTransformError(ctx, NULL, NULL,
+                               "xrltInputSubscribe: Out of memory\n");
+            goto error;
+        }
+
+        memset(newq + len, 0,
+               sizeof(xrltInputCallbackQueue) * (id - len + 10));
+
+        if (type == XRLT_PROCESS_HEADER) {
+            ctx->icb.headerSize = id + 10;
+            ctx->icb.header = newq;
+        } else {
+            ctx->icb.bodySize = id + 10;
+            ctx->icb.body = newq;
+        }
+
+        q = newq;
+    }
+
+    if (q[id].first == NULL) {
+        q[id].first = cb;
+    } else {
+        q[id].last->next = cb;
+    }
+    q[id].last = cb;
 
     return TRUE;
 

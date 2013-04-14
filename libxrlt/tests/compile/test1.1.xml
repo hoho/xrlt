@@ -60,6 +60,11 @@
             <xrl:success>
                 <hello>world</hello>
                 <!--<xrl:copy-of select="/" />-->
+                <!--<xrl:if test="get-request-header('Content-Type')">
+                    <xrl:if test="get-include-header('Content-Type')">
+                        <xrl:set-response-header test="true()" name="'Content-Type'" select="get-header('Content-Type')" />
+                    </xrl:if>
+                </xrl:if>-->
             </xrl:success>
 
             <xrl:failure select="404" />

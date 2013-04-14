@@ -35,9 +35,10 @@ typedef struct _xrltHeader xrltHeader;
 typedef xrltHeader* xrltHeaderPtr;
 struct _xrltHeader {
     xrltString      name;
-    xrltString      value;
+    xrltString      val;
     xrltHeaderPtr   next;
 };
+
 
 typedef struct {
     xrltHeaderPtr   first;
@@ -45,16 +46,34 @@ typedef struct {
 } xrltHeaderList;
 
 
+typedef struct _xrltNeedHeader xrltNeedHeader;
+typedef xrltNeedHeader* xrltNeedHeaderPtr;
+struct _xrltNeedHeader {
+    size_t              id;
+    xrltString          name;
+    xrltNeedHeaderPtr   next;
+};
+
+
+typedef struct {
+    xrltNeedHeaderPtr   first;
+    xrltNeedHeaderPtr   last;
+} xrltNeedHeaderList;
+
+
 typedef struct _xrltSubrequest xrltSubrequest;
 typedef xrltSubrequest* xrltSubrequestPtr;
 struct _xrltSubrequest {
     size_t              id;
+    xrltBool            proxy;    // Indicates that parent request headers
+                                  // should be sent with this subrequest.
     xrltHeaderList      header;
     xrltString          url;
     xrltString          query;
     xrltString          body;
     xrltSubrequestPtr   next;
 };
+
 
 typedef struct {
     xrltSubrequestPtr   first;
@@ -107,12 +126,24 @@ static inline void
         xrltHeaderListInit        (xrltHeaderList *list);
 static inline xrltBool
         xrltHeaderListPush        (xrltHeaderList *list,
-                                   xrltString *name, xrltString *value);
+                                   xrltString *name, xrltString *val);
 static inline xrltBool
         xrltHeaderListShift       (xrltHeaderList *list,
-                                   xrltString *name, xrltString *value);
+                                   xrltString *name, xrltString *val);
 static inline void
         xrltHeaderListClear       (xrltHeaderList *list);
+
+
+static inline void
+        xrltNeedHeaderListInit    (xrltNeedHeaderList *list);
+static inline xrltBool
+        xrltNeedHeaderListPush    (xrltNeedHeaderList *list, size_t id,
+                                   xrltString *name);
+static inline xrltBool
+        xrltNeedHeaderListShift   (xrltNeedHeaderList *list, size_t *id,
+                                   xrltString *name);
+static inline void
+        xrltNeedHeaderListClear   (xrltNeedHeaderList *list);
 
 
 static inline void
@@ -206,9 +237,9 @@ xrltHeaderListInit(xrltHeaderList *list)
 
 
 static inline xrltBool
-xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
+xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *val)
 {
-    if (list == NULL || name == NULL || value == NULL) { return FALSE; }
+    if (list == NULL || name == NULL || val == NULL) { return FALSE; }
 
     xrltHeaderPtr h;
 
@@ -219,7 +250,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
     memset(h, 0, sizeof(xrltHeader));
 
     if (!xrltStringCopy(&h->name, name)) { goto error; }
-    if (!xrltStringCopy(&h->value, value)) { goto error; }
+    if (!xrltStringCopy(&h->val, val)) { goto error; }
 
     if (list->last == NULL) {
         list->first = h;
@@ -232,7 +263,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
 
   error:
     xrltStringClear(&h->name);
-    xrltStringClear(&h->value);
+    xrltStringClear(&h->val);
     xrltFree(h);
 
     return FALSE;
@@ -240,16 +271,16 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *value)
 
 
 static inline xrltBool
-xrltHeaderListShift(xrltHeaderList *list, xrltString *name, xrltString *value)
+xrltHeaderListShift(xrltHeaderList *list, xrltString *name, xrltString *val)
 {
-    if (list == NULL || name == NULL || value == NULL) { return FALSE; }
+    if (list == NULL || name == NULL || val == NULL) { return FALSE; }
 
     xrltHeaderPtr h = list->first;
 
     if (h == NULL) { return FALSE; }
 
     xrltStringMove(name, &h->name);
-    xrltStringMove(value, &h->value);
+    xrltStringMove(val, &h->val);
 
     if (h->next == NULL) {
         list->first = NULL;
@@ -268,11 +299,88 @@ static inline void
 xrltHeaderListClear(xrltHeaderList *list)
 {
     xrltString   name;
-    xrltString   value;
+    xrltString   val;
 
-    while (xrltHeaderListShift(list, &name, &value)) {
+    while (xrltHeaderListShift(list, &name, &val)) {
         xrltStringClear(&name);
-        xrltStringClear(&value);
+        xrltStringClear(&val);
+    }
+}
+
+
+static inline void
+xrltNeedHeaderListInit(xrltNeedHeaderList *list)
+{
+    memset(list, 0, sizeof(xrltNeedHeaderList));
+}
+
+
+static inline xrltBool
+xrltNeedHeaderListPush(xrltNeedHeaderList *list, size_t id, xrltString *name)
+{
+    if (list == NULL || name == NULL) { return FALSE; }
+
+    xrltNeedHeaderPtr h;
+
+    h = (xrltNeedHeaderPtr)xrltMalloc(sizeof(xrltNeedHeader));
+
+    if (h == NULL) { return FALSE; }
+
+    memset(h, 0, sizeof(xrltNeedHeader));
+
+    h->id = id;
+    if (!xrltStringCopy(&h->name, name)) { goto error; }
+
+    if (list->last == NULL) {
+        list->first = h;
+    } else {
+        list->last->next = h;
+    }
+    list->last = h;
+
+    return TRUE;
+
+  error:
+    xrltStringClear(&h->name);
+    xrltFree(h);
+
+    return FALSE;
+}
+
+
+static inline xrltBool
+xrltNeedHeaderListShift(xrltNeedHeaderList *list, size_t *id, xrltString *name)
+{
+    if (list == NULL || id == NULL || name == NULL) { return FALSE; }
+
+    xrltNeedHeaderPtr h = list->first;
+
+    if (h == NULL) { return FALSE; }
+
+    *id = h->id;
+    xrltStringMove(name, &h->name);
+
+    if (h->next == NULL) {
+        list->first = NULL;
+        list->last = NULL;
+    } else {
+        list->first = h->next;
+    }
+
+    xrltFree(h);
+
+    return TRUE;
+}
+
+
+static inline void
+xrltNeedHeaderListClear(xrltNeedHeaderList *list)
+{
+    size_t       id;
+    xrltString   name;
+
+    while (xrltNeedHeaderListShift(list, &id, &name)) {
+        xrltStringClear(&name);
     }
 }
 
