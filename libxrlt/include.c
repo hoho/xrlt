@@ -81,269 +81,52 @@ static inline xrltCompiledIncludeParamPtr
 xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                         xrltBool header)
 {
-    xmlNodePtr                    ntype = NULL;
-    xmlNodePtr                    nname = NULL;
-    xmlNodePtr                    nval = NULL;
-    xmlNodePtr                    ntest = NULL;
-    xmlNodePtr                    tmp;
-    xrltBool                      other = FALSE;
-    xmlNodePtr                    dup = NULL;
-    xmlChar                      *type = NULL;
-    xmlChar                      *name = NULL;
-    xmlChar                      *val = NULL;
-    xmlChar                      *test = NULL;
     xrltCompiledIncludeParamPtr   ret = NULL;
-    xrltNodeDataPtr               n;
-
-    tmp = node->children;
-
-    while (tmp != NULL) {
-        if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS)) {
-            if (xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE)) {
-                if (ntype != NULL) {
-                    dup = tmp;
-                    break;
-                }
-                ntype = tmp;
-            } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_NAME)) {
-                if (nname != NULL) {
-                    dup = tmp;
-                    break;
-                }
-                nname = tmp;
-            } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_VALUE)) {
-                if (nval != NULL) {
-                    dup = tmp;
-                    break;
-                }
-                nval = tmp;
-            } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_TEST)) {
-                if (ntest != NULL) {
-                    dup = tmp;
-                    break;
-                }
-                ntest = tmp;
-            } else {
-                other = TRUE;
-            }
-        } else {
-            other = TRUE;
-        }
-
-        tmp = tmp->next;
-    }
-
-    if (dup != NULL) {
-        xrltTransformError(NULL, sheet, dup, "Duplicate element\n");
-        return NULL;
-    }
-
-    if ((ntype != NULL || nname != NULL || nval != NULL || ntest != NULL) &&
-        other)
-    {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Can't mix <xrl:test>, <xrl:type>, <xrl:name> and <xrl:value> "
-            "elements with other elements\n"
-        );
-        return NULL;
-    }
-
-    type = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
-    if (!header) {
-        if (type != NULL && ntype != NULL) {
-            xrltTransformError(
-                NULL, sheet, node,
-                "Element shouldn't have <xrl:type> to have 'type' attribute\n"
-            );
-            goto error;
-        }
-    } else if (type != NULL || ntype != NULL) {
-        xrltTransformError(NULL, sheet, node, "Header shouldn't have type\n");
-        goto error;
-    }
-
-    name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
-    if (name != NULL && nname != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element shouldn't have <xrl:name> to have 'name' attribute\n"
-        );
-        goto error;
-    }
-
-    val = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
-    if (val != NULL && nval != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element shouldn't have <xrl:value> to have 'select' attribute\n"
-        );
-        goto error;
-    }
-
-    test = xmlGetProp(node, XRLT_ELEMENT_ATTR_TEST);
-    if (test != NULL && ntest != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element shouldn't have <xrl:test> to have 'test' attribute\n"
-        );
-        goto error;
-    }
-
-    if (header && name == NULL && nname == NULL) {
-        xrltTransformError(NULL, sheet, node, "Header has no name\n");
-        goto error;
-    }
-
-    if (!header &&
-        name == NULL && nname == NULL && val == NULL && nval == NULL &&
-        node->children == NULL)
-    {
-        xrltTransformError(NULL, sheet, node,
-                           "Parameter has no name and no value\n");
-        goto error;
-    }
-
-    if (val != NULL && other) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element should be empty to have 'select' attribute\n"
-        );
-        goto error;
-    }
+    int                           conf;
+    int                           _test;
+    xmlChar                      *_type = NULL;
 
     XRLT_MALLOC(ret, xrltCompiledIncludeParamPtr,
                 sizeof(xrltCompiledIncludeParam), "xrltIncludeParamCompile",
                 NULL);
 
-    if (type != NULL) {
-        // We have type attribute for a parameter. It should be 'body' or
-        // 'querystring'. Just compare the value 'body' and treat it as
-        // 'querystring' otherwise.
-        ret->body = xmlStrEqual(type, (const xmlChar *)"body") ? TRUE : FALSE;
-        xmlFree(type);
-        type = NULL;
+    if (header) {
+        conf = XRLT_TESTNAMEVALUE_TEST_ATTR | XRLT_TESTNAMEVALUE_TEST_NODE |
+               XRLT_TESTNAMEVALUE_NAME_ATTR | XRLT_TESTNAMEVALUE_NAME_NODE |
+               XRLT_TESTNAMEVALUE_VALUE_ATTR | XRLT_TESTNAMEVALUE_VALUE_NODE |
+               XRLT_TESTNAMEVALUE_NAME_REQUIRED;
+    } else {
+        conf = XRLT_TESTNAMEVALUE_TEST_ATTR | XRLT_TESTNAMEVALUE_TEST_NODE |
+               XRLT_TESTNAMEVALUE_TYPE_ATTR | XRLT_TESTNAMEVALUE_TYPE_NODE |
+               XRLT_TESTNAMEVALUE_NAME_ATTR | XRLT_TESTNAMEVALUE_NAME_NODE |
+               XRLT_TESTNAMEVALUE_VALUE_ATTR | XRLT_TESTNAMEVALUE_VALUE_NODE;
     }
 
-    if (ntype != NULL) {
-        // The same with previous one, but we have an <xrl:type> node.
-        if (!xrltIncludeStrNodeXPath(sheet, ntype, TRUE, &type, &ret->nbody,
-                                     &ret->xbody))
-        {
-            goto error;
-        }
-
-        if (type != NULL) {
-            ret->body = \
-                xmlStrEqual(type, (const xmlChar *)"body") ? TRUE : FALSE;
-            xmlFree(type);
-            type = NULL;
-        }
-
-        ASSERT_NODE_DATA_GOTO(ntype, n);
-        n->xrlt = TRUE;
+    if (!xrltCompileTestNameValueNode(sheet, node, conf, &_test, &ret->ntest,
+                                      &ret->xtest, &_type, &ret->nbody,
+                                      &ret->xbody, &ret->name, &ret->nname,
+                                      &ret->xname, &ret->val, &ret->nval,
+                                      &ret->xval))
+    {
+        goto error;
     }
 
-    if (name != NULL) {
-        ret->name = name;
-        name = NULL;
-    }
-
-    if (nname != NULL) {
-        if (!xrltIncludeStrNodeXPath(sheet, nname, TRUE, &ret->name,
-                                     &ret->nname, &ret->xname))
-        {
-            goto error;
-        }
-
-        ASSERT_NODE_DATA_GOTO(nname, n);
-        n->xrlt = TRUE;
-    }
-
-    if (val != NULL) {
-        ret->xval = xmlXPathCompile(val);
-
-        xmlFree(val);
-        val = NULL;
-
-        if (ret->xval == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "Failed to compile select expression\n");
-            goto error;
-        }
-    }
-
-    if (nval == NULL && node->children != NULL) {
-        nval = node;
-    }
-
-    if (nval != NULL) {
-        if (!xrltIncludeStrNodeXPath(sheet, nval, TRUE, &ret->val,
-                                     &ret->nval, &ret->xval))
-        {
-            goto error;
-        }
-
-        ASSERT_NODE_DATA_GOTO(nval, n);
-        n->xrlt = TRUE;
-    }
-
-    if (test == NULL && ntest == NULL) {
-        // Default value for test is TRUE.
+    if (_test > 0) {
+        ret->test = _test == 1 ? TRUE : FALSE;
+    } else if (ret->ntest == NULL && ret->xtest == NULL) {
         ret->test = TRUE;
     }
 
-    if (test != NULL) {
-        ret->xtest = xmlXPathCompile(test);
-
-        xmlFree(test);
-        test = NULL;
-
-        if (ret->xtest == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "Failed to compile test expression\n");
-            goto error;
-        }
-    }
-
-    if (ntest != NULL) {
-        if (!xrltIncludeStrNodeXPath(sheet, ntest, TRUE, &test,
-                                     &ret->ntest, &ret->xtest))
-        {
-            goto error;
-        }
-
-        ASSERT_NODE_DATA_GOTO(ntest, n);
-        n->xrlt = TRUE;
-
-        if (test != NULL) {
-            ret->test = xmlStrEqual(test, (const xmlChar *)"") ? FALSE : TRUE;
-            xmlFree(test);
-            test = NULL;
-        }
+    if (_type != NULL) {
+        ret->body = xmlStrEqual(_type, (const xmlChar *)"body") ? TRUE : FALSE;
+        xmlFree(_type);
     }
 
     return ret;
 
   error:
-    if (type != NULL) { xmlFree(type); }
-    if (name != NULL) { xmlFree(name); }
-    if (val != NULL) { xmlFree(val); }
-    if (test != NULL) { xmlFree(test); }
-
-    if (ret != NULL) {
-        if (ret->xtest != NULL) { xmlXPathFreeCompExpr(ret->xtest); }
-
-        if (ret->xbody != NULL) { xmlXPathFreeCompExpr(ret->xbody); }
-
-        if (ret->name != NULL) { xmlFree(ret->name); }
-        if (ret->xname != NULL) { xmlXPathFreeCompExpr(ret->xname); }
-
-        if (ret->val != NULL) { xmlFree(ret->val); }
-        if (ret->xval != NULL) { xmlXPathFreeCompExpr(ret->xval); }
-
-        xrltFree(ret);
-    }
+    if (_type != NULL) { xmlFree(_type); }
+    if (ret != NULL) { xrltFree(ret); }
 
     return NULL;
 }
@@ -364,7 +147,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
     while (tmp != NULL) {
         if (tmp->ns == NULL || !xmlStrEqual(tmp->ns->href, XRLT_NS)) {
-            xrltTransformError(NULL, sheet, tmp, "Unknown element\n");
+            xrltTransformError(NULL, sheet, tmp, "Unexpected element\n");
             goto error;
         }
 
@@ -421,7 +204,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 goto error;
             }
         } else {
-            xrltTransformError(NULL, sheet, tmp, "Unknown element\n");
+            xrltTransformError(NULL, sheet, tmp, "Unexpected element\n");
             goto error;
         }
 
@@ -720,7 +503,6 @@ static xrltBool
 xrltIncludeSubrequestHeader(xrltContextPtr ctx, size_t id,
                             xrltTransformValue *val, void *data)
 {
-
     return TRUE;
 }
 
@@ -729,7 +511,6 @@ static xrltBool
 xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                           xrltTransformValue *val, void *data)
 {
-    printf("SR RESULT: %d %s\n", (int)id, val->data.data);
     return TRUE;
 }
 

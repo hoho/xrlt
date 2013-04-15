@@ -36,7 +36,7 @@ extern "C" {
 
 typedef enum {
     XRLT_PROCESS_HEADER = 1,
-    XRLT_PROCESS_BODY
+    XRLT_PROCESS_BODY = 2
 } xrltTransformValueType;
 
 
@@ -125,7 +125,6 @@ struct _xrltContext {
 
     size_t                       includeId;
 
-    xrltHeaderList               inheader;
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
     xmlNodePtr                   responseCur;
@@ -186,8 +185,7 @@ XRLTPUBFUN void XRLTCALL
 
 
 XRLTPUBFUN xrltContextPtr XRLTCALL
-        xrltContextCreate         (xrltRequestsheetPtr sheet,
-                                   xrltHeaderList *header);
+        xrltContextCreate         (xrltRequestsheetPtr sheet);
 XRLTPUBFUN void XRLTCALL
         xrltContextFree           (xrltContextPtr ctx);
 XRLTPUBFUN int XRLTCALL

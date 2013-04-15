@@ -33,6 +33,21 @@ extern "C" {
 #define XRLT_ELEMENT_VALUE          (const xmlChar *)"value"
 
 
+#define XRLT_TESTNAMEVALUE_TEST_ATTR       2
+#define XRLT_TESTNAMEVALUE_TEST_NODE       4
+#define XRLT_TESTNAMEVALUE_TEST_REQUIRED   8
+#define XRLT_TESTNAMEVALUE_TYPE_ATTR       16
+#define XRLT_TESTNAMEVALUE_TYPE_NODE       32
+#define XRLT_TESTNAMEVALUE_TYPE_REQUIRED   64
+#define XRLT_TESTNAMEVALUE_NAME_ATTR       128
+#define XRLT_TESTNAMEVALUE_NAME_NODE       256
+#define XRLT_TESTNAMEVALUE_NAME_REQUIRED   512
+#define XRLT_TESTNAMEVALUE_VALUE_ATTR      1024
+#define XRLT_TESTNAMEVALUE_VALUE_NODE      2048
+#define XRLT_TESTNAMEVALUE_VALUE_REQUIRED  4096
+#define XRLT_TESTNAMEVALUE_TO_STRING       8192
+
+
 #define XRLT_MALLOC(ret, type, size, from, error) {                           \
     ret = (type)xrltMalloc(size);                                             \
     if (ret == NULL) {                                                        \
@@ -319,6 +334,408 @@ xrltIncludeStrNodeXPath(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     return TRUE;
+}
+
+
+static inline xrltBool
+xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                             int conf, int *test, xmlNodePtr *ntest,
+                             xmlXPathCompExprPtr *xtest, xmlChar **type,
+                             xmlNodePtr *ntype, xmlXPathCompExprPtr *xtype,
+                             xmlChar **name, xmlNodePtr *nname,
+                             xmlXPathCompExprPtr *xname, xmlChar **val,
+                             xmlNodePtr *nval, xmlXPathCompExprPtr *xval)
+{
+    xmlNodePtr        _ntest = NULL;
+    xmlNodePtr        _ntype = NULL;
+    xmlNodePtr        _nname = NULL;
+    xmlNodePtr        _nval = NULL;
+    xmlNodePtr        tmp;
+    xmlNodePtr        other = NULL;
+    xmlNodePtr        dup = NULL;
+    xmlChar          *_test = NULL;
+    xmlChar          *_type = NULL;
+    xmlChar          *_name = NULL;
+    xmlChar          *_val = NULL;
+    xmlChar          *_etype = NULL;
+    xmlChar          *_ename = NULL;
+    xmlChar          *_eval = NULL;
+    xrltNodeDataPtr   n;
+
+    if ((conf & XRLT_TESTNAMEVALUE_TEST_ATTR) |
+        (conf & XRLT_TESTNAMEVALUE_TEST_NODE))
+    {
+        *test = 0;
+        *ntest = NULL;
+        *xtest = NULL;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) |
+        (conf & XRLT_TESTNAMEVALUE_TYPE_NODE))
+    {
+        *type = NULL;
+        *ntype = NULL;
+        *xtype = NULL;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_NAME_ATTR) |
+        (conf & XRLT_TESTNAMEVALUE_NAME_NODE))
+    {
+        *name = NULL;
+        *nname = NULL;
+        *xname = NULL;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) |
+        (conf & XRLT_TESTNAMEVALUE_VALUE_NODE))
+    {
+        *val = NULL;
+        *nval = NULL;
+        *xval = NULL;
+    }
+
+    tmp = node->children;
+
+    while (tmp != NULL) {
+        if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS)) {
+            if ((conf & XRLT_TESTNAMEVALUE_TEST_NODE) &&
+                xmlStrEqual(tmp->name, XRLT_ELEMENT_TEST))
+            {
+                if (_ntest != NULL) {
+                    dup = tmp;
+                    break;
+                }
+                _ntest = tmp;
+            } else if ((conf & XRLT_TESTNAMEVALUE_TYPE_NODE) &&
+                       xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE))
+            {
+                if (_ntype != NULL) {
+                    dup = tmp;
+                    break;
+                }
+                _ntype = tmp;
+            } else if ((conf & XRLT_TESTNAMEVALUE_NAME_NODE) &&
+                       xmlStrEqual(tmp->name, XRLT_ELEMENT_NAME))
+            {
+                if (_nname != NULL) {
+                    dup = tmp;
+                    break;
+                }
+                _nname = tmp;
+            } else if ((conf & XRLT_TESTNAMEVALUE_VALUE_NODE) &&
+                       xmlStrEqual(tmp->name, XRLT_ELEMENT_VALUE))
+            {
+                if (_nval != NULL) {
+                    dup = tmp;
+                    break;
+                }
+                _nval = tmp;
+            } else if (other == NULL) {
+                other = tmp;
+            }
+        } else if (other == NULL) {
+            other = tmp;
+        }
+
+        tmp = tmp->next;
+    }
+
+    if (dup != NULL) {
+        xrltTransformError(NULL, sheet, dup, "Duplicate element\n");
+        return FALSE;
+    }
+
+    if ((ntest != NULL || ntype != NULL || nname != NULL || nval != NULL) &&
+        other != NULL)
+    {
+        xrltTransformError(NULL, sheet, other, "Unexpected node\n");
+        return FALSE;
+    }
+
+    if (conf & XRLT_TESTNAMEVALUE_TEST_ATTR) {
+        _test = xmlGetProp(node, XRLT_ELEMENT_ATTR_TEST);
+
+        if (_test != NULL && _ntest != NULL) {
+            xrltTransformError(
+                NULL, sheet, node,
+                "Element shouldn't have both 'test' attribute and 'test' node\n"
+            );
+            goto error;
+        }
+    }
+
+    if (conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) {
+        _type = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
+
+        if (_type != NULL && _ntype != NULL) {
+            xrltTransformError(
+                NULL, sheet, node,
+                "Element shouldn't have both 'type' attribute and 'type' node\n"
+            );
+            goto error;
+        }
+    }
+
+    if (conf & XRLT_TESTNAMEVALUE_NAME_ATTR) {
+        _name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
+
+        if (_name != NULL && _nname != NULL) {
+            xrltTransformError(
+                NULL, sheet, node,
+                "Element shouldn't have both 'name' attribute and 'name' node\n"
+            );
+            goto error;
+        }
+    }
+
+    if (conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) {
+        _val = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
+
+        if (_val != NULL && _nval != NULL) {
+            xrltTransformError(
+                NULL, sheet, node,
+                "Element shouldn't have both 'select' attribute and 'value' "
+                "node\n"
+            );
+            goto error;
+        }
+    }
+
+    if (_ntest != NULL) {
+        _test = xmlGetProp(_ntest, XRLT_ELEMENT_ATTR_SELECT);
+
+        if (_test != NULL && _ntest->children != NULL) {
+            xrltTransformError(
+                NULL, sheet, _ntest,
+                "Element shouldn't have both 'select' attribute and content\n"
+            );
+            goto error;
+        }
+
+        ASSERT_NODE_DATA_GOTO(_ntest, n);
+        n->xrlt = TRUE;
+    }
+
+    if (_ntype != NULL) {
+        _etype = xmlGetProp(_ntype, XRLT_ELEMENT_ATTR_SELECT);
+
+        if (_etype != NULL && _ntype->children != NULL) {
+            xrltTransformError(
+                NULL, sheet, _ntype,
+                "Element shouldn't have both 'select' attribute and content\n"
+            );
+            goto error;
+        }
+
+        ASSERT_NODE_DATA_GOTO(_ntype, n);
+        n->xrlt = TRUE;
+    }
+
+    if (_nname != NULL) {
+        _ename = xmlGetProp(_nname, XRLT_ELEMENT_ATTR_SELECT);
+
+        if (_ename != NULL && _nname->children != NULL) {
+            xrltTransformError(
+                NULL, sheet, _nname,
+                "Element shouldn't have both 'select' attribute and content\n"
+            );
+            goto error;
+        }
+
+        ASSERT_NODE_DATA_GOTO(_nname, n);
+        n->xrlt = TRUE;
+    }
+
+    if (_nval != NULL) {
+        _eval = xmlGetProp(_nval, XRLT_ELEMENT_ATTR_SELECT);
+
+        if (_eval != NULL && _nval->children != NULL) {
+            xrltTransformError(
+                NULL, sheet, _nval,
+                "Element shouldn't have both 'select' attribute and content\n"
+            );
+            goto error;
+        }
+
+        ASSERT_NODE_DATA_GOTO(_nval, n);
+        n->xrlt = TRUE;
+    }
+
+    if (_test != NULL) {
+        *xtest = xmlXPathCompile(_test);
+
+        xmlFree(_test);
+        _test = NULL;
+
+        if (*xtest == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'test' expression\n");
+            goto error;
+        }
+    } else if (_ntest != NULL) {
+        if (xrltHasXRLTElement(_ntest->children)) {
+            *ntest = _ntest->children;
+        } else {
+            _test = xmlXPathCastNodeToString(_ntest);
+
+            *test = xmlXPathCastStringToBoolean(_test) ? 1 : 2;
+
+            xmlFree(_test);
+            _test = NULL;
+        }
+    }
+
+    if (_type != NULL) {
+        *type = _type;
+        _type = NULL;
+    } else if (_etype != NULL) {
+        *xtype = xmlXPathCompile(_etype);
+
+        xmlFree(_etype);
+        _etype = NULL;
+
+        if (*xtype == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'type' select expression\n");
+            goto error;
+        }
+    } else if (_ntype != NULL) {
+        if (xrltHasXRLTElement(_ntype->children)) {
+            *ntype = _ntype->children;
+        } else {
+            *type = xmlXPathCastNodeToString(_ntype);
+        }
+    }
+
+    if (_name != NULL) {
+        *name = _name;
+        _name = NULL;
+    } else if (_ename != NULL) {
+        *xname = xmlXPathCompile(_ename);
+
+        xmlFree(_ename);
+        _ename = NULL;
+
+        if (*xname == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'name' select expression\n");
+            goto error;
+        }
+    } else if (_nname != NULL) {
+        if (xrltHasXRLTElement(_nname->children)) {
+            *nname = _nname->children;
+        } else {
+            *name = xmlXPathCastNodeToString(_nname);
+        }
+    }
+
+    if (_val != NULL) {
+        *xval = xmlXPathCompile(_val);
+
+        xmlFree(_val);
+        _val = NULL;
+
+        if (*xval == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'value' select expression\n");
+            goto error;
+        }
+    } else if (_eval != NULL) {
+        *xval = xmlXPathCompile(_eval);
+
+        xmlFree(_eval);
+        _eval = NULL;
+
+        if (*xval == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'value' select expression\n");
+            goto error;
+        }
+    } else if (_nval != NULL) {
+        if (xrltHasXRLTElement(_nval->children)) {
+            *nval = _nval->children;
+        } else {
+            *val = xmlXPathCastNodeToString(_nval);
+        }
+    } else {
+        *nval = node->children;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_TEST_REQUIRED) && *type == 0 &&
+        *ntype == NULL && *xtype == NULL)
+    {
+        xrltTransformError(
+            NULL, sheet, node, "'test' attribute or 'test' node is required\n"
+        );
+        goto error;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_TYPE_REQUIRED) && *type == NULL &&
+        *ntype == NULL && *xtype == NULL)
+    {
+        xrltTransformError(
+            NULL, sheet, node, "'type' attribute or 'type' node is required\n"
+        );
+        goto error;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_NAME_REQUIRED) && *name == NULL &&
+        *nname == NULL && *xname == NULL)
+    {
+        xrltTransformError(
+            NULL, sheet, node, "'name' attribute or 'name' node is required\n"
+        );
+        goto error;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_VALUE_REQUIRED) && *val == NULL &&
+        *nval == NULL && *xval == NULL)
+    {
+        xrltTransformError(
+            NULL, sheet, node, "'value' attribute or 'value' node is required\n"
+        );
+        goto error;
+    }
+
+    ASSERT_NODE_DATA_GOTO(node, n);
+    n->xrlt = TRUE;
+
+    return TRUE;
+
+  error:
+    if (_test != NULL) { xmlFree(_test); }
+    if (_type != NULL) { xmlFree(_type); }
+    if (_name != NULL) { xmlFree(_name); }
+    if (_val != NULL) { xmlFree(_val); }
+    if (_etype != NULL) { xmlFree(_etype); }
+    if (_ename != NULL) { xmlFree(_ename); }
+    if (_eval != NULL) { xmlFree(_eval); }
+
+    if (((conf & XRLT_TESTNAMEVALUE_TEST_ATTR) |
+         (conf & XRLT_TESTNAMEVALUE_TEST_NODE)) && *xtest != NULL)
+    {
+        xmlXPathFreeCompExpr(*xtest);
+    }
+
+    if (((conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) |
+         (conf & XRLT_TESTNAMEVALUE_TYPE_NODE)) && *xtype != NULL)
+    {
+        xmlXPathFreeCompExpr(*xtype);
+    }
+
+    if (((conf & XRLT_TESTNAMEVALUE_NAME_ATTR) |
+         (conf & XRLT_TESTNAMEVALUE_NAME_NODE)) && *xname != NULL)
+    {
+        xmlXPathFreeCompExpr(*xname);
+    }
+
+    if (((conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) |
+         (conf & XRLT_TESTNAMEVALUE_VALUE_NODE)) && *xval != NULL)
+    {
+        xmlXPathFreeCompExpr(*xval);
+    }
+
+    return FALSE;
 }
 
 

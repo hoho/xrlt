@@ -166,7 +166,7 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 
 
 xrltContextPtr
-xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
+xrltContextCreate(xrltRequestsheetPtr sheet)
 {
     xrltContextPtr   ret;
     xmlNodePtr       response;
@@ -177,13 +177,6 @@ xrltContextCreate(xrltRequestsheetPtr sheet, xrltHeaderList *header)
                 "xrltContextCreate", NULL);
 
     ret->sheet = sheet;
-
-    if (header != NULL) {
-        ret->inheader.first = header->first;
-        ret->inheader.last = header->last;
-        header->first = NULL;
-        header->last = NULL;
-    }
 
     ret->responseDoc = xmlNewDoc(NULL);
 
@@ -240,7 +233,8 @@ xrltContextFree(xrltContextPtr ctx)
     xrltInputCallbackPtr     cb, tmp;
     size_t                   i;
 
-    xrltHeaderListClear(&ctx->inheader);
+    xrltNeedHeaderListClear(&ctx->needHeader);
+
     xrltSubrequestListClear(&ctx->sr);
 
     for (i = 0; i < ctx->icb.headerSize; i++) {
@@ -281,7 +275,6 @@ xrltContextFree(xrltContextPtr ctx)
     }
 
     if (ctx->responseDoc != NULL) {
-        xmlDocFormatDump(stdout, ctx->responseDoc, 1);
         xmlFreeDoc(ctx->responseDoc);
     }
 

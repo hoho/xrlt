@@ -68,7 +68,7 @@ main()
         int i;
 
         for (i = 0; i < 1; i++) {
-        ctx = xrltContextCreate(sheet, NULL);
+        ctx = xrltContextCreate(sheet);
         ret = xrltTransform(ctx, 0, NULL);
         printData(ctx);
         while (!((ret & XRLT_STATUS_DONE) | (ret & XRLT_STATUS_ERROR))) {

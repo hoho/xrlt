@@ -6,7 +6,7 @@ clean:
 init:
 	mkdir .build
 
-build: clean init xrltstruct json2xml js compile
+build: clean init xrltstruct json2xml js compile include
 
 .PHONY: xrltstruct
 xrltstruct:
@@ -30,6 +30,10 @@ js:
 .PHONY: compile
 compile:
 	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 ../transform.c ../xrlt.c ../builtins.c ../include.c ../variable.c ../xrlterror.c compile/test1.c -lxml2
+
+.PHONY: include
+include:
+	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 ../transform.c ../xrlt.c ../builtins.c ../include.c ../variable.c ../xrlterror.c include/test.c -lxml2
 
 run:
 	@echo "\nRunning tests:"

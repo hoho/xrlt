@@ -206,14 +206,12 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
             xrltRegisteredElements, name, _pass, ns
         );
 
-        printf("0000000 %s %d %s %p\n", (char *)first->name, pass, (char *)_pass, elem);
-
         if (elem == NULL) {
             if (pass == XRLT_PASS2 && !n->xrlt && first->ns != NULL &&
                 xmlStrEqual(first->ns->href, XRLT_NS))
             {
                 // Don't allow unknown elements from XRLT namespace.
-                xrltTransformError(NULL, sheet, first, "Unknown element\n");
+                xrltTransformError(NULL, sheet, first, "Unexpected element\n");
                 return FALSE;
             }
         } else {
