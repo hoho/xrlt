@@ -41,6 +41,14 @@ typedef struct {
     xmlNodePtr                    nhref;
     xmlXPathCompExprPtr           xhref;
 
+    xrltHTTPMethod                method;
+    xmlNodePtr                    nmethod;
+    xmlXPathCompExprPtr           xmethod;
+
+    xrltSubrequestDataType        type;
+    xmlNodePtr                    ntype;
+    xmlXPathCompExprPtr           xtype;
+
     xrltCompiledIncludeParamPtr   fheader;
     xrltCompiledIncludeParamPtr   lheader;
     size_t                        headerCount;
@@ -49,6 +57,9 @@ typedef struct {
     xrltCompiledIncludeParamPtr   lparam;
     size_t                        paramCount;
 
+    xrltBool                      tbody;
+    xmlNodePtr                    tnbody;
+    xmlXPathCompExprPtr           txbody;
     xmlChar                      *body;
     xmlNodePtr                    nbody;
     xmlXPathCompExprPtr           xbody;
@@ -81,14 +92,25 @@ typedef struct {
     xmlNodePtr                  node;
     xmlNodePtr                  pnode;
     xmlNodePtr                  inode;
+
     xrltIncludeTransformStage   stage;
+
     xmlChar                    *href;
+
+    xrltHTTPMethod              method;
+    xmlChar                    *cmethod;
+
+    xrltSubrequestDataType      type;
+    xmlChar                    *ctype;
+
     xrltTransformingParam      *header;
     size_t                      headerCount;
+
     xrltTransformingParam      *param;
     size_t                      paramCount;
+
+    xrltBool                    tbody;
     xmlChar                    *body;
-    xmlHashTablePtr             srheader;
 } xrltIncludeTransformingData;
 
 

@@ -1,0 +1,46 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: XML
+sr url: /test/href/1
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: HEAD
+sr type: XML
+sr url: /test/href/3
+sr query: (null)
+sr body: bobobo
+XRLT_STATUS_SUBREQUEST
+sr id: 3
+sr method: PUT
+sr type: TEXT
+sr url: /test/href/4
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 4
+sr method: HEAD
+sr type: XML
+sr url: /test/href/5
+sr query: (null)
+sr body: bababa
+XRLT_STATUS_SUBREQUEST
+sr id: 5
+sr method: POST
+sr type: JSON
+sr url: /test/href/2
+sr query: (null)
+sr body: test=aa&test2=%5Cbb%2F
+XRLT_STATUS_SUBREQUEST
+sr id: 6
+sr method: GET
+sr type: XML
+sr header: he1: va1
+sr header: he3: va3
+sr url: /test/href/6
+sr query: pa1=pava1&pa3=p%2Ca%3Bv%26a%3D3&pa5=pava5
+sr body: bobobo
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING

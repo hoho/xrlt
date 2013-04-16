@@ -7,21 +7,33 @@
 
         <xrl:include>
             <xrl:href select="'/test/href/2'" />
+            <xrl:method>POST</xrl:method>
+            <xrl:type>json</xrl:type>
+            <xrl:with-param type="body" name="test">aa</xrl:with-param>
+            <xrl:with-param type="body" name="test2" select="'\bb/'" />
         </xrl:include>
 
         <xrl:include>
             <xrl:href select="'/test/href/3'" />
+            <xrl:method select="'HEAD'" />
+            <xrl:type select="'xml'" />
             <xrl:with-body>bobobo</xrl:with-body>
         </xrl:include>
 
         <xrl:include>
             <xrl:href select="'/test/href/4'" />
+            <xrl:method>put</xrl:method>
+            <xrl:type select="'text'" />
             <xrl:with-body test="false()">bobobo</xrl:with-body>
         </xrl:include>
 
         <xrl:include>
             <xrl:href select="'/test/href/5'" />
-            <xrl:with-body test="false()">asfasdf</xrl:with-body>
+            <xrl:method select="'HEAD'" />
+            <xrl:with-body>
+                <xrl:test select="true()" />
+                <xrl:value>bababa</xrl:value>
+            </xrl:with-body>
         </xrl:include>
 
         <xrl:include>

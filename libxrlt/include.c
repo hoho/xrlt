@@ -77,6 +77,52 @@ xrltURLDecode(char *str)
 }
 
 
+static inline xrltHTTPMethod
+xrltIncludeMethodFromString(xmlChar *method)
+{
+    if (method != NULL) {
+        if (xmlStrcasecmp(method, (const xmlChar *)"GET") == 0) {
+            return XRLT_METHOD_GET;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"HEAD") == 0) {
+            return XRLT_METHOD_HEAD;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"POST") == 0) {
+            return XRLT_METHOD_POST;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"PUT") == 0) {
+            return XRLT_METHOD_PUT;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"DELETE") == 0) {
+            return XRLT_METHOD_DELETE;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"TRACE") == 0) {
+            return XRLT_METHOD_TRACE;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"CONNECT") == 0) {
+            return XRLT_METHOD_CONNECT;
+        } else if (xmlStrcasecmp(method, (const xmlChar *)"OPTIONS") == 0) {
+            return XRLT_METHOD_OPTIONS;
+        } else {
+            return XRLT_METHOD_GET;
+        }
+    } else {
+        return XRLT_METHOD_GET;
+    }
+}
+
+
+static inline xrltSubrequestDataType
+xrltIncludeTypeFromString(xmlChar *type)
+{
+    if (type != NULL) {
+        if (xmlStrcasecmp(type, (const xmlChar *)"JSON") == 0) {
+            return XRLT_SUBREQUEST_DATA_JSON;
+        } else if (xmlStrcasecmp(type, (const xmlChar *)"TEXT") == 0) {
+            return XRLT_SUBREQUEST_DATA_TEXT;
+        } else {
+            return XRLT_SUBREQUEST_DATA_XML;
+        }
+    } else {
+        return XRLT_SUBREQUEST_DATA_XML;
+    }
+}
+
+
 static inline xrltCompiledIncludeParamPtr
 xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                         xrltBool header)
@@ -99,7 +145,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         conf = XRLT_TESTNAMEVALUE_TEST_ATTR | XRLT_TESTNAMEVALUE_TEST_NODE |
                XRLT_TESTNAMEVALUE_TYPE_ATTR | XRLT_TESTNAMEVALUE_TYPE_NODE |
                XRLT_TESTNAMEVALUE_NAME_ATTR | XRLT_TESTNAMEVALUE_NAME_NODE |
-               XRLT_TESTNAMEVALUE_VALUE_ATTR | XRLT_TESTNAMEVALUE_VALUE_NODE;
+               XRLT_TESTNAMEVALUE_VALUE_ATTR | XRLT_TESTNAMEVALUE_VALUE_NODE |
+               XRLT_TESTNAMEVALUE_NAME_OR_VALUE_REQUIRED;
     }
 
     if (!xrltCompileTestNameValueNode(sheet, node, conf, &_test, &ret->ntest,
@@ -139,6 +186,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlNodePtr                    tmp;
     xrltNodeDataPtr               n;
     xrltCompiledIncludeParamPtr   param;
+    int                           conf;
+    xmlChar                      *tmp2;
 
     XRLT_MALLOC(ret, xrltCompiledIncludeData*,
                 sizeof(xrltCompiledIncludeData), "xrltIncludeCompile", NULL);
@@ -152,11 +201,50 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         if (xmlStrEqual(tmp->name, XRLT_ELEMENT_HREF)) {
-            if (!xrltIncludeStrNodeXPath(sheet, tmp, TRUE, &ret->href,
-                                         &ret->nhref, &ret->xhref))
+            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED |
+                   XRLT_TESTNAMEVALUE_TO_STRING;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, &ret->href,
+                                              &ret->nhref, &ret->xhref))
             {
                 goto error;
             }
+        } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_METHOD)) {
+            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED |
+                   XRLT_TESTNAMEVALUE_TO_STRING;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, &tmp2,
+                                              &ret->nmethod, &ret->xmethod))
+            {
+                goto error;
+            }
+
+            ret->method = xrltIncludeMethodFromString(tmp2);
+            if (tmp2 != NULL) { xmlFree(tmp2); }
+        } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE)) {
+            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED |
+                   XRLT_TESTNAMEVALUE_TO_STRING;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, &tmp2,
+                                              &ret->ntype, &ret->xtype))
+            {
+                goto error;
+            }
+
+            ret->type = xrltIncludeTypeFromString(tmp2);
+            if (tmp2 != NULL) { xmlFree(tmp2); }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_HEADER)) {
             param = xrltIncludeParamCompile(sheet, tmp, TRUE);
 
@@ -186,20 +274,48 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             ret->lparam = param;
             ret->paramCount++;
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_BODY)) {
-            if (!xrltIncludeStrNodeXPath(sheet, tmp, TRUE, &ret->body,
-                                         &ret->nbody, &ret->xbody))
+            conf = XRLT_TESTNAMEVALUE_TEST_ATTR |
+                   XRLT_TESTNAMEVALUE_TEST_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED |
+                   XRLT_TESTNAMEVALUE_TO_STRING;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, &conf,
+                                              &ret->tnbody, &ret->txbody, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              &ret->body, &ret->nbody,
+                                              &ret->xbody))
             {
                 goto error;
             }
+
+            if (conf > 0) {
+                ret->tbody = conf == 1 ? TRUE : FALSE;
+            } else if (ret->nbody == NULL && ret->xbody == NULL) {
+                ret->tbody = TRUE;
+            }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_SUCCESS)) {
-            if (!xrltIncludeStrNodeXPath(sheet, tmp, FALSE, NULL,
-                                         &ret->nsuccess, &ret->xsuccess))
+            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, &tmp2,
+                                              &ret->nsuccess, &ret->xsuccess))
             {
                 goto error;
             }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_FAILURE)) {
-            if (!xrltIncludeStrNodeXPath(sheet, tmp, FALSE, NULL,
-                                         &ret->nfailure, &ret->xfailure))
+            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+                   XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
+
+            if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, &tmp2,
+                                              &ret->nfailure, &ret->xfailure))
             {
                 goto error;
             }
@@ -241,6 +357,11 @@ xrltIncludeFree(void *comp)
         if (ret->href != NULL) { xmlFree(ret->href); }
         if (ret->xhref != NULL) { xmlXPathFreeCompExpr(ret->xhref); }
 
+        if (ret->xmethod != NULL) { xmlXPathFreeCompExpr(ret->xmethod); }
+
+        if (ret->xtype != NULL) { xmlXPathFreeCompExpr(ret->xtype); }
+
+        if (ret->txbody != NULL) { xmlXPathFreeCompExpr(ret->txbody); }
         if (ret->body != NULL) { xmlFree(ret->body); }
         if (ret->xbody != NULL) { xmlXPathFreeCompExpr(ret->xbody); }
 
@@ -295,6 +416,8 @@ xrltIncludeTransformingFree(void *data)
         tdata = (xrltIncludeTransformingData *)data;
 
         if (tdata->href != NULL) { xmlFree(tdata->href); }
+        if (tdata->cmethod != NULL) { xmlFree(tdata->cmethod); }
+        if (tdata->ctype != NULL) { xmlFree(tdata->ctype); }
         if (tdata->body != NULL) { xmlFree(tdata->body); }
 
         for (i = 0; i < tdata->headerCount; i++) {
@@ -511,6 +634,13 @@ static xrltBool
 xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                           xrltTransformValue *val, void *data)
 {
+    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+
+    if (tdata == NULL) { return FALSE; }
+
+    COUNTER_DECREASE(ctx, tdata->node);
+
+    printf("aaa: %d %s\n", tdata->type, val->data);
     return TRUE;
 }
 
@@ -642,7 +772,9 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 
     id = ++ctx->includeId;
 
-    if (!xrltSubrequestListPush(&ctx->sr, id, &header, &href, &query, &body)) {
+    if (!xrltSubrequestListPush(&ctx->sr, id, data->method, data->type,
+                                &header, &href, &query, &body))
+    {
         xrltTransformError(ctx, NULL, data->inode,
                            "xrltIncludeAddSubrequest: Out of memory\n");
         ret = FALSE;
@@ -677,7 +809,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                      void *data)
 {
     xrltCompiledIncludeData      *icomp = (xrltCompiledIncludeData *)comp;
-    xmlNodePtr                    node;
+    xmlNodePtr                    node = NULL;
     xrltNodeDataPtr               n;
     xrltIncludeTransformingData  *tdata;
     xrltCompiledIncludeParamPtr   p;
@@ -724,8 +856,18 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ctx, node, icomp->href, icomp->nhref, icomp->xhref, &tdata->href
         );
 
+        tdata->method = icomp->method;
         TRANSFORM_TO_STRING(
-            ctx, node, icomp->body, icomp->nbody, icomp->xbody, &tdata->body
+            ctx, node, NULL, icomp->nmethod, icomp->xmethod, &tdata->cmethod
+        );
+
+        tdata->type = icomp->type;
+        TRANSFORM_TO_STRING(
+            ctx, node, NULL, icomp->ntype, icomp->xtype, &tdata->ctype
+        );
+
+        TRANSFORM_TO_BOOLEAN(
+            ctx, node, icomp->tbody, icomp->tnbody, icomp->txbody, &tdata->tbody
         );
 
         p = icomp->fheader;
@@ -784,6 +926,14 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         switch (tdata->stage) {
             case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
+                if (tdata->cmethod != NULL) {
+                    tdata->method = xrltIncludeMethodFromString(tdata->cmethod);
+                }
+
+                if (tdata->ctype != NULL) {
+                    tdata->type = xrltIncludeTypeFromString(tdata->ctype);
+                }
+
                 p = icomp->fheader;
 
                 for (i = 0; i < tdata->headerCount; i++) {
@@ -818,6 +968,13 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         );
                     }
                     p = p->next;
+                }
+
+                if (tdata->tbody) {
+                    TRANSFORM_TO_STRING(
+                        ctx, node, icomp->body, icomp->nbody, icomp->xbody,
+                        &tdata->body
+                    );
                 }
 
                 COUNTER_INCREASE(ctx, node);

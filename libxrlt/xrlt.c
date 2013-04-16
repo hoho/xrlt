@@ -362,8 +362,10 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
     if (((xrltNodeDataPtr)ctx->responseDoc->_private)->count == 0) {
         ctx->cur |= XRLT_STATUS_DONE;
+        xmlDocDump(stdout, ctx->responseDoc);
     } else {
         ctx->cur |= XRLT_STATUS_WAITING;
+        printf("aaaaaa %d\n", ((xrltNodeDataPtr)ctx->responseDoc->_private)->count);
     }
 
     return ctx->cur;

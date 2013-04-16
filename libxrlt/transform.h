@@ -22,6 +22,7 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
+#define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"
 #define XRLT_ELEMENT_WITH_HEADER    (const xmlChar *)"with-header"
 #define XRLT_ELEMENT_WITH_PARAM     (const xmlChar *)"with-param"
 #define XRLT_ELEMENT_WITH_BODY      (const xmlChar *)"with-body"
@@ -33,19 +34,20 @@ extern "C" {
 #define XRLT_ELEMENT_VALUE          (const xmlChar *)"value"
 
 
-#define XRLT_TESTNAMEVALUE_TEST_ATTR       2
-#define XRLT_TESTNAMEVALUE_TEST_NODE       4
-#define XRLT_TESTNAMEVALUE_TEST_REQUIRED   8
-#define XRLT_TESTNAMEVALUE_TYPE_ATTR       16
-#define XRLT_TESTNAMEVALUE_TYPE_NODE       32
-#define XRLT_TESTNAMEVALUE_TYPE_REQUIRED   64
-#define XRLT_TESTNAMEVALUE_NAME_ATTR       128
-#define XRLT_TESTNAMEVALUE_NAME_NODE       256
-#define XRLT_TESTNAMEVALUE_NAME_REQUIRED   512
-#define XRLT_TESTNAMEVALUE_VALUE_ATTR      1024
-#define XRLT_TESTNAMEVALUE_VALUE_NODE      2048
-#define XRLT_TESTNAMEVALUE_VALUE_REQUIRED  4096
-#define XRLT_TESTNAMEVALUE_TO_STRING       8192
+#define XRLT_TESTNAMEVALUE_TEST_ATTR                2
+#define XRLT_TESTNAMEVALUE_TEST_NODE                4
+#define XRLT_TESTNAMEVALUE_TEST_REQUIRED            8
+#define XRLT_TESTNAMEVALUE_TYPE_ATTR                16
+#define XRLT_TESTNAMEVALUE_TYPE_NODE                32
+#define XRLT_TESTNAMEVALUE_TYPE_REQUIRED            64
+#define XRLT_TESTNAMEVALUE_NAME_ATTR                128
+#define XRLT_TESTNAMEVALUE_NAME_NODE                256
+#define XRLT_TESTNAMEVALUE_NAME_REQUIRED            512
+#define XRLT_TESTNAMEVALUE_VALUE_ATTR               1024
+#define XRLT_TESTNAMEVALUE_VALUE_NODE               2048
+#define XRLT_TESTNAMEVALUE_VALUE_REQUIRED           4096
+#define XRLT_TESTNAMEVALUE_TO_STRING                8192
+#define XRLT_TESTNAMEVALUE_NAME_OR_VALUE_REQUIRED   16384
 
 
 #define XRLT_MALLOC(ret, type, size, from, error) {                           \
@@ -292,52 +294,6 @@ xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
 
 
 static inline xrltBool
-xrltIncludeStrNodeXPath(xrltRequestsheetPtr sheet, xmlNodePtr node,
-                        xrltBool tostring,  xmlChar **val, xmlNodePtr *nval,
-                        xmlXPathCompExprPtr *xval)
-{
-    xmlChar              *value;
-    xmlXPathCompExprPtr   expr;
-
-    value = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
-
-    if (value != NULL && node->children != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element should be empty to have 'select' attribute\n"
-        );
-
-        xmlFree(value);
-        return FALSE;
-    }
-
-    if (node->children != NULL) {
-        if (!tostring || xrltHasXRLTElement(node->children)) {
-            *nval = node->children;
-        } else {
-            *val = xmlXPathCastNodeToString(node);
-        }
-    }
-
-    if (value != NULL) {
-        expr = xmlXPathCompile(value);
-
-        xmlFree(value);
-
-        if (expr == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "Failed to compile expression\n");
-            return FALSE;
-        }
-
-        *xval = expr;
-    }
-
-    return TRUE;
-}
-
-
-static inline xrltBool
 xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                              int conf, int *test, xmlNodePtr *ntest,
                              xmlXPathCompExprPtr *xtest, xmlChar **type,
@@ -350,7 +306,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     xmlNodePtr        _ntype = NULL;
     xmlNodePtr        _nname = NULL;
     xmlNodePtr        _nval = NULL;
-    xmlNodePtr        tmp;
+    xmlNodePtr        tmp, tmp2;
     xmlNodePtr        other = NULL;
     xmlNodePtr        dup = NULL;
     xmlChar          *_test = NULL;
@@ -395,6 +351,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     tmp = node->children;
+    tmp2 = NULL;
 
     while (tmp != NULL) {
         if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS)) {
@@ -405,6 +362,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                     dup = tmp;
                     break;
                 }
+                if (tmp2 == NULL) { tmp2 = tmp; }
                 _ntest = tmp;
             } else if ((conf & XRLT_TESTNAMEVALUE_TYPE_NODE) &&
                        xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE))
@@ -413,6 +371,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                     dup = tmp;
                     break;
                 }
+                if (tmp2 == NULL) { tmp2 = tmp; }
                 _ntype = tmp;
             } else if ((conf & XRLT_TESTNAMEVALUE_NAME_NODE) &&
                        xmlStrEqual(tmp->name, XRLT_ELEMENT_NAME))
@@ -421,6 +380,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                     dup = tmp;
                     break;
                 }
+                if (tmp2 == NULL) { tmp2 = tmp; }
                 _nname = tmp;
             } else if ((conf & XRLT_TESTNAMEVALUE_VALUE_NODE) &&
                        xmlStrEqual(tmp->name, XRLT_ELEMENT_VALUE))
@@ -429,6 +389,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                     dup = tmp;
                     break;
                 }
+                if (tmp2 == NULL) { tmp2 = tmp; }
                 _nval = tmp;
             } else if (other == NULL) {
                 other = tmp;
@@ -445,11 +406,14 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         return FALSE;
     }
 
-    if ((ntest != NULL || ntype != NULL || nname != NULL || nval != NULL) &&
+    if ((_ntest != NULL || _ntype != NULL || _nname != NULL || _nval != NULL) &&
         other != NULL)
     {
-        xrltTransformError(NULL, sheet, other, "Unexpected node\n");
+        if (tmp2 != node->children) { other = tmp2; }
+        xrltTransformError(NULL, sheet, other, "Unexpected element\n");
         return FALSE;
+    } else if (other != NULL) {
+        _nval = node;
     }
 
     if (conf & XRLT_TESTNAMEVALUE_TEST_ATTR) {
@@ -494,7 +458,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         if (_val != NULL && _nval != NULL) {
             xrltTransformError(
                 NULL, sheet, node,
-                "Element shouldn't have both 'select' attribute and 'value' "
+                "Element shouldn't have both 'select' attribute and value "
                 "node\n"
             );
             goto error;
@@ -652,13 +616,13 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
             goto error;
         }
     } else if (_nval != NULL) {
-        if (xrltHasXRLTElement(_nval->children)) {
-            *nval = _nval->children;
-        } else {
+        if ((conf & XRLT_TESTNAMEVALUE_TO_STRING) &&
+            !xrltHasXRLTElement(_nval->children))
+        {
             *val = xmlXPathCastNodeToString(_nval);
+        } else {
+            *nval = _nval->children;
         }
-    } else {
-        *nval = node->children;
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_TEST_REQUIRED) && *type == 0 &&
@@ -692,8 +656,16 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         *nval == NULL && *xval == NULL)
     {
         xrltTransformError(
-            NULL, sheet, node, "'value' attribute or 'value' node is required\n"
+            NULL, sheet, node, "'select' attribute or content is required\n"
         );
+        goto error;
+    }
+
+    if ((conf & XRLT_TESTNAMEVALUE_NAME_OR_VALUE_REQUIRED) && *val == NULL &&
+        *nval == NULL && *xval == NULL && *name == NULL && *nname == NULL &&
+        *xname == NULL)
+    {
+        xrltTransformError(NULL, sheet, node, "Name or value are required\n");
         goto error;
     }
 
@@ -715,24 +687,28 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
          (conf & XRLT_TESTNAMEVALUE_TEST_NODE)) && *xtest != NULL)
     {
         xmlXPathFreeCompExpr(*xtest);
+        *xtest = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) |
          (conf & XRLT_TESTNAMEVALUE_TYPE_NODE)) && *xtype != NULL)
     {
         xmlXPathFreeCompExpr(*xtype);
+        *xtype = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_NAME_ATTR) |
          (conf & XRLT_TESTNAMEVALUE_NAME_NODE)) && *xname != NULL)
     {
         xmlXPathFreeCompExpr(*xname);
+        *xname = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) |
          (conf & XRLT_TESTNAMEVALUE_VALUE_NODE)) && *xval != NULL)
     {
         xmlXPathFreeCompExpr(*xval);
+        *xval = NULL;
     }
 
     return FALSE;

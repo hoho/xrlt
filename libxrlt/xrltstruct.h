@@ -25,6 +25,25 @@ typedef enum {
 } xrltLogType;
 
 
+typedef enum {
+    XRLT_METHOD_GET,
+    XRLT_METHOD_HEAD,
+    XRLT_METHOD_POST,
+    XRLT_METHOD_PUT,
+    XRLT_METHOD_DELETE,
+    XRLT_METHOD_TRACE,
+    XRLT_METHOD_CONNECT,
+    XRLT_METHOD_OPTIONS
+} xrltHTTPMethod;
+
+
+typedef enum {
+    XRLT_SUBREQUEST_DATA_XML,
+    XRLT_SUBREQUEST_DATA_JSON,
+    XRLT_SUBREQUEST_DATA_TEXT
+} xrltSubrequestDataType;
+
+
 typedef struct {
     char    *data;
     size_t   len;
@@ -64,14 +83,16 @@ typedef struct {
 typedef struct _xrltSubrequest xrltSubrequest;
 typedef xrltSubrequest* xrltSubrequestPtr;
 struct _xrltSubrequest {
-    size_t              id;
-    xrltBool            proxy;    // Indicates that parent request headers
-                                  // should be sent with this subrequest.
-    xrltHeaderList      header;
-    xrltString          url;
-    xrltString          query;
-    xrltString          body;
-    xrltSubrequestPtr   next;
+    size_t                   id;
+    xrltBool                 proxy;    // Indicates that parent request headers
+                                       // should be sent with this subrequest.
+    xrltHeaderList           header;
+    xrltHTTPMethod           method;
+    xrltSubrequestDataType   type;
+    xrltString               url;
+    xrltString               query;
+    xrltString               body;
+    xrltSubrequestPtr        next;
 };
 
 
@@ -150,10 +171,14 @@ static inline void
         xrltSubrequestListInit    (xrltSubrequestList *list);
 static inline xrltBool
         xrltSubrequestListPush    (xrltSubrequestList *list, size_t id,
+                                   xrltHTTPMethod method,
+                                   xrltSubrequestDataType type,
                                    xrltHeaderList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
 static inline xrltBool
         xrltSubrequestListShift   (xrltSubrequestList *list, size_t *id,
+                                   xrltHTTPMethod *method,
+                                   xrltSubrequestDataType *type,
                                    xrltHeaderList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
 static inline void
@@ -393,8 +418,9 @@ xrltSubrequestListInit(xrltSubrequestList *list)
 
 
 static inline xrltBool
-xrltSubrequestListPush(xrltSubrequestList *list,
-                       size_t id, xrltHeaderList *header, xrltString *url,
+xrltSubrequestListPush(xrltSubrequestList *list, size_t id,
+                       xrltHTTPMethod method, xrltSubrequestDataType type,
+                       xrltHeaderList *header, xrltString *url,
                        xrltString *query, xrltString *body)
 {
     if (list == NULL || id == 0 || url == NULL) { return FALSE; }
@@ -410,6 +436,9 @@ xrltSubrequestListPush(xrltSubrequestList *list,
     sr->id = id;
 
     if (!xrltStringCopy(&sr->url, url)) { goto error; }
+
+    sr->method = method;
+    sr->type = type;
 
     if (query != NULL && !xrltStringCopy(&sr->query, query)) { goto error; }
 
@@ -442,12 +471,13 @@ xrltSubrequestListPush(xrltSubrequestList *list,
 
 
 static inline xrltBool
-xrltSubrequestListShift(xrltSubrequestList *list,
-                        size_t *id, xrltHeaderList *header, xrltString *url,
+xrltSubrequestListShift(xrltSubrequestList *list, size_t *id,
+                        xrltHTTPMethod *method, xrltSubrequestDataType *type,
+                        xrltHeaderList *header, xrltString *url,
                         xrltString *query, xrltString *body)
 {
-    if (list == NULL || id == NULL || header == NULL || url == NULL ||
-        query == NULL || body == NULL)
+    if (list == NULL || id == NULL || method == NULL || type == NULL ||
+        header == NULL || url == NULL || query == NULL || body == NULL)
     {
         return FALSE;
     }
@@ -461,6 +491,8 @@ xrltSubrequestListShift(xrltSubrequestList *list,
     header->first = sr->header.first;
     header->last = sr->header.last;
 
+    *method = sr->method;
+    *type = sr->type;
     xrltStringMove(url, &sr->url);
     xrltStringMove(query, &sr->query);
     xrltStringMove(body, &sr->body);
@@ -481,13 +513,17 @@ xrltSubrequestListShift(xrltSubrequestList *list,
 static inline void
 xrltSubrequestListClear(xrltSubrequestList *list)
 {
-    size_t           id;
-    xrltHeaderList   header;
-    xrltString       url;
-    xrltString       query;
-    xrltString       body;
+    size_t                   id;
+    xrltHTTPMethod           method;
+    xrltSubrequestDataType   type;
+    xrltHeaderList           header;
+    xrltString               url;
+    xrltString               query;
+    xrltString               body;
 
-    while (xrltSubrequestListShift(list, &id, &header, &url, &query, &body)) {
+    while (xrltSubrequestListShift(list, &id, &method, &type, &header, &url,
+                                   &query, &body))
+    {
         xrltHeaderListClear(&header);
 
         xrltStringClear(&url);

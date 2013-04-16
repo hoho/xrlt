@@ -7,6 +7,8 @@ void *
 xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltCompiledVariableData  *ret;
+    int                        conf;
+    xmlChar                   *tmp;
 
     XRLT_MALLOC(ret, xrltCompiledVariableData*,
                 sizeof(xrltCompiledVariableData), "xrltVariableCompile", NULL);
@@ -18,8 +20,13 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
-    if (!xrltIncludeStrNodeXPath(sheet, node, FALSE, NULL, &ret->nval,
-                                 &ret->xval))
+    conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
+           XRLT_TESTNAMEVALUE_VALUE_NODE |
+           XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
+
+    if (!xrltCompileTestNameValueNode(sheet, node, conf, NULL, NULL, NULL,
+                                      NULL, NULL, NULL, NULL, NULL, NULL, &tmp,
+                                      &ret->nval, &ret->xval))
     {
         goto error;
     }

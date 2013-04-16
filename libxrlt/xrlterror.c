@@ -141,18 +141,18 @@ xrltPrintErrorContext(xrltContextPtr ctxt, xrltRequestsheetPtr sheet,
 
     if (file != NULL && line != 0 && name != NULL) {
         if (ns == NULL) {
-            error(errctx, "%s: file '%s' line %d element <%s>: ",
+            error(errctx, "%s: file '%s' line %d element '%s': ",
                   type, file, line, name);
         } else {
-            error(errctx, "%s: file '%s' line %d element <%s:%s>: ",
+            error(errctx, "%s: file '%s' line %d element '%s:%s': ",
                   type, file, line, ns, name);
         }
     } else if (file != NULL && name != NULL) {
         if (ns == NULL) {
-            error(errctx, "%s: file '%s' element <%s>: ", type, file, name);
+            error(errctx, "%s: file '%s' element '%s': ", type, file, name);
         } else {
             error(errctx,
-                  "%s: file '%s' element <%s:%s>: ", type, file, ns, name);
+                  "%s: file '%s' element '%s:%s': ", type, file, ns, name);
         }
     } else if (file != NULL && line != 0) {
         error(errctx, "%s: file '%s' line %d: ", type, file, line);
@@ -160,9 +160,9 @@ xrltPrintErrorContext(xrltContextPtr ctxt, xrltRequestsheetPtr sheet,
         error(errctx, "%s: file '%s': ", type, file);
     } else if (name != NULL) {
         if (ns == NULL) {
-            error(errctx, "%s: element <%s>: ", type, name);
+            error(errctx, "%s: element '%s': ", type, name);
         } else {
-            error(errctx, "%s: element <%s:%s>: ", type, ns, name);
+            error(errctx, "%s: element '%s:%s': ", type, ns, name);
         }
     } else {
         error(errctx, "%s: ", type);

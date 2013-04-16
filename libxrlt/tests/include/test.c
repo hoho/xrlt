@@ -12,12 +12,14 @@
 char *
 dumpResult(xrltContextPtr ctx, int ret, char *out)
 {
-    xrltString       s;
-    xrltLogType      t;
-    xrltString       url, q, b, n, v;
-    xrltHeaderList   header;
-    size_t           id;
-    char             buf[TEST_BUFFER_SIZE];
+    xrltString               s;
+    xrltLogType              t;
+    xrltHTTPMethod           m;
+    xrltSubrequestDataType   type;
+    xrltString               url, q, b, n, v;
+    xrltHeaderList           header;
+    size_t                   id;
+    char                     buf[TEST_BUFFER_SIZE];
 
     memset(buf, 0, TEST_BUFFER_SIZE);
 
@@ -115,8 +117,53 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    while (xrltSubrequestListShift(&ctx->sr, &id, &header, &url, &q, &b)) {
+    while (xrltSubrequestListShift(&ctx->sr, &id, &m, &type, &header, &url, &q,
+                                   &b))
+    {
         sprintf(buf, "sr id: %d\n", (int)id);
+        sprintf(out, "%s", buf);
+        out += strlen(buf);
+
+        switch (m) {
+            case XRLT_METHOD_GET:
+                sprintf(buf, "sr method: GET\n");
+                break;
+            case XRLT_METHOD_HEAD:
+                sprintf(buf, "sr method: HEAD\n");
+                break;
+            case XRLT_METHOD_POST:
+                sprintf(buf, "sr method: POST\n");
+                break;
+            case XRLT_METHOD_PUT:
+                sprintf(buf, "sr method: PUT\n");
+                break;
+            case XRLT_METHOD_DELETE:
+                sprintf(buf, "sr method: DELETE\n");
+                break;
+            case XRLT_METHOD_TRACE:
+                sprintf(buf, "sr method: TRACE\n");
+                break;
+            case XRLT_METHOD_CONNECT:
+                sprintf(buf, "sr method: CONNECT\n");
+                break;
+            case XRLT_METHOD_OPTIONS:
+                sprintf(buf, "sr method: OPTIONS\n");
+                break;
+        }
+        sprintf(out, "%s", buf);
+        out += strlen(buf);
+
+        switch (type) {
+            case XRLT_SUBREQUEST_DATA_XML:
+                sprintf(buf, "sr type: XML\n");
+                break;
+            case XRLT_SUBREQUEST_DATA_JSON:
+                sprintf(buf, "sr type: JSON\n");
+                break;
+            case XRLT_SUBREQUEST_DATA_TEXT:
+                sprintf(buf, "sr type: TEXT\n");
+                break;
+        }
         sprintf(out, "%s", buf);
         out += strlen(buf);
 
