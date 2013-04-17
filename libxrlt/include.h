@@ -4,6 +4,7 @@
 
 #include <libxml/tree.h>
 #include <xrlt.h>
+#include "json2xml.h"
 
 
 #ifdef __cplusplus
@@ -83,16 +84,27 @@ typedef struct {
 typedef enum {
     XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN = 0,
     XRLT_INCLUDE_TRANSFORM_PARAMS_END,
-    XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN,
-    XRLT_INCLUDE_TRANSFORM_RESULT_END
+    XRLT_INCLUDE_TRANSFORM_READ_RESPONSE,
+    XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN,
+    XRLT_INCLUDE_TRANSFORM_SUCCESS_END,
+    XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN,
+    XRLT_INCLUDE_TRANSFORM_FAILURE_END
 } xrltIncludeTransformStage;
 
 
 typedef struct {
-    xmlNodePtr                  node;
-    xmlNodePtr                  pnode;
-    xmlNodePtr                  inode;
+    xmlNodePtr                  inode;      // Include node in source document.
 
+    xmlNodePtr                  node;       // Include node in response
+                                            // document.
+    xmlNodePtr                  pnode;      // Parent node to transform params
+                                            // to.
+    xmlNodePtr                  rnode;      // Parent node to transform the
+                                            // result to.
+    xmlParserCtxtPtr            xmlparser;  // Push parser for XML includes.
+    xrltJSON2XMLPtr             jsonparser;
+    xmlDocPtr                   doc;        // Document to parse include result
+                                            // to.
     xrltIncludeTransformStage   stage;
 
     xmlChar                    *href;

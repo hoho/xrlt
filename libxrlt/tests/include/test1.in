@@ -1,16 +1,10 @@
 id:0, type:0, last:0, data:
 id:0, type:0, last:0, data:
+id:1, type:2, last:0, data:<hello>
+id:1, type:2, last:0, data:<world/>
+id:1, type:2, last:1, data:</hello>
 id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:3, type:2, last:1, data:hello
-id:2, type:2, last:1, data:hello
-id:1, type:2, last:1, data:hello
-id:4, type:2, last:1, data:hello
-id:0, type:0, last:0, data:
-id:5, type:2, last:1, data:hello
-id:0, type:0, last:0, data:
-id:6, type:2, last:1, data:hello
-id:0, type:0, last:0, data:
+id:2, type:2, last:0, data:{"aaa
+id:2, type:2, last:1, data:bbb": 123, "ccc": true}
+id:3, type:2, last:0, data:bbb": 123, "ccc": true}
+id:3, type:2, last:1, data:bbb": 123, "ccc": true}

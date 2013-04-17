@@ -38,7 +38,8 @@ typedef enum {
 
 
 typedef enum {
-    XRLT_SUBREQUEST_DATA_XML,
+    //XRLT_SUBREQUEST_DATA_AUTO,
+    XRLT_SUBREQUEST_DATA_XML = 0,
     XRLT_SUBREQUEST_DATA_JSON,
     XRLT_SUBREQUEST_DATA_TEXT
 } xrltSubrequestDataType;

@@ -104,5 +104,8 @@ int main()
     test_xrltRDDM("json2xml/test9.in.json", "json2xml/test9.out.xml");
 
     xrltTestFailurePrint();
+
+    xmlCleanupParser();
+
     return 0;
 }

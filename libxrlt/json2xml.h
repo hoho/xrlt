@@ -5,6 +5,7 @@
 #include <libxml/tree.h>
 
 #include <xrltstruct.h>
+#include <yajl/yajl_parse.h>
 
 
 #ifdef __cplusplus
@@ -54,19 +55,19 @@ struct _xrltJSON2XML {
     xmlNsPtr                ns;
     xrltJSON2XMLStackItem   stack[MAX_JSON_DEPTH];
     int                     stackPos;
-    void                   *parser;
+    yajl_handle             parser;
 };
 
 
 xrltJSON2XMLPtr
         xrltJSON2XMLInit           (xmlNodePtr insert);
-xrltBool
+void
         xrltJSON2XMLFree           (xrltJSON2XMLPtr json2xml);
 xrltBool
-        xrltJSON2XMLFeed           (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
+        xrltJSON2XMLFeed           (xrltJSON2XMLPtr json2xml, char *chunk,
                                     size_t l);
 xmlChar *
-        xrltJSON2XMLGetError       (xrltJSON2XMLPtr json2xml, xmlChar *chunk,
+        xrltJSON2XMLGetError       (xrltJSON2XMLPtr json2xml, char *chunk,
                                     size_t l);
 
 

@@ -416,9 +416,25 @@ xrltIncludeTransformingFree(void *data)
         tdata = (xrltIncludeTransformingData *)data;
 
         if (tdata->href != NULL) { xmlFree(tdata->href); }
+
         if (tdata->cmethod != NULL) { xmlFree(tdata->cmethod); }
+
         if (tdata->ctype != NULL) { xmlFree(tdata->ctype); }
+
         if (tdata->body != NULL) { xmlFree(tdata->body); }
+
+        if (tdata->xmlparser != NULL) {
+            if (tdata->xmlparser->myDoc != NULL) {
+                xmlFreeDoc(tdata->xmlparser->myDoc);
+            }
+            xmlFreeParserCtxt(tdata->xmlparser);
+        }
+
+        if (tdata->jsonparser != NULL) {
+            xrltJSON2XMLFree(tdata->jsonparser);
+        }
+
+        if (tdata->doc != NULL) { xmlFreeDoc(tdata->doc); }
 
         for (i = 0; i < tdata->headerCount; i++) {
             if (tdata->header[i].name != NULL) {
@@ -635,12 +651,159 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                           xrltTransformValue *val, void *data)
 {
     xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+    xmlNodePtr                    tmp;
 
     if (tdata == NULL) { return FALSE; }
 
-    COUNTER_DECREASE(ctx, tdata->node);
+    if (tdata->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
+        return TRUE;
+    }
 
-    printf("aaa: %d %s\n", tdata->type, val->data);
+    if (tdata->doc == NULL && tdata->xmlparser == NULL) {
+        // On the first call create a doc for the result to and a parser.
+
+        if (tdata->type != XRLT_SUBREQUEST_DATA_XML) {
+            // XRLT_SUBREQUEST_DATA_XML type will use the doc from xmlparser.
+            tdata->doc = xmlNewDoc(NULL);
+
+            if (tdata->doc == NULL) {
+                xrltTransformError(ctx, NULL, tdata->inode,
+                                   "Failed to create include doc\n");
+                return FALSE;
+            }
+        }
+
+        switch (tdata->type) {
+            case XRLT_SUBREQUEST_DATA_XML:
+                tdata->xmlparser = xmlCreatePushParserCtxt(
+                    NULL, NULL, val->data.data, val->data.len,
+                    (const char *)tdata->href
+                );
+
+                if (tdata->xmlparser == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->inode,
+                                       "Failed to create parser\n");
+                    return FALSE;
+                }
+
+                if (val->last) {
+                    if (xmlParseChunk(tdata->xmlparser,
+                                      val->data.data, 0, 1) != 0)
+                    {
+                        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+
+                        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+                        return TRUE;
+                    }
+                }
+
+                break;
+
+            case XRLT_SUBREQUEST_DATA_JSON:
+                tdata->jsonparser = xrltJSON2XMLInit((xmlNodePtr)tdata->doc);
+
+                if (tdata->jsonparser == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->inode,
+                                       "Failed to create parser\n");
+                    return FALSE;
+                }
+
+                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
+                                      val->data.len))
+                {
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+
+                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+                    return TRUE;
+                }
+
+                break;
+
+            case XRLT_SUBREQUEST_DATA_TEXT:
+                tmp = xmlNewTextLen((const xmlChar *)val->data.data,
+                                    val->data.len);
+
+                if (tmp == NULL ||
+                    xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
+                {
+                    if (tmp != NULL) { xmlFreeNode(tmp); }
+
+                    xrltTransformError(ctx, NULL, tdata->inode,
+                                       "Out of memory\n");
+                    return FALSE;
+                }
+
+                break;
+        }
+    } else {
+        switch (tdata->type) {
+            case XRLT_SUBREQUEST_DATA_XML:
+                if (xmlParseChunk(tdata->xmlparser,
+                                  val->data.data, val->data.len,
+                                  val->last) != 0)
+                {
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+
+                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+                    return TRUE;
+                }
+
+                break;
+
+            case XRLT_SUBREQUEST_DATA_JSON:
+                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
+                                      val->data.len))
+                {
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+
+                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+                    return TRUE;
+                }
+
+                break;
+
+            case XRLT_SUBREQUEST_DATA_TEXT:
+                tmp = xmlNewTextLen((const xmlChar *)val->data.data,
+                                    val->data.len);
+
+                if (tmp == NULL ||
+                    xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
+                {
+                    if (tmp != NULL) { xmlFreeNode(tmp); }
+
+                    xrltTransformError(ctx, NULL, tdata->inode,
+                                       "Out of memory\n");
+                    return FALSE;
+                }
+
+                break;
+        }
+    }
+
+    if (val->last) {
+        if (tdata->type == XRLT_SUBREQUEST_DATA_XML) {
+            if (tdata->xmlparser->wellFormed == 0) {
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+            } else {
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN;
+
+                tdata->doc = tdata->xmlparser->myDoc;
+                tdata->xmlparser->myDoc = NULL;
+
+            }
+        } else {
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN;
+        }
+
+        xmlDocFormatDump(stdout, tdata->doc, 1);
+
+        COUNTER_DECREASE(ctx, tdata->node);
+    }
+
     return TRUE;
 }
 
@@ -903,8 +1066,11 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 node = tdata->pnode;
                 break;
 
-            case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
-            case XRLT_INCLUDE_TRANSFORM_RESULT_END:
+            case XRLT_INCLUDE_TRANSFORM_READ_RESPONSE:
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN:
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_END:
+            case XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN:
+            case XRLT_INCLUDE_TRANSFORM_FAILURE_END:
                 node = tdata->node;
                 break;
         }
@@ -995,14 +1161,14 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
                 );
 
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN;
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
                 break;
 
-            case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
+            /*case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_RESULT_END:
-                break;
+                break;*/
         }
 
     }

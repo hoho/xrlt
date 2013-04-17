@@ -138,13 +138,15 @@ void test_xrltNeedHeaderList(void)
 
 void test_xrltSubrequestList(void)
 {
-    xrltSubrequestList   sr;
-    xrltHeaderList       h;
-    xrltString           n, v;
-    size_t               id;
-    xrltString           url1, url2, url3, url;
-    xrltString           q1, q2, q;
-    xrltString           b1, b2, b;
+    xrltSubrequestList       sr;
+    xrltHeaderList           h;
+    xrltString               n, v;
+    size_t                   id;
+    xrltSubrequestDataType   type;
+    xrltHTTPMethod           m;
+    xrltString               url1, url2, url3, url;
+    xrltString               q1, q2, q;
+    xrltString               b1, b2, b;
 
     xrltSubrequestListInit(&sr);
 
@@ -166,16 +168,23 @@ void test_xrltSubrequestList(void)
     xrltStringInit(&b1, "body1");
     xrltStringInit(&b2, "body2");
 
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, &h, &url1, &q1, &b1));
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, NULL, &url2, &q2, &b2));
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, NULL, &url3, NULL, NULL));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, XRLT_METHOD_POST,
+                                       XRLT_SUBREQUEST_DATA_JSON, &h, &url1,
+                                       &q1, &b1));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, XRLT_METHOD_GET,
+                                       XRLT_SUBREQUEST_DATA_XML, NULL, &url2,
+                                       &q2, &b2));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, XRLT_METHOD_HEAD,
+                                       XRLT_SUBREQUEST_DATA_TEXT, NULL, &url3,
+                                       NULL, NULL));
 
     ASSERT_NULL(h.first);
     ASSERT_NULL(h.last);
 
-    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, &q, &b));
     ASSERT_INT(id, 123);
-
+    ASSERT_INT(m, XRLT_METHOD_POST);
+    ASSERT_INT(type, XRLT_SUBREQUEST_DATA_JSON);
     ASSERT_TRUE(xrltHeaderListShift(&h, &n, &v));
     ASSERT_STR(n, "hname");
     ASSERT_STR(v, "hvalue");
@@ -197,8 +206,10 @@ void test_xrltSubrequestList(void)
     xrltStringClear(&q);
     xrltStringClear(&b);
 
-    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, &q, &b));
     ASSERT_INT(id, 234);
+    ASSERT_INT(m, XRLT_METHOD_GET);
+    ASSERT_INT(type, XRLT_SUBREQUEST_DATA_XML);
     ASSERT_NULL(h.first);
     ASSERT_NULL(h.last);
     ASSERT_STR(url, "url2");
@@ -208,8 +219,10 @@ void test_xrltSubrequestList(void)
     xrltStringClear(&q);
     xrltStringClear(&b);
 
-    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_TRUE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, &q, &b));
     ASSERT_INT(id, 345);
+    ASSERT_INT(m, XRLT_METHOD_HEAD);
+    ASSERT_INT(type, XRLT_SUBREQUEST_DATA_TEXT);
     ASSERT_NULL(h.first);
     ASSERT_NULL(h.last);
     ASSERT_STR(url, "url3");
@@ -217,7 +230,7 @@ void test_xrltSubrequestList(void)
     ASSERT_NULL(b.data);
     xrltStringClear(&url);
 
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, &b));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, &q, &b));
 
     xrltStringInit(&n, "hname");
     xrltStringInit(&v, "hvalue");
@@ -225,20 +238,38 @@ void test_xrltSubrequestList(void)
     xrltHeaderListPush(&h, &n, &v);
     xrltStringClear(&n);
     xrltStringClear(&v);
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, &h, &url1, &q1, &b1));
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, NULL, &url2, &q2, &b2));
-    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, NULL, &url3, NULL, NULL));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, XRLT_METHOD_HEAD,
+                                       XRLT_SUBREQUEST_DATA_TEXT, &h, &url1,
+                                       &q1, &b1));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 234, XRLT_METHOD_HEAD,
+                                       XRLT_SUBREQUEST_DATA_TEXT, NULL, &url2,
+                                       &q2, &b2));
+    ASSERT_TRUE(xrltSubrequestListPush(&sr, 345, XRLT_METHOD_HEAD,
+                                       XRLT_SUBREQUEST_DATA_TEXT, NULL, &url3,
+                                       NULL, NULL));
 
-    ASSERT_FALSE(xrltSubrequestListPush(NULL, 123, NULL, &url1, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListPush(&sr, 0, NULL, &url1, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListPush(&sr, 123, NULL, NULL, NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListPush(NULL, 123, XRLT_METHOD_HEAD,
+                                        XRLT_SUBREQUEST_DATA_TEXT, NULL, &url1,
+                                        NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListPush(&sr, 0, XRLT_METHOD_HEAD,
+                                        XRLT_SUBREQUEST_DATA_TEXT, NULL, &url1,
+                                        NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListPush(&sr, 123, XRLT_METHOD_HEAD,
+                                        XRLT_SUBREQUEST_DATA_TEXT, NULL, NULL,
+                                        NULL, NULL));
 
-    ASSERT_FALSE(xrltSubrequestListShift(NULL, NULL, NULL, NULL, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, NULL, NULL, NULL, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, NULL, NULL, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, NULL, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, NULL, NULL));
-    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &h, &url, &q, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(NULL, NULL, NULL, NULL, NULL, NULL,
+                                         NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, NULL, NULL, NULL, NULL, NULL,
+                                         NULL, NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &m, NULL, NULL, NULL, NULL,
+                                         NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, NULL, NULL,
+                                         NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, NULL,
+                                         NULL));
+    ASSERT_FALSE(xrltSubrequestListShift(&sr, &id, &m, &type, &h, &url, &q,
+                                         NULL));
 
     xrltSubrequestListClear(&sr);
     ASSERT_NULL(sr.first);

@@ -6,6 +6,16 @@
         </xrl:include>
 
         <xrl:include>
+            <xrl:href>/test/href/2</xrl:href>
+            <xrl:type>JSON</xrl:type>
+        </xrl:include>
+
+        <xrl:include>
+            <xrl:href>/test/href/3</xrl:href>
+            <xrl:type>TEXT</xrl:type>
+        </xrl:include>
+
+        <!--<xrl:include>
             <xrl:href select="'/test/href/2'" />
             <xrl:method>POST</xrl:method>
             <xrl:type>json</xrl:type>
@@ -76,7 +86,7 @@
             </xrl:with-param>
 
             <xrl:with-body>bobobo</xrl:with-body>
-        </xrl:include>
+        </xrl:include>-->
 
     </xrl:response>
 </xrl:requestsheet>

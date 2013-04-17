@@ -1,8 +1,6 @@
 #include <xrlt.h>
 #include "json2xml.h"
 
-#include <yajl/yajl_parse.h>
-
 
 #define ASSERT_json2xml                                                       \
     xrltJSON2XMLPtr json2xml = (xrltJSON2XMLPtr)ctx;                          \
@@ -368,7 +366,6 @@ xrltJSON2XMLPtr
 xrltJSON2XMLInit(xmlNodePtr insert)
 {
     xrltJSON2XMLPtr   ret = NULL;
-    yajl_handle       parser;
 
     if (insert == NULL) { goto error; }
 
@@ -382,12 +379,10 @@ xrltJSON2XMLInit(xmlNodePtr insert)
     ret->ns = xmlSearchNsByHref(insert->doc, insert, XRLT_NS);
     ret->stackPos = -1;
 
-    parser = yajl_alloc(&yajlCallbacks, NULL, (void *)ret);
-    if (parser == NULL) { goto error; }
+    ret->parser = yajl_alloc(&yajlCallbacks, NULL, (void *)ret);
+    if (ret->parser == NULL) { goto error; }
 
-    yajl_config(parser, yajl_allow_comments, 1);
-
-    ret->parser = (void *)parser;
+    yajl_config(ret->parser, yajl_allow_comments, 1);
 
     return ret;
 
@@ -398,68 +393,44 @@ xrltJSON2XMLInit(xmlNodePtr insert)
 }
 
 
-xrltBool
+void
 xrltJSON2XMLFree(xrltJSON2XMLPtr json2xml)
 {
-    xrltBool      ret = TRUE;
-    yajl_handle   parser = NULL;
+    if (json2xml == NULL) { return; }
 
-    if (json2xml == NULL) {
-        ret = FALSE;
-        goto error;
+    int i;
+
+    if (json2xml->parser != NULL) {
+        yajl_complete_parse(json2xml->parser);
+        yajl_free(json2xml->parser);
     }
 
-    parser = (yajl_handle)json2xml->parser;
-
-    if (parser == NULL) {
-        ret = FALSE;
-        goto error;
-    }
-
-    if (yajl_complete_parse(parser) != yajl_status_ok) {
-        ret = FALSE;
-        goto error;
-    }
-
-  error:
-    if (parser) { yajl_free(parser); }
-
-    if (json2xml) {
-        int i;
-
-        for (i = 0; i <= json2xml->stackPos; i++) {
-            if (json2xml->stack[i].key) {
-                xmlFree(json2xml->stack[i].key);
-            }
+    for (i = 0; i <= json2xml->stackPos; i++) {
+        if (json2xml->stack[i].key != NULL) {
+            xmlFree(json2xml->stack[i].key);
         }
-        xmlFree(json2xml);
     }
 
-    return ret;
+    xmlFree(json2xml);
 }
 
 
 xrltBool
-xrltJSON2XMLFeed(xrltJSON2XMLPtr json2xml, xmlChar *chunk, size_t l)
+xrltJSON2XMLFeed(xrltJSON2XMLPtr json2xml, char *chunk, size_t l)
 {
-    if (json2xml == NULL) { goto error; }
+    if (json2xml == NULL || json2xml->parser == NULL) { return FALSE; }
 
-    yajl_handle parser = (yajl_handle)json2xml->parser;
-
-    if (parser == NULL) { goto error; }
-
-    if (yajl_parse(parser, (const unsigned char *)chunk, l) != yajl_status_ok) {
-        goto error;
+    if (yajl_parse(json2xml->parser,
+                   (const unsigned char *)chunk, l) != yajl_status_ok)
+    {
+        return FALSE;
     }
 
     return TRUE;
-
-  error:
-    return FALSE;
 }
 
 xmlChar *
-xrltJSON2XMLGetError(xrltJSON2XMLPtr json2xml, xmlChar *chunk, size_t l)
+xrltJSON2XMLGetError(xrltJSON2XMLPtr json2xml, char *chunk, size_t l)
 {
     xmlChar        *ret;
     unsigned char  *err;

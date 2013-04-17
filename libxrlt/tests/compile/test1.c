@@ -8,11 +8,13 @@
 void
 printData(xrltContextPtr ctx)
 {
-    xrltString       s;
-    xrltLogType      t;
-    xrltString       url, q, b, n, v;
-    xrltHeaderList   header;
-    size_t           id;
+    xrltString               s;
+    xrltLogType              t;
+    xrltString               url, q, b, n, v;
+    xrltSubrequestDataType   type;
+    xrltHTTPMethod           m;
+    xrltHeaderList           header;
+    size_t                   id;
 
     while (xrltLogListShift(&ctx->log, &t, &s)) {
         printf("log: %d %s\n", t, s.data);
@@ -24,7 +26,9 @@ printData(xrltContextPtr ctx)
         xrltStringClear(&s);
     }
 
-    while (xrltSubrequestListShift(&ctx->sr, &id, &header, &url, &q, &b)) {
+    while (xrltSubrequestListShift(&ctx->sr, &id, &m, &type, &header,
+                                   &url, &q, &b))
+    {
         printf("sr id: %d\n", (int)id);
         while (xrltHeaderListShift(&header, &n, &v)) {
             printf("sr header: %s: %s\n", n.data, v.data);
