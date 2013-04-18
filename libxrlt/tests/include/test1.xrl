@@ -8,6 +8,7 @@
         <xrl:include>
             <xrl:href>/test/href/2</xrl:href>
             <xrl:type>JSON</xrl:type>
+            <xrl:success select="/*" />
         </xrl:include>
 
         <xrl:include>

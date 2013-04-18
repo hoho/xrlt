@@ -108,7 +108,7 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             );
         } else if (vdata->xval != NULL) {
             // Variable from XPath expression.
-            if (!xrltXPathEval(ctx, NULL, insert, vdata->xval, &val)) {
+            if (!xrltXPathEval(ctx, insert, vdata->xval, &val)) {
                 return FALSE;
             }
 

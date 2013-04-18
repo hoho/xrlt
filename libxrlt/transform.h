@@ -22,7 +22,7 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
-#define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"
+#define XRLT_ELEMENT_METHOD         (const xmlChar *)"href"
 #define XRLT_ELEMENT_WITH_HEADER    (const xmlChar *)"with-header"
 #define XRLT_ELEMENT_WITH_PARAM     (const xmlChar *)"with-param"
 #define XRLT_ELEMENT_WITH_BODY      (const xmlChar *)"with-body"
@@ -157,6 +157,7 @@ struct _xrltNodeData {
     xrltTransformCallbackQueue   tcb;        // Callbacks to be called when
                                              // count == 0, only for response
                                              // doc nodes.
+    xmlDocPtr                    root;       // Root for XPath requests.
 };
 
 

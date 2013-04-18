@@ -344,6 +344,10 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
                 }
             }
         }
+
+        if (ctx->cur != XRLT_STATUS_UNKNOWN) {
+            return ctx->cur;
+        }
     }
 
     while (xrltTransformCallbackQueueShift(&ctx->tcb, &func, &comp,
@@ -371,17 +375,25 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
 
 xrltBool
-xrltXPathEval(xrltContextPtr ctx, xmlNodePtr root, xmlNodePtr insert,
+xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert,
               xmlXPathCompExprPtr expr, xmlXPathObjectPtr *ret)
 {
     xmlXPathObjectPtr  r;
+    xmlNodePtr         node = insert;
+    xrltNodeDataPtr    n;
 
-    if (root == NULL) {
+    do {
+        ASSERT_NODE_DATA(node, n);
+        node = node->parent;
+    } while (node != NULL && n->root == NULL);
+
+    if (n->root == NULL)  {
         ctx->xpath->doc = ctx->xpathDefault;
         ctx->xpath->node = (xmlNodePtr)ctx->xpathDefault;
     } else {
-        ctx->xpath->doc = (xmlDocPtr)root;
-        ctx->xpath->node = root;
+        ctx->xpath->doc = n->root;
+        ctx->xpath->node = (xmlNodePtr)n->root;
+
     }
 
     ctx->varContext = insert;

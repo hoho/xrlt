@@ -69,7 +69,6 @@ typedef struct {
     xmlXPathCompExprPtr           xsuccess;
 
     xmlNodePtr                    nfailure;
-    xmlXPathCompExprPtr           xfailure;
 } xrltCompiledIncludeData;
 
 
@@ -85,15 +84,14 @@ typedef enum {
     XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN = 0,
     XRLT_INCLUDE_TRANSFORM_PARAMS_END,
     XRLT_INCLUDE_TRANSFORM_READ_RESPONSE,
-    XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN,
-    XRLT_INCLUDE_TRANSFORM_SUCCESS_END,
-    XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN,
-    XRLT_INCLUDE_TRANSFORM_FAILURE_END
+    XRLT_INCLUDE_TRANSFORM_SUCCESS,
+    XRLT_INCLUDE_TRANSFORM_FAILURE,
+    XRLT_INCLUDE_TRANSFORM_END
 } xrltIncludeTransformStage;
 
 
 typedef struct {
-    xmlNodePtr                  inode;      // Include node in source document.
+    xmlNodePtr                  srcNode;    // Include node in source document.
 
     xmlNodePtr                  node;       // Include node in response
                                             // document.
@@ -105,6 +103,9 @@ typedef struct {
     xrltJSON2XMLPtr             jsonparser;
     xmlDocPtr                   doc;        // Document to parse include result
                                             // to.
+    xmlNodePtr                  insert;
+    void                       *comp;
+
     xrltIncludeTransformStage   stage;
 
     xmlChar                    *href;

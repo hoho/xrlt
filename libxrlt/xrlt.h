@@ -193,8 +193,8 @@ XRLTPUBFUN int XRLTCALL
                                    xrltTransformValue *val);
 
 XRLTPUBFUN xrltBool XRLTCALL
-        xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr root,
-                                   xmlNodePtr insert, xmlXPathCompExprPtr expr,
+        xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr insert,
+                                   xmlXPathCompExprPtr expr,
                                    xmlXPathObjectPtr *ret);
 
 XRLTPUBFUN xrltBool XRLTCALL

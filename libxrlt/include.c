@@ -308,14 +308,13 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 goto error;
             }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_FAILURE)) {
-            conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
-                   XRLT_TESTNAMEVALUE_VALUE_NODE |
+            conf = XRLT_TESTNAMEVALUE_VALUE_NODE |
                    XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
 
             if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
                                               NULL, NULL, NULL, NULL, NULL,
                                               NULL, NULL, &tmp2,
-                                              &ret->nfailure, &ret->xfailure))
+                                              &ret->nfailure, NULL))
             {
                 goto error;
             }
@@ -366,8 +365,6 @@ xrltIncludeFree(void *comp)
         if (ret->xbody != NULL) { xmlXPathFreeCompExpr(ret->xbody); }
 
         if (ret->xsuccess != NULL) { xmlXPathFreeCompExpr(ret->xsuccess); }
-
-        if (ret->xfailure != NULL) { xmlXPathFreeCompExpr(ret->xfailure); }
 
         param = ret->fheader;
         while (param != NULL) {
@@ -489,7 +486,7 @@ xrltIncludeSetStringResultByXPath(xrltContextPtr ctx, void *comp,
 {
     xmlXPathObjectPtr  v;
 
-    if (!xrltXPathEval(ctx, NULL, insert, (xmlXPathCompExprPtr)comp, &v)) {
+    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
         return FALSE;
     }
 
@@ -572,7 +569,7 @@ xrltIncludeSetBooleanResultByXPath(xrltContextPtr ctx, void *comp,
 {
     xmlXPathObjectPtr  v;
 
-    if (!xrltXPathEval(ctx, NULL, insert, (xmlXPathCompExprPtr)comp, &v)) {
+    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
         return FALSE;
     }
 
@@ -624,6 +621,64 @@ xrltIncludeTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
 }
 
 
+static inline xrltBool
+xrltIncludeTransformResultByXPath(xrltContextPtr ctx, void *comp,
+                                  xmlNodePtr insert, void *data)
+{
+    xmlXPathObjectPtr  v;
+    int                i;
+    xmlChar           *tmp;
+    xmlNodePtr         node;
+
+    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
+        return FALSE;
+    }
+
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltIncludeTransformResultByXPath, comp, insert, data
+        );
+    } else {
+        switch (v->type) {
+            case XPATH_NODESET:
+                for (i = 0; i < v->nodesetval->nodeNr; i++) {
+                    node = xmlDocCopyNode(v->nodesetval->nodeTab[i],
+                                          insert->doc, 1);
+                    xmlAddChild(insert, node);
+                }
+                break;
+
+            case XPATH_BOOLEAN:
+            case XPATH_NUMBER:
+            case XPATH_STRING:
+                tmp = xmlXPathCastToString(v);
+                node = xmlNewText(tmp);
+                xmlAddChild(insert, node);
+                break;
+
+            case XPATH_UNDEFINED:
+            case XPATH_POINT:
+            case XPATH_RANGE:
+            case XPATH_LOCATIONSET:
+            case XPATH_USERS:
+            case XPATH_XSLT_TREE:
+                break;
+        }
+
+        xmlXPathFreeObject(v);
+
+        COUNTER_DECREASE(ctx, insert);
+    }
+
+    return TRUE;
+}
+
+
 #define TRANSFORM_TO_STRING(ctx, node, val, nval, xval, ret) {                \
     if (!xrltIncludeTransformToString(ctx, node, val, nval, xval, ret)) {     \
         return FALSE;                                                         \
@@ -656,7 +711,9 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
     if (tdata == NULL) { return FALSE; }
 
     if (tdata->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
-        return TRUE;
+        xrltTransformError(ctx, NULL, tdata->srcNode,
+                           "Wrong transformation stage\n");
+        return FALSE;
     }
 
     if (tdata->doc == NULL && tdata->xmlparser == NULL) {
@@ -667,7 +724,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
             tdata->doc = xmlNewDoc(NULL);
 
             if (tdata->doc == NULL) {
-                xrltTransformError(ctx, NULL, tdata->inode,
+                xrltTransformError(ctx, NULL, tdata->srcNode,
                                    "Failed to create include doc\n");
                 return FALSE;
             }
@@ -681,7 +738,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 );
 
                 if (tdata->xmlparser == NULL) {
-                    xrltTransformError(ctx, NULL, tdata->inode,
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
                                        "Failed to create parser\n");
                     return FALSE;
                 }
@@ -690,7 +747,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     if (xmlParseChunk(tdata->xmlparser,
                                       val->data.data, 0, 1) != 0)
                     {
-                        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+                        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
                         ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -704,7 +761,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 tdata->jsonparser = xrltJSON2XMLInit((xmlNodePtr)tdata->doc);
 
                 if (tdata->jsonparser == NULL) {
-                    xrltTransformError(ctx, NULL, tdata->inode,
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
                                        "Failed to create parser\n");
                     return FALSE;
                 }
@@ -712,7 +769,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
                                       val->data.len))
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -730,7 +787,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
 
-                    xrltTransformError(ctx, NULL, tdata->inode,
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
                                        "Out of memory\n");
                     return FALSE;
                 }
@@ -744,7 +801,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                                   val->data.data, val->data.len,
                                   val->last) != 0)
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -757,7 +814,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
                                       val->data.len))
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -775,7 +832,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
 
-                    xrltTransformError(ctx, NULL, tdata->inode,
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
                                        "Out of memory\n");
                     return FALSE;
                 }
@@ -787,21 +844,22 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
     if (val->last) {
         if (tdata->type == XRLT_SUBREQUEST_DATA_XML) {
             if (tdata->xmlparser->wellFormed == 0) {
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN;
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
             } else {
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN;
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
 
                 tdata->doc = tdata->xmlparser->myDoc;
                 tdata->xmlparser->myDoc = NULL;
 
             }
         } else {
-            tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN;
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
         xmlDocFormatDump(stdout, tdata->doc, 1);
 
-        COUNTER_DECREASE(ctx, tdata->node);
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform, tdata->comp,
+                          tdata->insert, tdata);
     }
 
     return TRUE;
@@ -832,7 +890,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
             xrltStringSet(&body, (char *)data->header[i].val);
 
             if (!xrltHeaderListPush(&header, &query, &body)) {
-                xrltTransformError(ctx, NULL, data->inode,
+                xrltTransformError(ctx, NULL, data->srcNode,
                                    "xrltIncludeAddSubrequest: Out of memory\n");
                 ret = FALSE;
                 goto error;
@@ -866,7 +924,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 
     if (blen > 0 && body.len > 0) {
         xrltTransformError(
-            ctx, NULL, data->inode,
+            ctx, NULL, data->srcNode,
             "Can't have request body and body parameters at the same time\n"
         );
         ret = FALSE;
@@ -887,7 +945,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
         }
 
         if ((blen > 0 && ebody == NULL) || (qlen > 0 && equery == NULL)) {
-            xrltTransformError(ctx, NULL, data->inode,
+            xrltTransformError(ctx, NULL, data->srcNode,
                                "xrltIncludeAddSubrequest: Out of memory\n");
             ret = FALSE;
             goto error;
@@ -938,7 +996,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
     if (!xrltSubrequestListPush(&ctx->sr, id, data->method, data->type,
                                 &header, &href, &query, &body))
     {
-        xrltTransformError(ctx, NULL, data->inode,
+        xrltTransformError(ctx, NULL, data->srcNode,
                            "xrltIncludeAddSubrequest: Out of memory\n");
         ret = FALSE;
         goto error;
@@ -972,11 +1030,12 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                      void *data)
 {
     xrltCompiledIncludeData      *icomp = (xrltCompiledIncludeData *)comp;
-    xmlNodePtr                    node = NULL;
+    xmlNodePtr                    node = NULL, node2, node3;
     xrltNodeDataPtr               n;
     xrltIncludeTransformingData  *tdata;
     xrltCompiledIncludeParamPtr   p;
     size_t                        i;
+    xmlXPathCompExprPtr           expr;
 
     if (data == NULL) {
         // First call.
@@ -1007,7 +1066,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         n->free = xrltIncludeTransformingFree;
 
         tdata->node = node;
-        tdata->inode = icomp->node;
+        tdata->srcNode = icomp->node;
 
         COUNTER_INCREASE(ctx, node);
 
@@ -1053,6 +1112,9 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         COUNTER_INCREASE(ctx, node);
 
+        tdata->insert = insert;
+        tdata->comp = comp;
+
         // Schedule the next call.
         SCHEDULE_CALLBACK(
             ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, tdata
@@ -1067,28 +1129,18 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_READ_RESPONSE:
-            case XRLT_INCLUDE_TRANSFORM_SUCCESS_BEGIN:
-            case XRLT_INCLUDE_TRANSFORM_SUCCESS_END:
-            case XRLT_INCLUDE_TRANSFORM_FAILURE_BEGIN:
-            case XRLT_INCLUDE_TRANSFORM_FAILURE_END:
+                xrltTransformError(ctx, NULL, tdata->srcNode,
+                                   "Wrong transformation stage\n");
+                return FALSE;
+
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS:
+            case XRLT_INCLUDE_TRANSFORM_FAILURE:
+            case XRLT_INCLUDE_TRANSFORM_END:
                 node = tdata->node;
                 break;
         }
 
         ASSERT_NODE_DATA(node, n);
-
-        if (n->count > 0) {
-
-            COUNTER_DECREASE(ctx, node);
-
-            if (n->count > 0) {
-                SCHEDULE_CALLBACK(
-                    ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
-                );
-
-                return TRUE;
-            }
-        }
 
         switch (tdata->stage) {
             case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
@@ -1143,32 +1195,104 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     );
                 }
 
-                COUNTER_INCREASE(ctx, node);
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
 
                 SCHEDULE_CALLBACK(
                     ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
                 );
 
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
+                COUNTER_DECREASE(ctx, node);
+
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_PARAMS_END:
                 xrltIncludeAddSubrequest(ctx, tdata);
 
-                COUNTER_INCREASE(ctx, tdata->node);
-
-                SCHEDULE_CALLBACK(
-                    ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
-                );
-
                 tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+
                 break;
 
-            /*case XRLT_INCLUDE_TRANSFORM_RESULT_BEGIN:
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS:
+            case XRLT_INCLUDE_TRANSFORM_FAILURE:
+                if (tdata->rnode == NULL) {
+                    if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS) {
+                        node = icomp->nsuccess;
+                        expr = icomp->xsuccess;
+                    } else {
+                        node = icomp->nfailure;
+                        expr = NULL;
+                    }
+
+                    NEW_CHILD(ctx, tdata->rnode, tdata->node, "tmp");
+
+                    ASSERT_NODE_DATA(tdata->rnode, n);
+                    n->root = tdata->doc;
+
+                    if (node != NULL) {
+                        COUNTER_INCREASE(ctx, tdata->rnode);
+
+                        TRANSFORM_SUBTREE(ctx, node, tdata->rnode);
+
+                        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                                          comp, insert, data);
+                    } else if (expr != NULL) {
+                        COUNTER_INCREASE(ctx, tdata->rnode);
+
+                        xrltIncludeTransformResultByXPath(ctx, expr,
+                                                          tdata->rnode, tdata);
+                    } else if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS) {
+                        node = xmlDocCopyNodeList(tdata->rnode->doc,
+                                                  tdata->doc->children);
+                        if (node == NULL) {
+                            // Failed to copy.
+                        }
+
+                        xmlAddChildList(tdata->rnode, node);
+
+                        tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
+
+                        return xrltIncludeTransform(ctx, comp, insert, data);
+                    }
+                } else {
+                    COUNTER_DECREASE(ctx, tdata->rnode);
+
+                    ASSERT_NODE_DATA(tdata->rnode, n);
+
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
+
+                    if (n->count > 0) {
+                        SCHEDULE_CALLBACK(ctx, &n->tcb, xrltIncludeTransform,
+                                          comp, insert, data);
+                    } else {
+                        return xrltIncludeTransform(ctx, comp, insert, data);
+                    }
+                }
+
                 break;
 
-            case XRLT_INCLUDE_TRANSFORM_RESULT_END:
-                break;*/
+            case XRLT_INCLUDE_TRANSFORM_END:
+                node = tdata->node;
+                node2 = tdata->rnode->children;
+
+                while (node2 != NULL) {
+                    node3 = node2->next;
+                    xmlAddNextSibling(node, node2);
+                    node = node2;
+                    node2 = node3;
+                }
+
+                COUNTER_DECREASE(ctx, tdata->node);
+
+                REMOVE_RESPONSE_NODE(ctx, tdata->node);
+
+                xmlDocFormatDump(stdout, ctx->responseDoc, 1);
+
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_READ_RESPONSE:
+                xrltTransformError(ctx, NULL, tdata->srcNode,
+                                   "Wrong transformation stage\n");
+                return FALSE;
         }
 
     }
