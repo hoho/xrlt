@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <libxml/xpathInternals.h>
 #include "transform.h"
 #include "include.h"
 
@@ -308,13 +309,15 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 goto error;
             }
         } else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_FAILURE)) {
+            xmlXPathCompExprPtr tmpexpr = NULL;
+
             conf = XRLT_TESTNAMEVALUE_VALUE_NODE |
                    XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
 
             if (!xrltCompileTestNameValueNode(sheet, tmp, conf, NULL, NULL,
                                               NULL, NULL, NULL, NULL, NULL,
                                               NULL, NULL, &tmp2,
-                                              &ret->nfailure, NULL))
+                                              &ret->nfailure, &tmpexpr))
             {
                 goto error;
             }
@@ -625,10 +628,13 @@ static inline xrltBool
 xrltIncludeTransformResultByXPath(xrltContextPtr ctx, void *comp,
                                   xmlNodePtr insert, void *data)
 {
-    xmlXPathObjectPtr  v;
-    int                i;
-    xmlChar           *tmp;
-    xmlNodePtr         node;
+    xmlXPathObjectPtr             v;
+    int                           i;
+    xmlChar                      *s = NULL;
+    xmlNodePtr                    node;
+    xmlNodeSetPtr                 ns = NULL;
+    xrltBool                      ret = TRUE;
+    xrltIncludeTransformingData  *tdata;
 
     if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
         return FALSE;
@@ -644,21 +650,89 @@ xrltIncludeTransformResultByXPath(xrltContextPtr ctx, void *comp,
             ctx, &n->tcb, xrltIncludeTransformResultByXPath, comp, insert, data
         );
     } else {
+        tdata = (xrltIncludeTransformingData *)data;
+
         switch (v->type) {
             case XPATH_NODESET:
-                for (i = 0; i < v->nodesetval->nodeNr; i++) {
-                    node = xmlDocCopyNode(v->nodesetval->nodeTab[i],
-                                          insert->doc, 1);
-                    xmlAddChild(insert, node);
+                if (!xmlXPathNodeSetIsEmpty(v->nodesetval)) {
+                    ns = xmlXPathNodeSetCreate(NULL);
+                    if (ns == NULL) {
+                        xrltTransformError(ctx, NULL, tdata->srcNode,
+                                           "Failed to create node-set\n");
+                        ret = FALSE;
+                        goto error;
+                    }
+
+                    for (i = 0; i < v->nodesetval->nodeNr; i++) {
+                        node = v->nodesetval->nodeTab[i];
+
+                        if (node != NULL) {
+                            if (node->type == XML_DOCUMENT_NODE) {
+                                node = node->children;
+
+                                while (node != NULL) {
+                                    xmlXPathNodeSetAdd(ns, node);
+                                    node = node->next;
+                                }
+                            } else {
+                                xmlXPathNodeSetAdd(ns, node);
+                            }
+                        }
+                    }
+
+                    for (i = 0; i < ns->nodeNr; i++) {
+                        node = xmlDocCopyNode(ns->nodeTab[i], insert->doc, 1);
+
+                        if (node == NULL) {
+                            xrltTransformError(
+                                ctx, NULL, tdata->srcNode,
+                                "Failed to copy response node\n"
+                            );
+                            ret = FALSE;
+                            goto error;
+                        }
+
+                        if (xmlAddChild(insert, node) == NULL) {
+                            xrltTransformError(ctx, NULL, tdata->srcNode,
+                                               "Failed to add response node\n");
+                            xmlFreeNode(node);
+                            ret = FALSE;
+                            goto error;
+                        }
+                    }
                 }
+
                 break;
 
             case XPATH_BOOLEAN:
             case XPATH_NUMBER:
             case XPATH_STRING:
-                tmp = xmlXPathCastToString(v);
-                node = xmlNewText(tmp);
-                xmlAddChild(insert, node);
+                s = xmlXPathCastToString(v);
+
+                if (s == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
+                                       "Failed to cast result to string\n");
+                    ret = FALSE;
+                    goto error;
+                }
+
+                node = xmlNewText(s);
+
+                if (node == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
+                                       "Failed to create response node\n");
+                    ret = FALSE;
+                    goto error;
+                }
+
+                if (xmlAddChild(insert, node) == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
+                                       "Failed to add response node\n");
+                    xmlFreeNode(node);
+                    ret = FALSE;
+                    goto error;
+                }
+
                 break;
 
             case XPATH_UNDEFINED:
@@ -670,12 +744,16 @@ xrltIncludeTransformResultByXPath(xrltContextPtr ctx, void *comp,
                 break;
         }
 
-        xmlXPathFreeObject(v);
 
         COUNTER_DECREASE(ctx, insert);
     }
 
-    return TRUE;
+  error:
+    if (v != NULL) { xmlXPathFreeObject(v); }
+    if (ns != NULL) { xmlXPathFreeNodeSet(ns); }
+    if (s != NULL) { xmlFree(s); }
+
+    return ret;
 }
 
 
@@ -856,7 +934,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
             tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
-        xmlDocFormatDump(stdout, tdata->doc, 1);
+        //xmlDocFormatDump(stdout, tdata->doc, 1);
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform, tdata->comp,
                           tdata->insert, tdata);
@@ -1206,9 +1284,15 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_PARAMS_END:
-                xrltIncludeAddSubrequest(ctx, tdata);
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(
+                        ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
+                    );
+                } else {
+                    xrltIncludeAddSubrequest(ctx, tdata);
 
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+                }
 
                 break;
 
@@ -1238,16 +1322,30 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     } else if (expr != NULL) {
                         COUNTER_INCREASE(ctx, tdata->rnode);
 
+                        SCHEDULE_CALLBACK(ctx, &n->tcb, xrltIncludeTransform,
+                                          comp, insert, data);
+
+                        tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
+
                         xrltIncludeTransformResultByXPath(ctx, expr,
                                                           tdata->rnode, tdata);
                     } else if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS) {
                         node = xmlDocCopyNodeList(tdata->rnode->doc,
                                                   tdata->doc->children);
                         if (node == NULL) {
-                            // Failed to copy.
+                            xrltTransformError(
+                                ctx, NULL, tdata->srcNode,
+                                "Failed to copy response node\n"
+                            );
+                            return FALSE;
                         }
 
-                        xmlAddChildList(tdata->rnode, node);
+                        if (xmlAddChildList(tdata->rnode, node) == NULL) {
+                            xrltTransformError(ctx, NULL, tdata->srcNode,
+                                               "Failed to add response node\n");
+                            xmlFreeNodeList(node);
+                            return FALSE;
+                        }
 
                         tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
 
@@ -1276,7 +1374,11 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 while (node2 != NULL) {
                     node3 = node2->next;
-                    xmlAddNextSibling(node, node2);
+                    if (xmlAddNextSibling(node, node2) == NULL) {
+                        xrltTransformError(ctx, NULL, tdata->srcNode,
+                                           "Failed to add response node\n");
+                        return FALSE;
+                    }
                     node = node2;
                     node2 = node3;
                 }
@@ -1285,7 +1387,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 REMOVE_RESPONSE_NODE(ctx, tdata->node);
 
-                xmlDocFormatDump(stdout, ctx->responseDoc, 1);
+                //xmlDocFormatDump(stdout, ctx->responseDoc, 1);
 
                 break;
 
