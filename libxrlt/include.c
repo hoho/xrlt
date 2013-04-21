@@ -1351,22 +1351,26 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                         xrltIncludeTransformResultByXPath(ctx, expr,
                                                           tdata->rnode, tdata);
-                    } else if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS) {
-                        node = xmlDocCopyNodeList(tdata->rnode->doc,
-                                                  tdata->doc->children);
-                        if (node == NULL) {
-                            xrltTransformError(
-                                ctx, NULL, tdata->srcNode,
-                                "Failed to copy response node\n"
-                            );
-                            return FALSE;
-                        }
+                    } else {
+                        if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS) {
+                            node = xmlDocCopyNodeList(tdata->rnode->doc,
+                                                      tdata->doc->children);
+                            if (node == NULL) {
+                                xrltTransformError(
+                                    ctx, NULL, tdata->srcNode,
+                                    "Failed to copy response node\n"
+                                );
+                                return FALSE;
+                            }
 
-                        if (xmlAddChildList(tdata->rnode, node) == NULL) {
-                            xrltTransformError(ctx, NULL, tdata->srcNode,
-                                               "Failed to add response node\n");
-                            xmlFreeNodeList(node);
-                            return FALSE;
+                            if (xmlAddChildList(tdata->rnode, node) == NULL) {
+                                xrltTransformError(
+                                    ctx, NULL, tdata->srcNode,
+                                    "Failed to add response node\n"
+                                );
+                                xmlFreeNodeList(node);
+                                return FALSE;
+                            }
                         }
 
                         tdata->stage = XRLT_INCLUDE_TRANSFORM_END;

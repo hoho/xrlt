@@ -393,7 +393,6 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert,
     } else {
         ctx->xpath->doc = n->root;
         ctx->xpath->node = (xmlNodePtr)n->root;
-
     }
 
     ctx->varContext = insert;

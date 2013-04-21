@@ -1,0 +1,9 @@
+id:0, type:0, last:0, data:
+id:1, type:2, last:0, data:"hello
+id:1, type:2, last:1, data: world"
+id:0, type:0, last:0, data:
+id:3, type:2, last:1, data:some
+id:2, type:2, last:1, data:<param><value>awe</value></param>
+id:0, type:0, last:0, data:
+id:4, type:2, last:1, data:{"this": "is", "pretty": "amazing"}
+id:0, type:0, last:0, data:

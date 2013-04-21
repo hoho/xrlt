@@ -133,22 +133,37 @@ yajlCallbackBoolean(void *ctx, int value)
 {
     ASSERT_json2xml;
 
-    const xmlChar *val = (const xmlChar *)(value ? "true" : "false");
+    xmlNodePtr      node, parent;
+    const xmlChar  *val = (const xmlChar *)(value ? "true" : "false");
 
     if (json2xml->stackPos < 0) {
-        xrltJSON2XMLSetType(json2xml, json2xml->cur, XRLT_JSON2XML_BOOLEAN);
-        xmlNodeAddContent(json2xml->cur, val);
+        parent = json2xml->cur;
     } else {
         const xmlChar *name = yajlCallbackGetNodeName(json2xml);
 
-        if (name == NULL || json2xml->cur == NULL) { return 0; }
-
-        xmlNodePtr node = xmlNewTextChild(json2xml->cur, NULL, name, val);
-        if (node == NULL) {
+        if (name == NULL) {
             return 0;
-        } else {
-            xrltJSON2XMLSetType(json2xml, node, XRLT_JSON2XML_BOOLEAN);
         }
+
+        parent = xmlNewChild(json2xml->cur, NULL, name, NULL);
+    }
+
+    if (parent == NULL) {
+        return 0;
+    }
+
+    xrltJSON2XMLSetType(json2xml, parent, XRLT_JSON2XML_BOOLEAN);
+
+    node = xmlNewText(val);
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (xmlAddChild(parent, node) == NULL) {
+        xmlFreeNode(node);
+
+        return 0;
     }
 
     return 1;
@@ -160,29 +175,39 @@ yajlCallbackNumber(void *ctx, const char *s, size_t l)
 {
     ASSERT_json2xml;
 
-    int       ret = 1;
-    xmlChar  *val = xmlCharStrndup(s, l);
+    xmlNodePtr   node, parent;
 
     if (json2xml->stackPos < 0) {
-        xrltJSON2XMLSetType(json2xml, json2xml->cur, XRLT_JSON2XML_NUMBER);
-        xmlNodeAddContent(json2xml->cur, val);
+        parent = json2xml->cur;
     } else {
         const xmlChar *name = yajlCallbackGetNodeName(json2xml);
 
-        if (name == NULL || json2xml->cur == NULL) {
-            ret = 0;
-        } else {
-            xmlNodePtr node = xmlNewTextChild(json2xml->cur, NULL, name, val);
-            if (node == NULL) {
-                ret = 0;
-            } else {
-                xrltJSON2XMLSetType(json2xml, node, XRLT_JSON2XML_NUMBER);
-            }
+        if (name == NULL) {
+            return 0;
         }
+
+        parent = xmlNewChild(json2xml->cur, NULL, name, NULL);
     }
 
-    xmlFree(val);
-    return ret;
+    if (parent == NULL) {
+        return 0;
+    }
+
+    xrltJSON2XMLSetType(json2xml, parent, XRLT_JSON2XML_NUMBER);
+
+    node = xmlNewTextLen((const xmlChar *)s, l);
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (xmlAddChild(parent, node) == NULL) {
+        xmlFreeNode(node);
+
+        return 0;
+    }
+
+    return 1;
 }
 
 
@@ -191,29 +216,39 @@ yajlCallbackString(void *ctx, const unsigned char *s, size_t l)
 {
     ASSERT_json2xml;
 
-    int       ret = 1;
-    xmlChar  *val = xmlCharStrndup((const char *)s, l);
+    xmlNodePtr   node, parent;
 
     if (json2xml->stackPos < 0) {
-        xrltJSON2XMLSetType(json2xml, json2xml->cur, XRLT_JSON2XML_STRING);
-        xmlNodeAddContent(json2xml->cur, val);
+        parent = json2xml->cur;
     } else {
         const xmlChar *name = yajlCallbackGetNodeName(json2xml);
 
-        if (name == NULL || json2xml->cur == NULL) {
-            ret = 0;
-        } else {
-            xmlNodePtr node = xmlNewTextChild(json2xml->cur, NULL, name, val);
-            if (node == NULL) {
-                ret = 0;
-            } else {
-                xrltJSON2XMLSetType(json2xml, node, XRLT_JSON2XML_STRING);
-            }
+        if (name == NULL) {
+            return 0;
         }
+
+        parent = xmlNewChild(json2xml->cur, NULL, name, NULL);
     }
 
-    xmlFree(val);
-    return ret;
+    if (parent == NULL) {
+        return 0;
+    }
+
+    xrltJSON2XMLSetType(json2xml, parent, XRLT_JSON2XML_STRING);
+
+    node = xmlNewTextLen(s, l);
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (xmlAddChild(parent, node) == NULL) {
+        xmlFreeNode(node);
+
+        return 0;
+    }
+
+    return 1;
 }
 
 
