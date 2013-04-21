@@ -324,6 +324,7 @@ int main()
     xrltInit();
 
     test_xrltInclude("include/test1.xrl", "include/test1.in", "include/test1.out");
+    test_xrltInclude("include/test2.xrl", "include/test2.in", "include/test2.out");
 
     xrltCleanup();
     xmlCleanupParser();

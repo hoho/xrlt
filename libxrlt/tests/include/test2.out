@@ -1,0 +1,107 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /test/href/1
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
+sr type: TEXT
+sr url: /test/href/3
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 3
+sr method: GET
+sr type: TEXT
+sr url: /test/href/2
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 4
+sr method: GET
+sr type: TEXT
+sr url: /test/href/14
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 5
+sr method: GET
+sr type: TEXT
+sr url: /test/href/6
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 6
+sr method: GET
+sr type: TEXT
+sr url: /test/href/9
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_SUBREQUEST
+sr id: 7
+sr method: GET
+sr type: TEXT
+sr url: /test/href/4
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 8
+sr method: GET
+sr type: TEXT
+sr url: /test/href/5
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 9
+sr method: GET
+sr type: TEXT
+sr url: /test/href/7
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 10
+sr method: GET
+sr type: TEXT
+sr url: /test/href/8
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 11
+sr method: GET
+sr type: TEXT
+sr url: /test/href/13
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 12
+sr method: GET
+sr type: TEXT
+sr url: /test/href/15
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_SUBREQUEST
+sr id: 13
+sr method: POST
+sr type: JSON
+sr header: hehe: vavavava
+sr header: hoho: veve
+sr url: /some/href
+sr query: papapa=pa%3Bva
+sr body: super body
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: bb
+XRLT_STATUS_DONE

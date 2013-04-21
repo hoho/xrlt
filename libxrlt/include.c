@@ -827,6 +827,9 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     {
                         tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
+                        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                                          tdata->comp, tdata->insert, tdata);
+
                         ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
                         return TRUE;
@@ -848,6 +851,9 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                                       val->data.len))
                 {
                     tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                                      tdata->comp, tdata->insert, tdata);
 
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -881,6 +887,9 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 {
                     tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
+                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                                      tdata->comp, tdata->insert, tdata);
+
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
                     return TRUE;
@@ -893,6 +902,9 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                                       val->data.len))
                 {
                     tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                                      tdata->comp, tdata->insert, tdata);
 
                     ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
 
@@ -1222,6 +1234,18 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         switch (tdata->stage) {
             case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
+                if (n->count > 0) {
+                    COUNTER_DECREASE(ctx, node);
+                }
+
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(
+                        ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
+                    );
+
+                    return TRUE;
+                }
+
                 if (tdata->cmethod != NULL) {
                     tdata->method = xrltIncludeMethodFromString(tdata->cmethod);
                 }
@@ -1278,8 +1302,6 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 SCHEDULE_CALLBACK(
                     ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
                 );
-
-                COUNTER_DECREASE(ctx, node);
 
                 break;
 
