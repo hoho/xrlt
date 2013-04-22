@@ -794,6 +794,17 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
         return FALSE;
     }
 
+    if (val->error) {
+        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                          tdata->comp, tdata->insert, tdata);
+
+        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+        return TRUE;
+    }
+
     if (tdata->doc == NULL && tdata->xmlparser == NULL) {
         // On the first call create a doc for the result to and a parser.
 

@@ -62,7 +62,7 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltCompiledVariableData  *vdata = (xrltCompiledVariableData *)comp;
     xmlDocPtr                  vdoc;
     xmlXPathObjectPtr          val;
-    xmlChar                    id[sizeof(size_t) * 2];
+    xmlChar                    id[sizeof(xmlNodePtr) * 3];
 
     if (data == NULL) {
         if (ctx->xpath->varHash == NULL) {

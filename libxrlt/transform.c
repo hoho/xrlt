@@ -247,7 +247,7 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
     xmlNodePtr           newinsert;
 
     if (comp == NULL) {
-        newinsert = xmlDocCopyNode(node, ctx->responseDoc, 2);
+        newinsert = xmlDocCopyNode(node, insert->doc, 2);
 
         if (newinsert == NULL) {
             xrltTransformError(ctx, NULL, node,
@@ -310,7 +310,7 @@ xrltHasXRLTElement(xmlNodePtr node)
 {
     while (node != NULL) {
         if ((node->ns != NULL && xmlStrEqual(node->ns->href, XRLT_NS)) ||
-            (xrltHasXRLTElement(node->children)))
+            xrltHasXRLTElement(node->children))
         {
             return TRUE;
         }

@@ -44,6 +44,7 @@ typedef struct {
     xrltTransformValueType   type;
     xrltString               data;
     xrltBool                 last;
+    xrltBool                 error;
 } xrltTransformValue;
 
 

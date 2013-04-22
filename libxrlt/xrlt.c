@@ -122,7 +122,7 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 static xmlXPathObjectPtr
 xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 {
-    xmlChar              id[sizeof(size_t) * 2];
+    xmlChar              id[sizeof(xmlNodePtr) * 3];
     xmlXPathObjectPtr    ret;
     xrltContextPtr       ctx = (xrltContextPtr)ctxt;
     xmlNodePtr           node;

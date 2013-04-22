@@ -1,26 +1,26 @@
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:0, type:0, last:0, data:
-id:1, type:2, last:1, data:/some/href
-id:0, type:0, last:0, data:
-id:2, type:2, last:1, data:ST
-id:0, type:0, last:0, data:
-id:3, type:2, last:0, data:js
-id:3, type:2, last:1, data:on
-id:0, type:0, last:0, data:
-id:4, type:2, last:1, data:true
-id:0, type:0, last:0, data:
-id:5, type:2, last:1, data:true
-id:0, type:0, last:0, data:
-id:6, type:2, last:1, data:
-id:0, type:0, last:0, data:
-id:7, type:2, last:1, data:hehe
-id:8, type:2, last:1, data:vava
-id:9, type:2, last:1, data:hoho
-id:10, type:2, last:1, data:veve
-id:11, type:2, last:1, data:pa;va
-id:12, type:2, last:1, data:super body
-id:0, type:0, last:0, data:
-id:13, type:2, last:1, data:{"aa": "bb"}
-id:0, type:0, last:0, data:
+id:0, type:0, last:0, error: 0, data:
+id:0, type:0, last:0, error: 0, data:
+id:0, type:0, last:0, error: 0, data:
+id:0, type:0, last:0, error: 0, data:
+id:1, type:2, last:1, error: 0, data:/some/href
+id:0, type:0, last:0, error: 0, data:
+id:2, type:2, last:1, error: 0, data:ST
+id:0, type:0, last:0, error: 0, data:
+id:3, type:2, last:0, error: 0, data:js
+id:3, type:2, last:1, error: 0, data:on
+id:0, type:0, last:0, error: 0, data:
+id:4, type:2, last:1, error: 0, data:true
+id:0, type:0, last:0, error: 0, data:
+id:5, type:2, last:1, error: 0, data:true
+id:0, type:0, last:0, error: 0, data:
+id:6, type:2, last:1, error: 0, data:
+id:0, type:0, last:0, error: 0, data:
+id:7, type:2, last:1, error: 0, data:hehe
+id:8, type:2, last:1, error: 0, data:vava
+id:9, type:2, last:1, error: 0, data:hoho
+id:10, type:2, last:1, error: 0, data:veve
+id:11, type:2, last:1, error: 0, data:pa;va
+id:12, type:2, last:1, error: 0, data:super body
+id:0, type:0, last:0, error: 0, data:
+id:13, type:2, last:1, error: 0, data:{"aa": "bb"}
+id:0, type:0, last:0, error: 0, data:

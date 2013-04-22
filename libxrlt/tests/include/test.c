@@ -211,7 +211,7 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
     xrltContextPtr           ctx;
     char                     data[TEST_BUFFER_SIZE];
     size_t                   id;
-    int                      i, j, k;
+    int                      i, j, k, l;
     xrltTransformValue       val;
 
     memset(indata, 0, TEST_BUFFER_SIZE);
@@ -266,8 +266,8 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
     id = 0;
     memset(&val, 0, sizeof(xrltTransformValue));
 
-    while (fscanf(infile, "id:%d, type:%d, last:%d, data:",
-                  (int *)(&id), &j, &k) == 3)
+    while (fscanf(infile, "id:%d, type:%d, last:%d, error:%d, data:",
+                  (int *)(&id), &j, &k, &l) == 4)
     {
         fgets(data, TEST_BUFFER_SIZE - 1, infile);
 
@@ -291,7 +291,7 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
                 TEST_FAILED;
             }
 
-            if (i > 0) {
+            if (i > 1) {
                 data[i - 1] = '\0';
                 val.data.len = (size_t)(i - 1);
                 val.data.data = data;
@@ -299,6 +299,8 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
                 val.data.len = 0;
                 val.data.data = NULL;
             }
+
+            val.error = l == 0 ? FALSE : TRUE;
 
             i = xrltTransform(ctx, id, &val);
         } else {
@@ -326,6 +328,7 @@ int main()
     test_xrltInclude("include/test1.xrl", "include/test1.in", "include/test1.out");
     test_xrltInclude("include/test2.xrl", "include/test2.in", "include/test2.out");
     test_xrltInclude("include/test3.xrl", "include/test3.in", "include/test3.out");
+    test_xrltInclude("include/test4.xrl", "include/test4.in", "include/test4.out");
 
     xrltCleanup();
     xmlCleanupParser();
