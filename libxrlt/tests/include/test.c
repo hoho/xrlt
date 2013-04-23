@@ -8,6 +8,22 @@
 // test.
 #define TEST_BUFFER_SIZE   8192
 
+char    error_buf[TEST_BUFFER_SIZE];
+int     error_buf_pos;
+
+
+static void
+xrltTestErrorFunc(void *ctx, const char *msg, ...)
+{
+    va_list   args;
+
+    va_start(args, msg);
+    error_buf_pos += vsnprintf(
+        error_buf + error_buf_pos, TEST_BUFFER_SIZE - error_buf_pos, msg, args
+    );
+    va_end(args);
+}
+
 
 char *
 dumpResult(xrltContextPtr ctx, int ret, char *out)
@@ -206,7 +222,6 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
     char                     indata[TEST_BUFFER_SIZE];
     char                     outdata[TEST_BUFFER_SIZE];
     char                    *pos;
-    FILE                    *err = fopen("/dev/null", "w");
 
     xrltContextPtr           ctx;
     char                     data[TEST_BUFFER_SIZE];
@@ -218,10 +233,10 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
     memset(outdata, 0, TEST_BUFFER_SIZE);
     memset(data, 0, TEST_BUFFER_SIZE);
 
-    setbuf(err, outdata);
 
-    xmlSetGenericErrorFunc(err, NULL);
-    xrltSetGenericErrorFunc(err, NULL);
+    memset(error_buf, 0, TEST_BUFFER_SIZE);
+    error_buf_pos = 0;
+    xrltSetGenericErrorFunc(NULL, xrltTestErrorFunc);
 
     doc = xmlReadFile(xrl, NULL, 0);
 
@@ -316,7 +331,6 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
     xrltContextFree(ctx);
     xrltRequestsheetFree(sheet);
 
-    fclose(err);
     TEST_PASSED;
 }
 

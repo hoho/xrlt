@@ -78,6 +78,8 @@ xrltSetGenericErrorFunc(void *ctx, xmlGenericErrorFunc handler)
 {
     xrltGenericErrorContext = ctx;
 
+    xmlSetGenericErrorFunc(ctx, handler);
+
     if (handler != NULL) {
         xrltGenericError = handler;
     } else {
