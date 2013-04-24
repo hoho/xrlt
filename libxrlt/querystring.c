@@ -137,8 +137,6 @@ xrltQueryStringParserFeed(xrltQueryStringParserPtr parser,
         parser->nameLen = pos;
     }
 
-    xmlDocFormatDump(stdout, (xmlDocPtr)parser->parent, 1);
-
     return TRUE;
 }
 
