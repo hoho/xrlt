@@ -76,11 +76,11 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         sprintf((char *)id, "%p", insert);
 
+        vdoc = xmlNewDoc(NULL);
+        xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+
         if (vdata->nval != NULL) {
             // Variable from content.
-            vdoc = xmlNewDoc(NULL);
-            xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
-
             val = xmlXPathNewNodeSet((xmlNodePtr)vdoc);
 
             if (val == NULL) {

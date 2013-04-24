@@ -6,7 +6,7 @@ clean:
 init:
 	mkdir .build
 
-build: clean init xrltstruct json2xml js compile include
+build: clean init xrltstruct json2xml querystring js compile include
 
 .PHONY: xrltstruct
 xrltstruct:
@@ -29,11 +29,15 @@ js:
 
 .PHONY: compile
 compile:
-	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../builtins.c ../include.c ../variable.c ../xrlterror.c compile/test1.c -lxml2 -lyajl
+	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../xrlterror.c compile/test1.c -lxml2 -lyajl
 
 .PHONY: include
 include:
-	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../builtins.c ../include.c ../variable.c ../xrlterror.c include/test.c -lxml2 -lyajl
+	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../xrlterror.c include/test.c -lxml2 -lyajl
+
+.PHONY: querystring
+querystring:
+	g++ -o .build/querystring_test   -Wall -I../ -I/usr/include/libxml2 ../xrlterror.c ../querystring.c querystring/test.c -lxml2
 
 run:
 	@echo "\nRunning tests:"

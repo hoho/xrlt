@@ -1,81 +1,6 @@
-#include <ctype.h>
 #include <libxml/xpathInternals.h>
 #include "transform.h"
 #include "include.h"
-
-
-static inline char
-xrltFromHex(char ch)
-{
-    return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
-}
-
-
-static inline char
-xrltToHex(char code)
-{
-    static char hex[] = "0123456789ABCDEF";
-    return hex[code & 15];
-}
-
-
-static inline size_t
-xrltURLEncode(char *str, char *out)
-{
-    if (str == NULL || out == NULL) { return 0; }
-
-    char *pstr = str;
-    char *pbuf = out;
-
-    while (*pstr) {
-        if (isalnum(*pstr) || *pstr == '-' || *pstr == '_' || *pstr == '.' ||
-            *pstr == '~')
-        {
-            *pbuf++ = *pstr;
-        } else if (*pstr == ' ') {
-            *pbuf++ = '+';
-        } else {
-            *pbuf++ = '%';
-            *pbuf++ = xrltToHex(*pstr >> 4);
-            *pbuf++ = xrltToHex(*pstr & 15);
-        }
-
-        pstr++;
-    }
-
-    *pbuf = '\0';
-
-    return pbuf - out;
-}
-
-
-static inline char *
-xrltURLDecode(char *str)
-{
-    if (str == NULL) { return 0; }
-
-    char *pstr = str;
-    char *buf = (char *)xrltMalloc(strlen(str) + 1);
-    char *pbuf = buf;
-
-    while (*pstr) {
-        if (*pstr == '%') {
-            if (pstr[1] && pstr[2]) {
-                *pbuf++ = xrltFromHex(pstr[1]) << 4 | xrltFromHex(pstr[2]);
-                pstr += 2;
-            }
-        } else if (*pstr == '+') {
-            *pbuf++ = ' ';
-        } else {
-            *pbuf++ = *pstr;
-        }
-        pstr++;
-    }
-
-    *pbuf = '\0';
-
-    return buf;
-}
 
 
 static inline xrltHTTPMethod
@@ -115,6 +40,8 @@ xrltIncludeTypeFromString(xmlChar *type)
             return XRLT_SUBREQUEST_DATA_JSON;
         } else if (xmlStrcasecmp(type, (const xmlChar *)"TEXT") == 0) {
             return XRLT_SUBREQUEST_DATA_TEXT;
+        } else if (xmlStrcasecmp(type, (const xmlChar *)"QUERYSTRING") == 0) {
+            return XRLT_SUBREQUEST_DATA_QUERYSTRING;
         } else {
             return XRLT_SUBREQUEST_DATA_XML;
         }
@@ -432,6 +359,10 @@ xrltIncludeTransformingFree(void *data)
 
         if (tdata->jsonparser != NULL) {
             xrltJSON2XMLFree(tdata->jsonparser);
+        }
+
+        if (tdata->qsparser != NULL) {
+            xrltQueryStringParserFree(tdata->qsparser);
         }
 
         if (tdata->doc != NULL) { xmlFreeDoc(tdata->doc); }
@@ -779,12 +710,22 @@ xrltIncludeSubrequestHeader(xrltContextPtr ctx, size_t id,
 }
 
 
+#define XRLT_INCLUDE_PARSING_FAILED                                           \
+    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;                            \
+    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,                   \
+                      tdata->comp, tdata->insert, tdata);                     \
+    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;                                \
+    return TRUE;
+
+
 static xrltBool
 xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                           xrltTransformValue *val, void *data)
 {
     xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
     xmlNodePtr                    tmp;
+
+
 
     if (tdata == NULL) { return FALSE; }
 
@@ -836,14 +777,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     if (xmlParseChunk(tdata->xmlparser,
                                       val->data.data, 0, 1) != 0)
                     {
-                        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-                        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-                                          tdata->comp, tdata->insert, tdata);
-
-                        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-                        return TRUE;
+                        XRLT_INCLUDE_PARSING_FAILED;
                     }
                 }
 
@@ -861,14 +795,26 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
                                       val->data.len))
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+                    XRLT_INCLUDE_PARSING_FAILED;
+                }
 
-                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-                                      tdata->comp, tdata->insert, tdata);
+                break;
 
-                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+            case XRLT_SUBREQUEST_DATA_QUERYSTRING:
+                tdata->qsparser = \
+                    xrltQueryStringParserInit((xmlNodePtr)tdata->doc);
 
-                    return TRUE;
+                if (tdata->qsparser == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
+                                       "Failed to create parser\n");
+                    return FALSE;
+                }
+
+                if (!xrltQueryStringParserFeed(tdata->qsparser,
+                                               val->data.data, val->data.len,
+                                               val->last))
+                {
+                    XRLT_INCLUDE_PARSING_FAILED;
                 }
 
                 break;
@@ -896,14 +842,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                                   val->data.data, val->data.len,
                                   val->last) != 0)
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-                                      tdata->comp, tdata->insert, tdata);
-
-                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-                    return TRUE;
+                    XRLT_INCLUDE_PARSING_FAILED;
                 }
 
                 break;
@@ -912,14 +851,17 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
                                       val->data.len))
                 {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+                    XRLT_INCLUDE_PARSING_FAILED;
+                }
 
-                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-                                      tdata->comp, tdata->insert, tdata);
+                break;
 
-                    ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-                    return TRUE;
+            case XRLT_SUBREQUEST_DATA_QUERYSTRING:
+                if (!xrltQueryStringParserFeed(tdata->qsparser,
+                                               val->data.data, val->data.len,
+                                               val->last))
+                {
+                    XRLT_INCLUDE_PARSING_FAILED;
                 }
 
                 break;

@@ -179,6 +179,9 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
             case XRLT_SUBREQUEST_DATA_TEXT:
                 sprintf(buf, "sr type: TEXT\n");
                 break;
+            case XRLT_SUBREQUEST_DATA_QUERYSTRING:
+                sprintf(buf, "sr type: QUERYSTRING\n");
+                break;
         }
         sprintf(out, "%s", buf);
         out += strlen(buf);
@@ -343,6 +346,7 @@ int main()
     test_xrltInclude("include/test2.xrl", "include/test2.in", "include/test2.out");
     test_xrltInclude("include/test3.xrl", "include/test3.in", "include/test3.out");
     test_xrltInclude("include/test4.xrl", "include/test4.in", "include/test4.out");
+    test_xrltInclude("include/test5.xrl", "include/test5.in", "include/test5.out");
 
     xrltCleanup();
     xmlCleanupParser();

@@ -5,6 +5,7 @@
 #include <libxml/tree.h>
 #include <xrlt.h>
 #include "json2xml.h"
+#include "querystring.h"
 
 
 #ifdef __cplusplus
@@ -101,6 +102,7 @@ typedef struct {
                                             // result to.
     xmlParserCtxtPtr            xmlparser;  // Push parser for XML includes.
     xrltJSON2XMLPtr             jsonparser;
+    xrltQueryStringParserPtr    qsparser;
     xmlDocPtr                   doc;        // Document to parse include result
                                             // to.
     xmlNodePtr                  insert;
