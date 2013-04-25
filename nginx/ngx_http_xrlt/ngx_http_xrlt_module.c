@@ -22,18 +22,18 @@ typedef struct {
 } ngx_http_xrlt_loc_conf_t;
 
 
-static ngx_int_t   ngx_http_xrlt_filter_init(ngx_conf_t *cf);
-static char       *ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd,
-                                 void *conf);
-static char       *ngx_http_xrlt_param(ngx_conf_t *cf, ngx_command_t *cmd,
-                                 void *conf);
-static void       *ngx_http_xrlt_create_conf(ngx_conf_t *cf);
-static char       *ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent,
-                                            void *child);
-static void        ngx_http_xrlt_exit(ngx_cycle_t *cycle);
+static ngx_int_t   ngx_http_xrlt_filter_init   (ngx_conf_t *cf);
+static char       *ngx_http_xrlt               (ngx_conf_t *cf,
+                                                ngx_command_t *cmd, void *conf);
+static char       *ngx_http_xrlt_param         (ngx_conf_t *cf,
+                                                ngx_command_t *cmd, void *conf);
+static void       *ngx_http_xrlt_create_conf   (ngx_conf_t *cf);
+static char       *ngx_http_xrlt_merge_conf    (ngx_conf_t *cf, void *parent,
+                                                void *child);
+static void        ngx_http_xrlt_exit          (ngx_cycle_t *cycle);
 
 
-        ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
+ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 
