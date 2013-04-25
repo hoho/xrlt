@@ -2,26 +2,57 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#include <xrlt.h>
+
 #define DDEBUG 1
 #include "ddebug.h"
 
 
-static ngx_int_t ngx_http_xrlt_filter_init(ngx_conf_t *cf);
-static char *ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+typedef struct {
+    u_char                    *name;
+    ngx_http_complex_value_t   value;
+} ngx_http_xrlt_param_t;
 
 
-ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
+typedef struct {
+    xrltRequestsheetPtr        sheet;
+    //ngx_hash_t                 types;
+    //ngx_array_t               *types_keys;
+    ngx_array_t               *params;       /* ngx_http_xrlt_param_t */
+} ngx_http_xrlt_loc_conf_t;
+
+
+static ngx_int_t   ngx_http_xrlt_filter_init(ngx_conf_t *cf);
+static char       *ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd,
+                                 void *conf);
+static char       *ngx_http_xrlt_param(ngx_conf_t *cf, ngx_command_t *cmd,
+                                 void *conf);
+static void       *ngx_http_xrlt_create_conf(ngx_conf_t *cf);
+static char       *ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent,
+                                            void *child);
+static void        ngx_http_xrlt_exit(ngx_cycle_t *cycle);
+
+
+        ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 
 static ngx_command_t ngx_http_xrlt_commands[] = {
-        { ngx_string("xrlt"),
-          NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
-          ngx_http_xrlt,
-          NGX_HTTP_LOC_CONF_OFFSET,
-          0,
-          NULL },
-        ngx_null_command
+    { ngx_string("xrlt_param"),
+      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF
+                         | NGX_HTTP_LIF_CONF |NGX_CONF_TAKE2,
+      ngx_http_xrlt_param,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("xrlt"),
+      NGX_HTTP_LOC_CONF | NGX_HTTP_LIF_CONF | NGX_CONF_TAKE1,
+      ngx_http_xrlt,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
+      NULL },
+    ngx_null_command
 };
 
 
@@ -35,8 +66,8 @@ ngx_http_module_t ngx_http_xrlt_module_ctx = {
         NULL,                             /*  create server configuration */
         NULL,                             /*  merge server configuration */
 
-        NULL,    /*  create location configuration */
-        NULL                              /*  merge location configuration */
+        ngx_http_xrlt_create_conf,        /*  create location configuration */
+        ngx_http_xrlt_merge_conf          /*  merge location configuration */
 };
 
 
@@ -50,8 +81,8 @@ ngx_module_t ngx_http_xrlt_module = {
         NULL,                       /*  init process */
         NULL,                       /*  init thread */
         NULL,                       /*  exit thread */
-        NULL,                       /*  exit process */
-        NULL,                       /*  exit master */
+        ngx_http_xrlt_exit,         /*  exit process */
+        ngx_http_xrlt_exit,         /*  exit master */
         NGX_MODULE_V1_PADDING
 };
 
@@ -201,6 +232,8 @@ ngx_http_xrlt_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 static ngx_int_t
 ngx_http_xrlt_filter_init(ngx_conf_t *cf)
 {
+    xmlInitParser();
+
     ngx_http_next_header_filter = ngx_http_top_header_filter;
     ngx_http_top_header_filter = ngx_http_xrlt_header_filter;
 
@@ -275,9 +308,59 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
 }
 
 
+static void
+ngx_http_xrlt_cleanup_requestsheet(void *data)
+{
+    xrltRequestsheetFree(data);
+}
+
+
 static char *
 ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-    ngx_http_core_loc_conf_t    *clcf;
+    ngx_http_xrlt_loc_conf_t  *xlcf = conf;
+    ngx_http_core_loc_conf_t  *clcf;
+
+    ngx_str_t                 *value;
+    ngx_pool_cleanup_t        *cln;
+
+    xmlDocPtr                 doc;
+    xrltRequestsheetPtr       sheet;
+
+    value = cf->args->elts;
+
+    if (xlcf->sheet != NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (ngx_conf_full_name(cf->cycle, &value[1], 0) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    cln = ngx_pool_cleanup_add(cf->pool, 0);
+    if (cln == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    doc = xmlParseFile((const char *)value[1].data);
+    if (doc == NULL) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                           "xmlParseFile(\"%s\") failed", value[1].data);
+        return NGX_CONF_ERROR;
+    }
+
+    sheet = xrltRequestsheetCreate(doc);
+    if (sheet == NULL) {
+        xmlFreeDoc(doc);
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0,
+                           "xrltRequestsheetCreate(\"%s\") failed",
+                           value[1].data);
+        return NGX_CONF_ERROR;
+    }
+
+    xlcf->sheet = sheet;
+
+    cln->handler = ngx_http_xrlt_cleanup_requestsheet;
+    cln->data = sheet;
 
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
     if (clcf == NULL) {
@@ -287,4 +370,81 @@ ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     clcf->handler = ngx_http_xrlt_handler;
 
     return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_http_xrlt_param(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_xrlt_loc_conf_t          *xlcf = conf;
+
+    ngx_http_xrlt_param_t             *param;
+    ngx_http_compile_complex_value_t   ccv;
+    ngx_str_t                         *value;
+
+    value = cf->args->elts;
+
+    if (xlcf->params == NULL) {
+        xlcf->params = ngx_array_create(cf->pool, 2,
+                                        sizeof(ngx_http_xrlt_param_t));
+        if (xlcf->params == NULL) {
+            return NGX_CONF_ERROR;
+        }
+    }
+
+    param = ngx_array_push(xlcf->params);
+    if (param == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    param->name = value[1].data;
+
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+    ccv.cf = cf;
+    ccv.value = &value[2];
+    ccv.complex_value = &param->value;
+    ccv.zero = 1;
+
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static void *
+ngx_http_xrlt_create_conf(ngx_conf_t *cf)
+{
+    ngx_http_xrlt_loc_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_xrlt_loc_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    return conf;
+}
+
+
+static char *
+ngx_http_xslt_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_xrlt_loc_conf_t  *prev = parent;
+    ngx_http_xrlt_loc_conf_t  *conf = child;
+
+    if (conf->params == NULL) {
+        conf->params = prev->params;
+    }
+
+    return NGX_CONF_OK;
+}
+
+
+static void
+ngx_http_xrlt_exit(ngx_cycle_t *cycle)
+{
+    //xsltCleanupGlobals();
+    xmlCleanupParser();
 }
