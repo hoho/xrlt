@@ -6,6 +6,7 @@
 
 #define DDEBUG 1
 #include "ddebug.h"
+#include "ngx_buf.h"
 
 
 typedef struct {
@@ -22,6 +23,7 @@ typedef struct {
 } ngx_http_xrlt_loc_conf_t;
 
 
+static ngx_int_t   ngx_http_xrlt_init          (ngx_conf_t *cf);
 static ngx_int_t   ngx_http_xrlt_filter_init   (ngx_conf_t *cf);
 static char       *ngx_http_xrlt               (ngx_conf_t *cf,
                                                 ngx_command_t *cmd, void *conf);
@@ -57,7 +59,7 @@ static ngx_command_t ngx_http_xrlt_commands[] = {
 
 
 ngx_http_module_t ngx_http_xrlt_module_ctx = {
-        NULL,                             /*  preconfiguration */
+        ngx_http_xrlt_init,               /*  preconfiguration */
         ngx_http_xrlt_filter_init,        /*  postconfiguration */
 
         NULL,                             /*  create main configuration */
@@ -88,48 +90,207 @@ ngx_module_t ngx_http_xrlt_module = {
 
 
 typedef struct ngx_http_xrlt_ctx_s {
-    ngx_int_t data;
+    xrltContextPtr   xctx;
+    ngx_int_t        id;
 } ngx_http_xrlt_ctx_t;
 
 
+static void
+ngx_http_xrlt_cleanup_context(void *data)
+{
+    xrltContextFree(data);
+}
+
+
 ngx_inline static ngx_http_xrlt_ctx_t *
-ngx_http_xrlt_create_ctx(ngx_http_request_t *r) {
-    ngx_http_xrlt_ctx_t      *ctx;
+ngx_http_xrlt_create_ctx(ngx_http_request_t *r, ngx_int_t id) {
+    ngx_http_xrlt_ctx_t       *ctx;
+    ngx_http_xrlt_loc_conf_t  *conf;
+
+    conf = ngx_http_get_module_loc_conf(r, ngx_http_xrlt_module);
 
     ctx = ngx_palloc(r->pool, sizeof(ngx_http_xrlt_ctx_t));
     if (ctx == NULL) {
         return NULL;
     }
 
+    if (id == 0) {
+        ngx_pool_cleanup_t  *cln;
+
+        cln = ngx_pool_cleanup_add(r->pool, 0);
+        if (cln == NULL) {
+            return NULL;
+        }
+
+        ctx->xctx = xrltContextCreate(conf->sheet);
+        ctx->id = 0;
+
+        if (ctx->xctx == NULL) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                          "Failed to create XRLT context");
+        }
+
+        cln->handler = ngx_http_xrlt_cleanup_context;
+        cln->data = ctx->xctx;
+    } else {
+        ngx_http_xrlt_ctx_t  *main_ctx;
+
+        main_ctx = ngx_http_get_module_ctx(r->main, ngx_http_xrlt_module);
+
+        if (main_ctx == NULL || main_ctx->xctx == NULL) {
+            return NULL;
+        }
+
+        ctx->xctx = main_ctx->xctx;
+        ctx->id = id;
+    }
+
     return ctx;
 }
 
 
-static ngx_int_t
-ngx_http_xrlt_subrequest(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
-        const char *uri, ngx_int_t data)
+ngx_inline static ngx_int_t
+ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
+                        ngx_chain_t *in)
 {
-    ngx_http_xrlt_ctx_t         *sr_ctx;
-    ngx_str_t                    sr_uri;
-    ngx_http_request_t          *sr;
+    int          t;
+    xrltString   s;
 
-    sr_ctx = ngx_http_xrlt_create_ctx(r);
-    if (sr_ctx == NULL) {
+    if (in == NULL) {
+        t = xrltTransform(ctx->xctx, 0, NULL);
+    } else {
+        xrltTransformValue   val;
+
+        val.type = XRLT_PROCESS_BODY;
+        val.last = in->buf->last ? TRUE : FALSE;
+        val.error = FALSE;
+        val.data.data = (char *)in->buf->pos;
+        val.data.len = in->buf->last - in->buf->pos;
+
+        fprintf(stderr, "FUFUFUFUFU: %s\n", val.data.data);
+
+        t = xrltTransform(ctx->xctx, ctx->id, &val);
+    }
+
+    if (t & XRLT_STATUS_ERROR) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    sr_ctx->data = data;
-
-    sr_uri.data = uri;
-    sr_uri.len = strlen(uri);
-
-    if (ngx_http_subrequest(r, &sr_uri, &sr_uri, &sr, NULL, 0) != NGX_OK) {
-        return NGX_ERROR;
+    if (t == XRLT_STATUS_WAITING) {
+        // Nothing to do, just wait.
+        return NGX_AGAIN;
     }
 
-    ngx_http_set_ctx(sr, sr_ctx, ngx_http_xrlt_module);
+    if (t & XRLT_STATUS_REFUSE_SUBREQUEST) {
+        // Cancel r subrequest, there is something wrong with it.
+    }
 
-    return NGX_OK;
+    if (t & XRLT_STATUS_SUBREQUEST) {
+        size_t                   id;
+        xrltHTTPMethod           m;
+        xrltSubrequestDataType   type;
+        xrltHeaderList           header;
+        xrltString               url, querystring, body, name, val;
+        ngx_http_xrlt_ctx_t     *sr_ctx;
+        ngx_str_t                sr_uri;
+        ngx_str_t                sr_querystring;
+        ngx_http_request_t      *sr;
+
+        while (xrltSubrequestListShift(&ctx->xctx->sr, &id, &m, &type, &header,
+                                       &url, &querystring, &body))
+        {
+            sr_ctx = ngx_http_xrlt_create_ctx(r, id);
+            if (sr_ctx == NULL) {
+                xrltHeaderListClear(&header);
+
+                xrltStringClear(&url);
+                xrltStringClear(&querystring);
+                xrltStringClear(&body);
+
+                return NGX_HTTP_INTERNAL_SERVER_ERROR;
+            }
+
+            sr_uri.data = (u_char *)url.data;
+            sr_uri.len = url.len;
+
+            sr_querystring.data = (u_char *)querystring.data;
+            sr_querystring.len = querystring.len;
+
+            fprintf(stderr, "SR: %s %s\n", sr_uri.data, sr_querystring.data);
+
+            if (ngx_http_subrequest(r, &sr_uri, &sr_querystring, &sr,
+                                    NULL, 0) != NGX_OK)
+            {
+                xrltHeaderListClear(&header);
+
+                xrltStringClear(&url);
+                xrltStringClear(&querystring);
+                xrltStringClear(&body);
+
+                return NGX_ERROR;
+            }
+
+            ngx_http_set_ctx(sr, sr_ctx, ngx_http_xrlt_module);
+
+            while (xrltHeaderListShift(&header, &name, &val)) {
+                xrltStringClear(&name);
+                xrltStringClear(&val);
+            }
+
+            xrltStringClear(&url);
+            xrltStringClear(&querystring);
+            xrltStringClear(&body);
+        }
+
+    }
+
+    if (t & XRLT_STATUS_CHUNK) {
+        ngx_buf_t    *b;
+        ngx_chain_t   out;
+
+        while (xrltChunkListShift(&ctx->xctx->chunk, &s)) {
+            if (s.len > 0) {
+                fprintf(stderr, "CHUNK: %s\n", s.data);
+                b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+
+                b->start = b->pos = (u_char *)s.data;
+                b->last = b->end = (u_char *)s.data + s.len;
+
+                b->last_buf = 0;
+                b->memory = 1;
+                b->last_in_chain = 1;
+                b->flush = 1;
+
+                out.buf = b;
+                out.next = NULL;
+
+                if (ngx_http_output_filter(r->main, &out) == NGX_ERROR) {
+                    return NGX_ERROR;
+                }
+            }
+
+            xrltStringClear(&s);
+        }
+
+    }
+
+    if (t & XRLT_STATUS_LOG) {
+        xrltLogType   ltype;
+
+        while (xrltLogListShift(&ctx->xctx->log, &ltype, &s)) {
+            xrltStringClear(&s);
+        }
+    }
+
+    if (t & XRLT_STATUS_DONE) {
+        if (ngx_http_send_special(r->main, NGX_HTTP_LAST) == NGX_ERROR) {
+            return NGX_ERROR;
+        }
+
+        return NGX_DONE;
+    }
+
+    return ngx_http_xrlt_transform(r, ctx, NULL);
 }
 
 
@@ -152,88 +313,41 @@ ngx_http_xrlt_header_filter(ngx_http_request_t *r)
 static ngx_int_t
 ngx_http_xrlt_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
-    ngx_http_xrlt_ctx_t         *ctx;
-    ngx_chain_t                 *cl;
-    ngx_buf_t                   *b;
-    ngx_chain_t                  out;
+    ngx_http_xrlt_ctx_t  *ctx;
+    ngx_chain_t          *cl;
+    ngx_int_t             rc;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
     if (in == NULL || r == r->main || ctx == NULL) {
         return ngx_http_next_body_filter(r, in);
     }
 
-    //dd("BOFIFI %s", in->buf->pos);
-
-    dd("BOOOODYYY %d", ctx->data);
-
-
-    b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-
-    if (b == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "Failed to allocate response buffer.");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    rc = ngx_http_xrlt_transform(r, ctx, in);
+    if (rc == NGX_HTTP_INTERNAL_SERVER_ERROR || rc == NGX_ERROR) {
+        return NGX_ERROR;
     }
-
-
-    b->last_buf = 0; /* there will be no more buffers in the request */
-
-    if (ctx->data == 1) {
-        dd("BAAAA: %d, %p", in->buf->end - in->buf->start, r->main);
-        b->start = b->pos = "yyyy\n"; /* first position in memory of the data */
-        b->end = b->last = "yyyy\n" + 5; /* last position */
-    } else if (ctx->data == 2) {
-        dd("BOOOOO: %d, %p", in->buf->end - in->buf->start, r->main);
-        b->start = b->pos = "zzzz\n"; /* first position in memory of the data */
-        b->end = b->last = "zzzz\n" + 5; /* last position */
-
-        if (in->buf->last_in_chain) {
-            if (ngx_http_xrlt_subrequest(r->main, ctx, "/sub2", 3) != NGX_OK) {
-                return NGX_ERROR;
-            }
-            dd("YOYOYO!!!!!");
-        }
-    } else if (ctx->data == 4) {
-        dd("BRRRRR: %d, %p", in->buf->end - in->buf->start, r->main);
-        b->start = b->pos = "uuuu\n";
-        b->end = b->last = "uuuu\n" + 5;
-    } else {
-        dd("BFFFF: %d, %p, %s, %d", in->buf->end - in->buf->start, r->main, in->buf->start, in->buf->last_in_chain);
-        b->start = b->pos = "iiii\n"; /* first position in memory of the data */
-        b->end = b->last = "iiii\n" + 5; /* last position */
-
-        b->last_buf = 1; /* there will be no more buffers in the request */
-
-        //if (in->buf->last_in_chain) {
-        //    ngx_http_send_special(r->main, NGX_HTTP_LAST);
-        //}
-    }
-
-    b->memory = 1; /* content is in read-only memory */
-    /* (i.e., filters should copy it rather than rewrite in place) */
-
-    //b->last_buf = 1; /* there will be no more buffers in the request */
-
-    b->last_in_chain = 1;
-    b->flush = 1;
-
-    out.buf = b;
-    out.next = NULL;
 
     for (cl = in; cl; cl = cl->next) {
         cl->buf->pos = cl->buf->last;
         cl->buf->file_pos = cl->buf->file_last;
     }
 
-    return ngx_http_output_filter(r->main, &out);
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_xrlt_init(ngx_conf_t *cf)
+{
+    xmlInitParser();
+    xrltInit();
+
+    return NGX_OK;
 }
 
 
 static ngx_int_t
 ngx_http_xrlt_filter_init(ngx_conf_t *cf)
 {
-    xmlInitParser();
-
     ngx_http_next_header_filter = ngx_http_top_header_filter;
     ngx_http_top_header_filter = ngx_http_xrlt_header_filter;
 
@@ -248,13 +362,12 @@ static ngx_int_t
 ngx_http_xrlt_handler(ngx_http_request_t *r) {
     dd("FUCKFUCK");
 
-    ngx_http_xrlt_ctx_t         *ctx;
-    ngx_chain_t                  out;
-    ngx_buf_t                   *b;
+    ngx_http_xrlt_ctx_t  *ctx;
+    ngx_int_t             rc;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
     if (ctx == NULL) {
-        ctx = ngx_http_xrlt_create_ctx(r);
+        ctx = ngx_http_xrlt_create_ctx(r, 0);
         if (ctx == NULL) {
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
@@ -263,46 +376,13 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
     }
 
     r->headers_out.status = NGX_HTTP_OK;
-    //r->headers_out.content_length_n = 100;
+
     ngx_http_send_header(r);
 
-
-    b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-
-    if (b == NULL) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "Failed to allocate response buffer.");
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    rc = ngx_http_xrlt_transform(r, ctx, NULL);
+    if (rc == NGX_HTTP_INTERNAL_SERVER_ERROR || rc == NGX_ERROR) {
+        return rc;
     }
-
-    b->pos = "alal\n"; /* first position in memory of the data */
-    b->last = "alal\n" + 5; /* last position */
-
-    b->memory = 1; /* content is in read-only memory */
-    /* (i.e., filters should copy it rather than rewrite in place) */
-
-    b->last_buf = 0; /* there will be no more buffers in the request */
-    b->last_in_chain = 1;
-    b->flush = 1;
-    b->temporary = 1;
-
-    out.buf = b;
-    out.next = NULL;
-
-
-    if (ngx_http_xrlt_subrequest(r, ctx, "/CHANGES", 1) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_http_xrlt_subrequest(r, ctx, "/sub", 2) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_http_xrlt_subrequest(r, ctx, "/sub", 4) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    return ngx_http_output_filter(r, &out);
 
     return NGX_OK;
 }
@@ -329,6 +409,7 @@ ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     value = cf->args->elts;
 
     if (xlcf->sheet != NULL) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "Duplicate xrlt instruction");
         return NGX_CONF_ERROR;
     }
 
@@ -340,6 +421,7 @@ ngx_http_xrlt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     if (cln == NULL) {
         return NGX_CONF_ERROR;
     }
+
 
     doc = xmlParseFile((const char *)value[1].data);
     if (doc == NULL) {
@@ -429,7 +511,7 @@ ngx_http_xrlt_create_conf(ngx_conf_t *cf)
 
 
 static char *
-ngx_http_xslt_filter_merge_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_http_xrlt_loc_conf_t  *prev = parent;
     ngx_http_xrlt_loc_conf_t  *conf = child;
