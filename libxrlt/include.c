@@ -19,8 +19,6 @@ xrltIncludeMethodFromString(xmlChar *method)
             return XRLT_METHOD_DELETE;
         } else if (xmlStrcasecmp(method, (const xmlChar *)"TRACE") == 0) {
             return XRLT_METHOD_TRACE;
-        } else if (xmlStrcasecmp(method, (const xmlChar *)"CONNECT") == 0) {
-            return XRLT_METHOD_CONNECT;
         } else if (xmlStrcasecmp(method, (const xmlChar *)"OPTIONS") == 0) {
             return XRLT_METHOD_OPTIONS;
         } else {

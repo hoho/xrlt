@@ -159,9 +159,6 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
             case XRLT_METHOD_TRACE:
                 sprintf(buf, "sr method: TRACE\n");
                 break;
-            case XRLT_METHOD_CONNECT:
-                sprintf(buf, "sr method: CONNECT\n");
-                break;
             case XRLT_METHOD_OPTIONS:
                 sprintf(buf, "sr method: OPTIONS\n");
                 break;
