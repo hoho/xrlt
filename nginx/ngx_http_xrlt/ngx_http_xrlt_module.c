@@ -8,6 +8,14 @@
 #include "ddebug.h"
 
 
+ngx_str_t   ngx_http_xrlt_head_method =    { 4, (u_char *) "HEAD " };
+ngx_str_t   ngx_http_xrlt_post_method =    { 4, (u_char *) "POST " };
+ngx_str_t   ngx_http_xrlt_put_method =     { 3, (u_char *) "PUT " };
+ngx_str_t   ngx_http_xrlt_delete_method =  { 6, (u_char *) "DELETE " };
+ngx_str_t   ngx_http_xrlt_trace_method =   { 5, (u_char *) "TRACE " };
+ngx_str_t   ngx_http_xrlt_options_method = { 7, (u_char *) "OPTIONS " };
+
+
 typedef struct {
     u_char                    *name;
     ngx_http_complex_value_t   value;
@@ -253,14 +261,35 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
             }
 
             switch (m) {
-                case XRLT_METHOD_GET: sr->method = NGX_HTTP_GET; break;
-                case XRLT_METHOD_HEAD: sr->method = NGX_HTTP_HEAD; break;
-                case XRLT_METHOD_POST: sr->method = NGX_HTTP_POST; break;
-                case XRLT_METHOD_PUT: sr->method = NGX_HTTP_PUT; break;
-                case XRLT_METHOD_DELETE: sr->method = NGX_HTTP_DELETE; break;
-                case XRLT_METHOD_TRACE: sr->method = NGX_HTTP_TRACE; break;
-                case XRLT_METHOD_OPTIONS: sr->method = NGX_HTTP_OPTIONS; break;
-                default: sr->method = NGX_HTTP_GET;
+                case XRLT_METHOD_GET:
+                    sr->method = NGX_HTTP_GET;
+                    break;
+                case XRLT_METHOD_HEAD:
+                    sr->method = NGX_HTTP_HEAD;
+                    sr->method_name = ngx_http_xrlt_head_method;
+                    break;
+                case XRLT_METHOD_POST:
+                    sr->method = NGX_HTTP_POST;
+                    sr->method_name = ngx_http_xrlt_post_method;
+                    break;
+                case XRLT_METHOD_PUT:
+                    sr->method = NGX_HTTP_PUT;
+                    sr->method_name = ngx_http_xrlt_put_method;
+                    break;
+                case XRLT_METHOD_DELETE:
+                    sr->method = NGX_HTTP_DELETE;
+                    sr->method_name = ngx_http_xrlt_delete_method;
+                    break;
+                case XRLT_METHOD_TRACE:
+                    sr->method = NGX_HTTP_TRACE;
+                    sr->method_name = ngx_http_xrlt_trace_method;
+                    break;
+                case XRLT_METHOD_OPTIONS:
+                    sr->method = NGX_HTTP_OPTIONS;
+                    sr->method_name = ngx_http_xrlt_options_method;
+                    break;
+                default:
+                    sr->method = NGX_HTTP_GET;
             }
 
             while (xrltHeaderListShift(&header, &name, &val)) {
