@@ -1353,12 +1353,14 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 while (node2 != NULL) {
                     node3 = node2->next;
-                    if (xmlAddNextSibling(node, node2) == NULL) {
+
+                    node = xmlAddNextSibling(node, node2);
+                    if (node == NULL) {
                         xrltTransformError(ctx, NULL, tdata->srcNode,
                                            "Failed to add response node\n");
                         return FALSE;
                     }
-                    node = node2;
+
                     node2 = node3;
                 }
 
