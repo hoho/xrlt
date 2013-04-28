@@ -11,10 +11,15 @@ extern "C" {
 #endif
 
 
-typedef enum {
-    FALSE = 0,
-    TRUE
-} xrltBool;
+#define xrltBool   int
+
+#ifndef TRUE
+#define TRUE       1
+#endif  /* TRUE */
+
+#ifndef FALSE
+#define FALSE      0
+#endif  /* FALSE */
 
 
 typedef enum {
@@ -32,7 +37,6 @@ typedef enum {
     XRLT_METHOD_PUT,
     XRLT_METHOD_DELETE,
     XRLT_METHOD_TRACE,
-    XRLT_METHOD_CONNECT,
     XRLT_METHOD_OPTIONS
 } xrltHTTPMethod;
 
