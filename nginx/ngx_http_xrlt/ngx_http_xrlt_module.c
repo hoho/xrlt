@@ -8,12 +8,12 @@
 #include "ddebug.h"
 
 
-ngx_str_t   ngx_http_xrlt_head_method =    { 4, (u_char *) "HEAD " };
-ngx_str_t   ngx_http_xrlt_post_method =    { 4, (u_char *) "POST " };
-ngx_str_t   ngx_http_xrlt_put_method =     { 3, (u_char *) "PUT " };
-ngx_str_t   ngx_http_xrlt_delete_method =  { 6, (u_char *) "DELETE " };
-ngx_str_t   ngx_http_xrlt_trace_method =   { 5, (u_char *) "TRACE " };
-ngx_str_t   ngx_http_xrlt_options_method = { 7, (u_char *) "OPTIONS " };
+static ngx_str_t   ngx_http_xrlt_head_method =    { 4, (u_char *) "HEAD " };
+static ngx_str_t   ngx_http_xrlt_post_method =    { 4, (u_char *) "POST " };
+static ngx_str_t   ngx_http_xrlt_put_method =     { 3, (u_char *) "PUT " };
+static ngx_str_t   ngx_http_xrlt_delete_method =  { 6, (u_char *) "DELETE " };
+static ngx_str_t   ngx_http_xrlt_trace_method =   { 5, (u_char *) "TRACE " };
+static ngx_str_t   ngx_http_xrlt_options_method = { 7, (u_char *) "OPTIONS " };
 
 
 typedef struct {
@@ -161,7 +161,7 @@ ngx_http_xrlt_create_ctx(ngx_http_request_t *r, ngx_int_t id) {
 #define XRLT_STR_2_NGX_STR(dst, src) {                                        \
     dst.len = src.len;                                                        \
     if (src.len > 0) {                                                        \
-        dst.data = ngx_pnalloc(r->pool, src.len);                             \
+        dst.data = ngx_pnalloc(r->pool, src.len + 1);                         \
         if (dst.data == NULL) return NGX_ERROR;                               \
         (void)ngx_copy(dst.data, src.data, src.len);                          \
     } else {                                                                  \
@@ -222,6 +222,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         ngx_http_post_subrequest_t  *psr;
         ngx_http_request_body_t     *rb;
         ngx_buf_t                   *b;
+        ngx_table_elt_t             *h;
 
         while (xrltSubrequestListShift(&ctx->xctx->sr, &id, &m, &type, &header,
                                        &url, &querystring, &body))
@@ -292,9 +293,43 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
                     sr->method = NGX_HTTP_GET;
             }
 
-            while (xrltHeaderListShift(&header, &name, &val)) {
-                xrltStringClear(&name);
-                xrltStringClear(&val);
+            memset(&sr->headers_in, 0, sizeof(ngx_http_headers_in_t));
+            sr->headers_in.content_length_n = -1;
+
+            if (header.first != NULL) {
+                if (ngx_list_init(&sr->headers_in.headers, r->pool, 20,
+                                  sizeof(ngx_table_elt_t)) != NGX_OK)
+                {
+                    xrltHeaderListClear(&header);
+                    return NGX_ERROR;
+                }
+
+                while (xrltHeaderListShift(&header, &name, &val)) {
+                    h = ngx_list_push(&sr->headers_in.headers);
+                    if (h == NULL) {
+                        xrltStringClear(&name);
+                        xrltStringClear(&val);
+                        xrltHeaderListClear(&header);
+                        return NGX_ERROR;
+                    }
+
+                    XRLT_STR_2_NGX_STR(h->key, name);
+                    h->key.data[h->key.len] = '\0';
+
+                    XRLT_STR_2_NGX_STR(h->value, val);
+                    h->value.data[h->value.len] = '\0';
+
+                    xrltStringClear(&name);
+                    xrltStringClear(&val);
+
+                    h->lowcase_key = ngx_pnalloc(r->pool, h->key.len);
+                    if (h->lowcase_key == NULL) {
+                        xrltHeaderListClear(&header);
+                        return NGX_ERROR;
+                    }
+
+                    ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
+                }
             }
 
             ngx_http_set_ctx(sr, sr_ctx, ngx_http_xrlt_module);
@@ -429,12 +464,17 @@ ngx_http_xrlt_header_filter(ngx_http_request_t *r)
 {
     ngx_http_xrlt_ctx_t         *ctx;
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
-    if (r == r->main || ctx == NULL) {
+    if (r == r->main) {
         return ngx_http_next_header_filter(r);
     }
 
     dd("HEFIFI");
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
+    if (ctx == NULL) {
+        return NGX_ERROR;
+
+    }
 
     return NGX_OK;
 }
@@ -447,13 +487,13 @@ ngx_http_xrlt_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     ngx_chain_t          *cl;
     ngx_int_t             rc;
 
+    if (r == r->main) {
+        return ngx_http_next_body_filter(r, in);
+    }
+
     ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
     if (ctx == NULL) {
         return NGX_ERROR;
-    }
-
-    if (r == r->main) {
-        return ngx_http_next_body_filter(r, in);
     }
 
     for (cl = in; cl; cl = cl->next) {
