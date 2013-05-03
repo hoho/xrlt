@@ -29,11 +29,11 @@ js:
 
 .PHONY: compile
 compile:
-	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../xrlterror.c compile/test1.c -lxml2 -lyajl
+	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../xrlterror.c compile/test1.c -lxml2 -lyajl
 
 .PHONY: include
 include:
-	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../xrlterror.c include/test.c -lxml2 -lyajl
+	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../xrlterror.c include/test.c -lxml2 -lyajl
 
 .PHONY: querystring
 querystring:

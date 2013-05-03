@@ -4,6 +4,7 @@
 #include "builtins.h"
 #include "include.h"
 #include "variable.h"
+#include "headers.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -87,6 +88,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
                                XRLT_COMPILE_PASS2,
                                xrltIfCompile, xrltIfFree, xrltIfTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
+                               XRLT_COMPILE_PASS1,
+                               xrltResponseHeaderCompile,
+                               xrltResponseHeaderFree,
+                               xrltResponseHeaderTransform);
 
     if (!ret) {
         xrltUnregisterBuiltinElements();
@@ -319,4 +326,113 @@ xrltHasXRLTElement(xmlNodePtr node)
     }
 
     return FALSE;
+}
+
+
+xrltBool
+xrltSetStringResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                    void *data)
+{
+    xmlNodePtr        node = (xmlNodePtr)comp;
+    xrltNodeDataPtr   n;
+
+    ASSERT_NODE_DATA(node, n);
+
+    if (n->count > 0) {
+        // Node is not ready.
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltSetStringResult, comp, insert, data
+        );
+    } else {
+        *((xmlChar **)data) = xmlXPathCastNodeToString(node);
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltSetStringResultByXPath(xrltContextPtr ctx, void *comp,
+                           xmlNodePtr insert, void *data)
+{
+    xmlXPathObjectPtr  v;
+
+    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
+        return FALSE;
+    }
+
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltSetStringResultByXPath, comp, insert, data
+        );
+    } else {
+        *((xmlChar **)data) = xmlXPathCastToString(v);
+
+        xmlXPathFreeObject(v);
+
+        COUNTER_DECREASE(ctx, insert);
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltSetBooleanResult(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                     void *data)
+{
+    xmlNodePtr        node = (xmlNodePtr)comp;
+    xrltNodeDataPtr   n;
+    xmlChar          *ret;
+
+    ASSERT_NODE_DATA(node, n);
+
+    if (n->count > 0) {
+        // Node is not ready.
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltSetBooleanResult, comp, insert, data
+        );
+    } else {
+        ret = xmlXPathCastNodeToString(node);
+        *((xrltBool *)data) = xmlXPathCastStringToBoolean(ret) ? TRUE : FALSE;
+        xmlFree(ret);
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltSetBooleanResultByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                            void *data)
+{
+    xmlXPathObjectPtr  v;
+
+    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
+        return FALSE;
+    }
+
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltSetBooleanResultByXPath, comp, insert, data
+        );
+    } else {
+        *((xrltBool *)data) = xmlXPathCastToBoolean(v) ? TRUE : FALSE;
+
+        xmlXPathFreeObject(v);
+
+        COUNTER_DECREASE(ctx, insert);
+    }
+
+    return TRUE;
 }

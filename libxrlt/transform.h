@@ -716,6 +716,87 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
 }
 
 
+xrltBool
+    xrltSetStringResult           (xrltContextPtr ctx, void *comp,
+                                   xmlNodePtr insert, void *data);
+xrltBool
+    xrltSetStringResultByXPath    (xrltContextPtr ctx, void *comp,
+                                   xmlNodePtr insert, void *data);
+xrltBool
+    xrltSetBooleanResult          (xrltContextPtr ctx, void *comp,
+                                   xmlNodePtr insert, void *data);
+xrltBool
+    xrltSetBooleanResultByXPath   (xrltContextPtr ctx, void *comp,
+                                   xmlNodePtr insert, void *data);
+
+
+static inline xrltBool
+xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
+                      xmlChar *val, xmlNodePtr nval, xmlXPathCompExprPtr xval,
+                      xmlChar **ret)
+{
+    if (val != NULL) {
+        *ret = xmlStrdup(val);
+    } else if (nval != NULL) {
+        xmlNodePtr   node;
+
+        NEW_CHILD(ctx, node, insert, "tmp");
+
+        TRANSFORM_SUBTREE(ctx, nval, node);
+
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltSetStringResult, node, insert, ret
+        );
+    } else if (xval != NULL) {
+        COUNTER_INCREASE(ctx, insert);
+
+        return xrltSetStringResultByXPath(ctx, xval, insert, ret);
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
+xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert, xrltBool val,
+                       xmlNodePtr nval, xmlXPathCompExprPtr xval, xrltBool *ret)
+{
+    if (nval != NULL) {
+        xmlNodePtr   node;
+
+        NEW_CHILD(ctx, node, insert, "tmp");
+
+        TRANSFORM_SUBTREE(ctx, nval, node);
+
+        SCHEDULE_CALLBACK(
+            ctx, &ctx->tcb, xrltSetBooleanResult, node, insert, ret
+        );
+    } else if (xval != NULL) {
+        COUNTER_INCREASE(ctx, insert);
+
+        return xrltSetBooleanResultByXPath(ctx, xval, insert, ret);
+    } else {
+        *ret = val;
+    }
+
+    return TRUE;
+}
+
+
+#define TRANSFORM_TO_STRING(ctx, node, val, nval, xval, ret) {                \
+    if (!xrltTransformToString(ctx, node, val, nval, xval, ret)) {            \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define TRANSFORM_TO_BOOLEAN(ctx, node, val, nval, xval, ret) {               \
+    if (!xrltTransformToBoolean(ctx, node, val, nval, xval, ret)) {           \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
 #ifdef __cplusplus
 }
 #endif
