@@ -282,6 +282,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         ngx_http_request_body_t     *rb;
         ngx_buf_t                   *b;
         ngx_table_elt_t             *h;
+        ngx_http_core_main_conf_t   *cmcf;
 
         while (xrltSubrequestListShift(&ctx->xctx->sr, &id, &m, &type, &header,
                                        &url, &querystring, &body))
@@ -318,6 +319,16 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
                                     psr, 0) != NGX_OK)
             {
                 xrltHeaderListClear(&header);
+                return NGX_ERROR;
+            }
+
+            // Don't inherit parent request variables. Content-Length is
+            // cacheable in proxy module and we don't need Content-Length from
+            // another subrequest.
+            cmcf = ngx_http_get_module_main_conf(sr, ngx_http_core_module);
+            sr->variables = ngx_pcalloc(sr->pool, cmcf->variables.nelts
+                                        * sizeof(ngx_http_variable_value_t));
+            if (sr->variables == NULL) {
                 return NGX_ERROR;
             }
 
