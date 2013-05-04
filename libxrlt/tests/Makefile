@@ -6,7 +6,7 @@ clean:
 init:
 	mkdir .build
 
-build: clean init xrltstruct json2xml querystring js compile include
+build: clean init xrltstruct json2xml querystring js compile transform
 
 .PHONY: xrltstruct
 xrltstruct:
@@ -31,9 +31,9 @@ js:
 compile:
 	g++ -o .build/compile_test1   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../xrlterror.c compile/test1.c -lxml2 -lyajl
 
-.PHONY: include
-include:
-	g++ -o .build/include_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../xrlterror.c include/test.c -lxml2 -lyajl
+.PHONY: transform
+transform:
+	g++ -o .build/transform_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../xrlterror.c transform/test.c -lxml2 -lyajl
 
 .PHONY: querystring
 querystring:

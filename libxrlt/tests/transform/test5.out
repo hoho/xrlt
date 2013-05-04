@@ -1,0 +1,17 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: QUERYSTRING
+sr url: /test/href/1
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: wo rld
+chunk: is
+chunk: IS
+chunk: co ol
+chunk: heha
+XRLT_STATUS_DONE

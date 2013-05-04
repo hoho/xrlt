@@ -213,7 +213,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
 
 
 void
-test_xrltInclude(const char *xrl, const char *in, const char *out)
+test_xrltTransform(const char *xrl, const char *in, const char *out)
 {
     xmlDocPtr                doc;
     xrltRequestsheetPtr      sheet = NULL;
@@ -337,14 +337,16 @@ test_xrltInclude(const char *xrl, const char *in, const char *out)
 
 int main()
 {
+    xmlInitParser();
     xrltInit();
 
-    test_xrltInclude("include/test1.xrl", "include/test1.in", "include/test1.out");
-    test_xrltInclude("include/test2.xrl", "include/test2.in", "include/test2.out");
-    test_xrltInclude("include/test3.xrl", "include/test3.in", "include/test3.out");
-    test_xrltInclude("include/test4.xrl", "include/test4.in", "include/test4.out");
-    test_xrltInclude("include/test5.xrl", "include/test5.in", "include/test5.out");
-    test_xrltInclude("include/test6.xrl", "include/test6.in", "include/test6.out");
+    test_xrltTransform("transform/test1.xrl", "transform/test1.in", "transform/test1.out");
+    test_xrltTransform("transform/test2.xrl", "transform/test2.in", "transform/test2.out");
+    test_xrltTransform("transform/test3.xrl", "transform/test3.in", "transform/test3.out");
+    test_xrltTransform("transform/test4.xrl", "transform/test4.in", "transform/test4.out");
+    test_xrltTransform("transform/test5.xrl", "transform/test5.in", "transform/test5.out");
+    test_xrltTransform("transform/test6.xrl", "transform/test6.in", "transform/test6.out");
+    test_xrltTransform("transform/test7.xrl", "transform/test7.in", "transform/test7.out");
 
     xrltCleanup();
     xmlCleanupParser();

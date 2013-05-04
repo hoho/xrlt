@@ -104,25 +104,82 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         COUNTER_INCREASE(ctx, node);
 
-        if (hcomp->test) {
-            TRANSFORM_TO_STRING(
-                ctx, node, hcomp->name, hcomp->nname, hcomp->xname, &tdata->name
-            );
+        tdata->node = node;
 
-            TRANSFORM_TO_STRING(
-                ctx, node, hcomp->val, hcomp->nval, hcomp->xval, &tdata->val
-            );
+        NEW_CHILD(ctx, node, node, "tmp");
+
+        tdata->dataNode = node;
+
+        if (hcomp->test) {
+            tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
+
+            TRANSFORM_TO_STRING(ctx, node, hcomp->name, hcomp->nname,
+                                hcomp->xname, &tdata->name);
+
+            TRANSFORM_TO_STRING(ctx, node, hcomp->val, hcomp->nval,
+                                hcomp->xval, &tdata->val);
         } else {
-            TRANSFORM_TO_BOOLEAN(
-                ctx, node, hcomp->test, hcomp->ntest, hcomp->xtest, &tdata->test
-            );
+            tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_TEST;
+
+            TRANSFORM_TO_BOOLEAN(ctx, node, hcomp->test, hcomp->ntest,
+                                 hcomp->xtest, &tdata->test);
         }
 
-        SCHEDULE_CALLBACK(
-            ctx, &ctx->tcb, xrltResponseHeaderTransform, comp, insert, tdata
-        );
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform, comp,
+                          node, tdata);
     } else {
+        tdata = (xrltResponseHeaderTransformingData *)data;
 
+        ASSERT_NODE_DATA(tdata->dataNode, n);
+
+        if (n->count > 0) {
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltResponseHeaderTransform,
+                              comp, insert, data);
+
+            return TRUE;
+        }
+
+        if (tdata->stage == XRLT_RESPONSE_HEADER_TRANSFORM_TEST) {
+            if (tdata->test) {
+                tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
+
+                TRANSFORM_TO_STRING(ctx, insert, hcomp->name, hcomp->nname,
+                                    hcomp->xname, &tdata->name);
+
+                TRANSFORM_TO_STRING(ctx, insert, hcomp->val, hcomp->nval,
+                                    hcomp->xval, &tdata->val);
+
+                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform,
+                                  comp, insert, data);
+            } else {
+                COUNTER_DECREASE(ctx, tdata->node);
+
+                REMOVE_RESPONSE_NODE(ctx, tdata->node);
+            }
+
+            return TRUE;
+        }
+
+        xrltString   name;
+        xrltString   val;
+
+        name.len = (size_t)xmlStrlen(tdata->name);
+        name.data = name.len > 0 ? (char *)tdata->name : NULL;
+
+        val.len = (size_t)xmlStrlen(tdata->val);
+        val.data = val.len > 0 ? (char *)tdata->val : NULL;
+
+        if (!xrltHeaderListPush(&ctx->header, &name, &val)) {
+            xrltTransformError(ctx, NULL, hcomp->node,
+                               "xrltResponseHeaderTransform: Out of memory\n");
+            return FALSE;
+        }
+
+        ctx->cur |= XRLT_STATUS_HEADER;
+
+        COUNTER_DECREASE(ctx, tdata->node);
+
+        REMOVE_RESPONSE_NODE(ctx, tdata->node);
     }
 
     return TRUE;

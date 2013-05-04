@@ -30,12 +30,21 @@ typedef struct {
 } xrltResponseHeaderData;
 
 
-typedef struct {
-    xmlNodePtr   node;
+typedef enum {
+    XRLT_RESPONSE_HEADER_TRANSFORM_TEST = 0,
+    XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE
+} xrltResponseHeaderTransformStage;
 
-    xrltBool              test;
-    xmlChar              *name;
-    xmlChar              *val;
+
+typedef struct {
+    xmlNodePtr                         node;
+    xmlNodePtr                         dataNode;
+
+    xrltResponseHeaderTransformStage   stage;
+
+    xrltBool                           test;
+    xmlChar                           *name;
+    xmlChar                           *val;
 } xrltResponseHeaderTransformingData;
 
 
