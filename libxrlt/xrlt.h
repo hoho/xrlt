@@ -116,11 +116,13 @@ struct _xrltContext {
     xrltRequestsheetPtr          sheet;
 
     xrltBool                     error;
-    int                          cur;      // Current combination of
-                                           // XRLT_STATUS_*
-    xrltHeaderList               header;   // Response headers.
-    xrltSubrequestList           sr;       // Subrequests to make.
-    xrltChunkList                chunk;    // Response chunk.
+    int                          cur;          // Current combination of
+                                               // XRLT_STATUS_*
+    xrltHeaderList               header;       // Response headers.
+    int                          headerCount;  // Wait for headers before
+                                               // sending response chunks.
+    xrltSubrequestList           sr;           // Subrequests to make.
+    xrltChunkList                chunk;        // Response chunk.
     xrltLogList                  log;
     xrltNeedHeaderList           needHeader;
 

@@ -127,6 +127,8 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform, comp,
                           node, tdata);
+
+        ctx->headerCount++;
     } else {
         tdata = (xrltResponseHeaderTransformingData *)data;
 
@@ -155,6 +157,11 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 COUNTER_DECREASE(ctx, tdata->node);
 
                 REMOVE_RESPONSE_NODE(ctx, tdata->node);
+
+                ctx->headerCount--;
+                if (ctx->headerCount == 0 && ctx->chunk.first != NULL) {
+                    ctx->cur |= XRLT_STATUS_CHUNK;
+                }
             }
 
             return TRUE;
@@ -176,6 +183,11 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         }
 
         ctx->cur |= XRLT_STATUS_HEADER;
+
+        ctx->headerCount--;
+        if (ctx->headerCount == 0 && ctx->chunk.first != NULL) {
+            ctx->cur |= XRLT_STATUS_CHUNK;
+        }
 
         COUNTER_DECREASE(ctx, tdata->node);
 

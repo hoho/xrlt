@@ -222,6 +222,7 @@ ngx_http_xrlt_init_subrequest_headers(ngx_http_request_t *sr, off_t len)
         dst.data = ngx_pnalloc(r->pool, src.len + 1);                         \
         if (dst.data == NULL) return NGX_ERROR;                               \
         (void)ngx_copy(dst.data, src.data, src.len);                          \
+        dst.data[dst.len] = '\0';                                             \
     } else {                                                                  \
         dst.data = NULL;                                                      \
         dst.len = 0;                                                          \
@@ -263,6 +264,36 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
     if (t == XRLT_STATUS_WAITING) {
         // Nothing to do, just wait.
         return NGX_AGAIN;
+    }
+
+    if (t & XRLT_STATUS_HEADER) {
+        ngx_table_elt_t  *h;
+        xrltString        name;
+        xrltString        val;
+
+        while (xrltHeaderListShift(&ctx->xctx->header, &name, &val)) {
+            if (ctx->headers_sent) {
+                dd("Response headers are already sent");
+                xrltStringClear(&name);
+                xrltStringClear(&val);
+            } else {
+                h = ngx_list_push(&r->main->headers_out.headers);
+                if (h == NULL) {
+                    xrltStringClear(&name);
+                    xrltStringClear(&val);
+                    return NGX_ERROR;
+                }
+
+                h->hash = 1;
+                XRLT_STR_2_NGX_STR(h->key, name);
+                XRLT_STR_2_NGX_STR(h->value, val);
+                xrltStringClear(&name);
+                xrltStringClear(&val);
+
+                dd("Pushing response header (name: %s, value: %s)",
+                   h->key.data, h->value.data);
+            }
+        }
     }
 
     if (t & XRLT_STATUS_REFUSE_SUBREQUEST) {
@@ -384,11 +415,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
                     }
 
                     XRLT_STR_2_NGX_STR(h->key, name);
-                    h->key.data[h->key.len] = '\0';
-
                     XRLT_STR_2_NGX_STR(h->value, val);
-                    h->value.data[h->value.len] = '\0';
-
                     xrltStringClear(&name);
                     xrltStringClear(&val);
 
@@ -437,53 +464,60 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
     }
 
     if (t & XRLT_STATUS_CHUNK) {
-        ngx_buf_t    *b;
-        ngx_chain_t   out;
+        // Send response chunks out in case we don't have response headers in
+        // progress or if response headers are sent.
+        if (ctx->headers_sent || ctx->xctx->headerCount == 0) {
+            ngx_buf_t    *b;
+            ngx_chain_t   out;
 
-        while (xrltChunkListShift(&ctx->xctx->chunk, &s)) {
-            if (s.len > 0) {
-                b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-                if (b == NULL) {
-                    xrltStringClear(&s);
-                    return NGX_ERROR;
-                }
+            while (xrltChunkListShift(&ctx->xctx->chunk, &s)) {
+                if (s.len > 0) {
+                    if (!ctx->main_ctx->headers_sent) {
+                        ctx->main_ctx->headers_sent = 1;
 
-                b->start = ngx_pcalloc(r->pool, s.len);
-                if (b->start == NULL) {
-                    xrltStringClear(&s);
-                    return NGX_ERROR;
-                }
-                (void)ngx_copy(b->start, s.data, s.len);
+                        dd("Sending response headers");
 
-                b->pos = b->start;
+                        if (ngx_http_send_header(r->main) != NGX_OK) {
+                            xrltStringClear(&s);
+                            return NGX_ERROR;
+                        }
+                    }
 
-                b->last = b->end = b->start + s.len;
-                b->temporary = 1;
-                b->last_in_chain = 1;
-                b->flush = 1;
-                b->last_buf = 0;
+                    b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+                    if (b == NULL) {
+                        xrltStringClear(&s);
+                        return NGX_ERROR;
+                    }
 
-                out.buf = b;
-                out.next = NULL;
+                    b->start = ngx_pcalloc(r->pool, s.len);
+                    if (b->start == NULL) {
+                        xrltStringClear(&s);
+                        return NGX_ERROR;
+                    }
+                    (void)ngx_copy(b->start, s.data, s.len);
 
-                dd("Sending response chunk (len: %d)", s.len);
+                    b->pos = b->start;
 
-                if (!ctx->main_ctx->headers_sent) {
-                    ctx->main_ctx->headers_sent = 1;
-                    if (ngx_http_send_header(r->main) != NGX_OK) {
+                    b->last = b->end = b->start + s.len;
+                    b->temporary = 1;
+                    b->last_in_chain = 1;
+                    b->flush = 1;
+                    b->last_buf = 0;
+
+                    out.buf = b;
+                    out.next = NULL;
+
+                    dd("Sending response chunk (len: %zd)", s.len);
+
+                    if (ngx_http_output_filter(r->main, &out) == NGX_ERROR) {
+                        xrltStringClear(&s);
                         return NGX_ERROR;
                     }
                 }
 
-                if (ngx_http_output_filter(r->main, &out) == NGX_ERROR) {
-                    xrltStringClear(&s);
-                    return NGX_ERROR;
-                }
+                xrltStringClear(&s);
             }
-
-            xrltStringClear(&s);
         }
-
     }
 
     if (t & XRLT_STATUS_LOG) {
@@ -507,6 +541,9 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
     if (t & XRLT_STATUS_DONE) {
         if (!ctx->main_ctx->headers_sent) {
             ctx->main_ctx->headers_sent = 1;
+
+            dd("Sending response headers");
+
             if (ngx_http_send_header(r->main) != NGX_OK) {
                 return NGX_ERROR;
             }
