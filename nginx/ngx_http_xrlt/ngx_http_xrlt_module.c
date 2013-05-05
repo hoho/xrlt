@@ -43,7 +43,7 @@ static void       *ngx_http_xrlt_create_conf   (ngx_conf_t *cf);
 static char       *ngx_http_xrlt_merge_conf    (ngx_conf_t *cf, void *parent,
                                                 void *child);
 static void        ngx_http_xrlt_exit          (ngx_cycle_t *cycle);
-static ngx_int_t   ngx_http_xrlt_post_sr       (ngx_http_request_t *sr,
+static ngx_int_t   ngx_http_xrlt_post_sr       (ngx_http_request_t *r,
                                                 void *data, ngx_int_t rc);
 
 
@@ -114,6 +114,8 @@ struct ngx_http_xrlt_ctx_s {
 static void
 ngx_http_xrlt_cleanup_context(void *data)
 {
+    dd("XRLT context cleanup");
+
     xrltContextFree(data);
 }
 
@@ -137,6 +139,8 @@ ngx_http_xrlt_create_ctx(ngx_http_request_t *r, ngx_int_t id) {
         if (cln == NULL) {
             return NULL;
         }
+
+        dd("XRLT context creation");
 
         ctx->xctx = xrltContextCreate(conf->sheet);
         ctx->id = 0;
@@ -230,12 +234,23 @@ ngx_http_xrlt_init_subrequest_headers(ngx_http_request_t *sr, off_t len)
 }
 
 
+void
+ngx_http_xrlt_wev_handler(ngx_http_request_t *r)
+{
+    dd("XRLT end (main: %p)", r);
+
+    ngx_http_finalize_request(r, NGX_OK);
+}
+
+
 ngx_inline static ngx_int_t
 ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
                         ngx_chain_t *in, ngx_int_t last)
 {
     int          t;
     xrltString   s;
+
+    dd("Transform call (in: %p, r: %p, last: %ld)", in, r, last);
 
     if (in == NULL && !last) {
         t = xrltTransform(ctx->xctx, 0, NULL);
@@ -318,8 +333,6 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         while (xrltSubrequestListShift(&ctx->xctx->sr, &id, &m, &type, &header,
                                        &url, &querystring, &body))
         {
-            dd("Performing subrequest (uri: %s)", url.data);
-
             sr_ctx = ngx_http_xrlt_create_ctx(r, id);
             if (sr_ctx == NULL) {
                 xrltHeaderListClear(&header);
@@ -352,6 +365,8 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
                 xrltHeaderListClear(&header);
                 return NGX_ERROR;
             }
+
+            dd("Performing subrequest (uri: %s, r: %p)", sr_uri.data, sr);
 
             // Don't inherit parent request variables. Content-Length is
             // cacheable in proxy module and we don't need Content-Length from
@@ -467,8 +482,10 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         // Send response chunks out in case we don't have response headers in
         // progress or if response headers are sent.
         if (ctx->headers_sent || ctx->xctx->headerCount == 0) {
-            ngx_buf_t    *b;
-            ngx_chain_t   out;
+            ngx_buf_t           *b;
+            ngx_chain_t          out;
+            ngx_http_request_t  *ar; /* active request */
+            ngx_int_t            rc;
 
             while (xrltChunkListShift(&ctx->xctx->chunk, &s)) {
                 if (s.len > 0) {
@@ -509,7 +526,18 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
 
                     dd("Sending response chunk (len: %zd)", s.len);
 
-                    if (ngx_http_output_filter(r->main, &out) == NGX_ERROR) {
+                    ar = r->connection->data;
+
+                    if (ar != r->main) {
+                        /* bypass ngx_http_postpone_filter_module */
+                        r->connection->data = r->main;
+                        rc = ngx_http_output_filter(r->main, &out);
+                        r->connection->data = ar;
+                    } else {
+                        rc = ngx_http_output_filter(r->main, &out);
+                    }
+
+                    if (rc == NGX_ERROR) {
                         xrltStringClear(&s);
                         return NGX_ERROR;
                     }
@@ -549,11 +577,11 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
             }
         }
 
+        r->main->write_event_handler = ngx_http_xrlt_wev_handler;
+
         if (ngx_http_send_special(r->main, NGX_HTTP_LAST) == NGX_ERROR) {
             return NGX_ERROR;
         }
-
-        ngx_http_finalize_request(r->main, NGX_OK);
 
         return NGX_DONE;
     }
@@ -563,7 +591,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
 
 
 static ngx_int_t
-ngx_http_xrlt_post_sr(ngx_http_request_t *sr, void *data, ngx_int_t rc)
+ngx_http_xrlt_post_sr(ngx_http_request_t *r, void *data, ngx_int_t rc)
 {
     ngx_http_xrlt_ctx_t  *sr_ctx = data;
 
@@ -573,9 +601,15 @@ ngx_http_xrlt_post_sr(ngx_http_request_t *sr, void *data, ngx_int_t rc)
 
     sr_ctx->run_post_subrequest = 1;
 
-    if (ngx_http_xrlt_transform(sr, sr_ctx, NULL, 1) == NGX_ERROR) {
+    if (ngx_http_xrlt_transform(r, sr_ctx, NULL, 1) == NGX_ERROR) {
         return NGX_ERROR;
     }
+
+    if (r != r->connection->data) {
+        r->connection->data = r;
+    }
+
+    dd("Subrequest completed");
 
     return rc;
 }
@@ -657,6 +691,8 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
     ngx_http_xrlt_ctx_t  *ctx;
     ngx_int_t             rc;
 
+    dd("XRLT begin (main: %p)", r->main);
+
     ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
     if (ctx == NULL) {
         ctx = ngx_http_xrlt_create_ctx(r, 0);
@@ -683,6 +719,8 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
 static void
 ngx_http_xrlt_cleanup_requestsheet(void *data)
 {
+    dd("XRLT requestsheet cleanup");
+
     xrltRequestsheetFree(data);
 }
 
