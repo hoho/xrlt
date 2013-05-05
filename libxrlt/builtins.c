@@ -285,3 +285,138 @@ xrltIfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
 {
     return TRUE;
 }
+
+
+void *
+xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
+{
+    xrltValueOfData  *ret = NULL;
+    xmlChar          *select = NULL;
+
+    XRLT_MALLOC(ret, xrltValueOfData*, sizeof(xrltValueOfData),
+                "xrltValueOfCompile", NULL);
+
+    select = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
+
+    if (select == NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Failed to get 'select' attribute\n");
+        goto error;
+    }
+
+    ret->select = xmlXPathCompile(select);
+
+    if (ret->select == NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Failed to compile expression\n");
+        goto error;
+    }
+
+    xmlFree(select);
+
+    ret->node = node;
+
+    return ret;
+
+  error:
+    if (select) { xmlFree(select); }
+    xrltValueOfFree(ret);
+
+    return NULL;
+}
+
+
+void
+xrltValueOfFree(void *comp)
+{
+    if (comp != NULL) {
+        xmlXPathFreeCompExpr(((xrltValueOfData *)comp)->select);
+        xrltFree(comp);
+    }
+}
+
+
+static void
+xrltValueOfTransformingFree(void *data)
+{
+    xrltValueOfTransformingData  *tdata;
+
+    if (data != NULL) {
+        tdata = (xrltValueOfTransformingData *)data;
+
+        if (tdata->val != NULL) { xmlFree(tdata->val); }
+
+        xrltFree(data);
+    }
+}
+
+
+xrltBool
+xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                     void *data)
+{
+    if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
+
+    xmlNodePtr                    node;
+    xrltValueOfData              *vcomp = (xrltValueOfData *)comp;
+    xrltNodeDataPtr               n;
+    xrltValueOfTransformingData  *tdata;
+
+    if (data == NULL) {
+        NEW_CHILD(ctx, node, insert, "v-o");
+
+        ASSERT_NODE_DATA(node, n);
+
+        XRLT_MALLOC(tdata, xrltValueOfTransformingData*,
+                    sizeof(xrltValueOfTransformingData),
+                    "xrltValueOfTransform", FALSE);
+
+        n->data = tdata;
+        n->free = xrltValueOfTransformingFree;
+
+        COUNTER_INCREASE(ctx, node);
+
+        tdata->node = node;
+
+        NEW_CHILD(ctx, node, node, "tmp");
+
+        tdata->dataNode = node;
+
+        TRANSFORM_TO_STRING(ctx, node, NULL, NULL, vcomp->select, &tdata->val);
+
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltValueOfTransform, comp, node,
+                          tdata);
+    } else {
+        tdata = (xrltValueOfTransformingData *)data;
+
+        ASSERT_NODE_DATA(tdata->dataNode, n);
+
+        if (n->count > 0) {
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltValueOfTransform, comp, insert,
+                              data);
+
+            return TRUE;
+        }
+
+        node = xmlNewText(tdata->val);
+
+        if (node == NULL) {
+            xrltTransformError(ctx, NULL, vcomp->node,
+                               "Failed to create response node\n");
+            return FALSE;
+        }
+
+        if (xmlAddNextSibling(tdata->node, node) == NULL) {
+            xrltTransformError(ctx, NULL, vcomp->node,
+                               "Failed to append response node\n");
+            xmlFreeNode(node);
+            return FALSE;
+        }
+
+        COUNTER_DECREASE(ctx, tdata->node);
+
+        REMOVE_RESPONSE_NODE(ctx, tdata->node);
+    }
+
+    return TRUE;
+}

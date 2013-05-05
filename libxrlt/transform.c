@@ -89,6 +89,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltIfFree,
                                xrltIfTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"value-of",
+                               XRLT_COMPILE_PASS2,
+                               xrltValueOfCompile,
+                               xrltValueOfFree,
+                               xrltValueOfTransform);
+
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
                                XRLT_COMPILE_PASS1,
                                xrltResponseHeaderCompile,
