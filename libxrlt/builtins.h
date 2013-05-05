@@ -19,18 +19,6 @@ typedef struct {
 
 
 typedef struct {
-    xmlChar      *name;
-    xrltBool      js;
-    xmlNodePtr    children;
-} xrltFunctionData;
-
-
-typedef struct {
-    xrltFunctionData  *func;
-} xrltApplyData;
-
-
-typedef struct {
     xmlXPathCompExprPtr   test;
     xmlNodePtr            children;
 } xrltIfData;
@@ -54,27 +42,6 @@ void
 xrltBool
         xrltLogTransform           (xrltContextPtr ctx, void *comp,
                                     xmlNodePtr insert, void *data);
-
-
-void *
-        xrltFunctionCompile        (xrltRequestsheetPtr sheet, xmlNodePtr node,
-                                    void *prevcomp);
-void
-        xrltFunctionFree           (void *comp);
-xrltBool
-        xrltFunctionTransform      (xrltContextPtr ctx, void *comp,
-                                    xmlNodePtr insert, void *data);
-
-
-void *
-        xrltApplyCompile           (xrltRequestsheetPtr sheet, xmlNodePtr node,
-                                    void *prevcomp);
-void
-        xrltApplyFree              (void *comp);
-xrltBool
-        xrltApplyTransform         (xrltContextPtr ctx, void *comp,
-                                    xmlNodePtr insert, void *data);
-
 
 void *
         xrltIfCompile              (xrltRequestsheetPtr sheet, xmlNodePtr node,

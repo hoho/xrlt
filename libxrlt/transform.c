@@ -5,6 +5,7 @@
 #include "include.h"
 #include "variable.h"
 #include "headers.h"
+#include "function.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -54,46 +55,57 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
-                               xrltResponseCompile, xrltResponseFree,
+                               xrltResponseCompile,
+                               xrltResponseFree,
                                xrltResponseTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
-                               XRLT_COMPILE_PASS1, xrltIncludeCompile,
-                               xrltIncludeFree, xrltIncludeTransform);
+                               XRLT_COMPILE_PASS1,
+                               xrltIncludeCompile,
+                               xrltIncludeFree,
+                               xrltIncludeTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"variable",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
-                               xrltVariableCompile, xrltVariableFree,
+                               xrltVariableCompile,
+                               xrltVariableFree,
                                xrltVariableTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"variable",
                                XRLT_COMPILE_PASS1,
-                               xrltVariableCompile, xrltVariableFree,
+                               xrltVariableCompile,
+                               xrltVariableFree,
                                xrltVariableTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"log",
-                               XRLT_COMPILE_PASS1, xrltLogCompile, xrltLogFree,
+                               XRLT_COMPILE_PASS1,
+                               xrltLogCompile,
+                               xrltLogFree,
                                xrltLogTransform);
-
-    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"function",
-                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1 |
-                               XRLT_COMPILE_PASS2, xrltFunctionCompile,
-                               xrltFunctionFree, xrltFunctionTransform);
-
-    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"apply",
-                               XRLT_COMPILE_PASS1 | XRLT_COMPILE_PASS2,
-                               xrltApplyCompile, xrltApplyFree,
-                               xrltApplyTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
                                XRLT_COMPILE_PASS2,
-                               xrltIfCompile, xrltIfFree, xrltIfTransform);
+                               xrltIfCompile,
+                               xrltIfFree,
+                               xrltIfTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
                                XRLT_COMPILE_PASS1,
                                xrltResponseHeaderCompile,
                                xrltResponseHeaderFree,
                                xrltResponseHeaderTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"function",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltFunctionCompile,
+                               xrltFunctionFree,
+                               xrltFunctionTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"apply",
+                               XRLT_COMPILE_PASS1 | XRLT_COMPILE_PASS2,
+                               xrltApplyCompile,
+                               xrltApplyFree,
+                               xrltApplyTransform);
 
     if (!ret) {
         xrltUnregisterBuiltinElements();
