@@ -293,6 +293,12 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltValueOfData  *ret = NULL;
     xmlChar          *select = NULL;
 
+    if (node->children != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Element can't have content\n");
+        return NULL;
+    }
+
     XRLT_MALLOC(ret, xrltValueOfData*, sizeof(xrltValueOfData),
                 "xrltValueOfCompile", NULL);
 
