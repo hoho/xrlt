@@ -58,7 +58,7 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     int                           _test;
     xmlChar                      *_type = NULL;
 
-    XRLT_MALLOC(ret, xrltCompiledIncludeParamPtr,
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltCompiledIncludeParamPtr,
                 sizeof(xrltCompiledIncludeParam), NULL);
 
     if (header) {
@@ -114,7 +114,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     int                           conf;
     xmlChar                      *tmp2;
 
-    XRLT_MALLOC(ret, xrltCompiledIncludeData*,
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltCompiledIncludeData*,
                 sizeof(xrltCompiledIncludeData), NULL);
 
     tmp = node->children;
@@ -647,9 +647,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
-
-                    xrltTransformError(ctx, NULL, tdata->srcNode,
-                                       "Out of memory\n");
+                    RAISE_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
                     return FALSE;
                 }
 
@@ -694,9 +692,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
-
-                    xrltTransformError(ctx, NULL, tdata->srcNode,
-                                       "Out of memory\n");
+                    RAISE_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
                     return FALSE;
                 }
 
@@ -753,8 +749,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
             xrltStringSet(&body, (char *)data->header[i].val);
 
             if (!xrltHeaderListPush(&header, &query, &body)) {
-                xrltTransformError(ctx, NULL, data->srcNode,
-                                   "xrltIncludeAddSubrequest: Out of memory\n");
+                RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
                 ret = FALSE;
                 goto error;
             }
@@ -808,8 +803,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
         }
 
         if ((blen > 0 && ebody == NULL) || (qlen > 0 && equery == NULL)) {
-            xrltTransformError(ctx, NULL, data->srcNode,
-                               "xrltIncludeAddSubrequest: Out of memory\n");
+            RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
             ret = FALSE;
             goto error;
         }
@@ -859,8 +853,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
     if (!xrltSubrequestListPush(&ctx->sr, id, data->method, data->type,
                                 &header, &href, &query, &body))
     {
-        xrltTransformError(ctx, NULL, data->srcNode,
-                           "xrltIncludeAddSubrequest: Out of memory\n");
+        RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
         ret = FALSE;
         goto error;
     }
@@ -906,7 +899,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ASSERT_NODE_DATA(node, n);
 
-        XRLT_MALLOC(tdata, xrltIncludeTransformingData*,
+        XRLT_MALLOC(ctx, NULL, icomp->node, tdata, xrltIncludeTransformingData*,
                     sizeof(xrltIncludeTransformingData) +
                     sizeof(xrltTransformingParam) * icomp->headerCount +
                     sizeof(xrltTransformingParam) * icomp->paramCount, FALSE);

@@ -63,7 +63,8 @@ xrltRequestsheetCreate(xmlDocPtr doc)
     xrltRequestsheetPtr       ret;
     xmlNodePtr                root;
 
-    XRLT_MALLOC(ret, xrltRequestsheetPtr, sizeof(xrltRequestsheet), NULL);
+    XRLT_MALLOC(NULL, NULL, NULL, ret, xrltRequestsheetPtr,
+                sizeof(xrltRequestsheet), NULL);
 
     root = xmlDocGetRootElement(doc);
 
@@ -172,7 +173,8 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     if (sheet == NULL) { return NULL; }
 
-    XRLT_MALLOC(ret, xrltContextPtr, sizeof(xrltContext), NULL);
+    XRLT_MALLOC(NULL, NULL, NULL, ret, xrltContextPtr, sizeof(xrltContext),
+                NULL);
 
     ret->sheet = sheet;
 
@@ -436,7 +438,8 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     xrltInputCallbackQueue  *q, *newq;
     size_t                   len;
 
-    XRLT_MALLOC(cb, xrltInputCallbackPtr, sizeof(xrltInputCallback), FALSE);
+    XRLT_MALLOC(ctx, NULL, NULL, cb, xrltInputCallbackPtr,
+                sizeof(xrltInputCallback), FALSE);
 
     //cb->type = type;
     //cb->id = id;
@@ -458,8 +461,7 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
         );
 
         if (newq == NULL) {
-            xrltTransformError(ctx, NULL, NULL,
-                               "xrltInputSubscribe: Out of memory\n");
+            RAISE_OUT_OF_MEMORY(ctx, NULL, NULL);
             goto error;
         }
 

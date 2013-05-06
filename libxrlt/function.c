@@ -39,7 +39,8 @@ xrltFunctionParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     xrltNodeDataPtr        n;
 
 
-    XRLT_MALLOC(ret, xrltFunctionParamPtr, sizeof(xrltFunctionParam), NULL);
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltFunctionParamPtr,
+                sizeof(xrltFunctionParam), NULL);
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
     ret->ownName = TRUE;
@@ -114,7 +115,8 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltFunctionParamPtr  *newp;
     size_t                 i;
 
-    XRLT_MALLOC(ret, xrltFunctionData*, sizeof(xrltFunctionData), NULL);
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltFunctionData*,
+                sizeof(xrltFunctionData), NULL);
 
     if (sheet->funcs == NULL) {
         sheet->funcs = xmlHashCreate(20);
@@ -161,8 +163,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
             if (newp == NULL) {
                 xrltFunctionParamFree(p);
-                xrltTransformError(NULL, sheet, node,
-                                   "xrltFunctionCompile: Out of memory\n");
+                RAISE_OUT_OF_MEMORY(NULL, sheet, node);
                 goto error;
             }
 
@@ -247,7 +248,8 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     int                    k;
 
     if (prevcomp == NULL) {
-        XRLT_MALLOC(ret, xrltApplyData*, sizeof(xrltApplyData), NULL);
+        XRLT_MALLOC(NULL, sheet, node, ret, xrltApplyData*,
+                    sizeof(xrltApplyData), NULL);
 
         tmp = node->children;
 
@@ -268,8 +270,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
                 if (newp == NULL) {
                     xrltFunctionParamFree(p);
-                    xrltTransformError(NULL, sheet, node,
-                                       "xrltApplyCompile: Out of memory\n");
+                    RAISE_OUT_OF_MEMORY(NULL, sheet, node);
                     goto error;
                 }
 
@@ -321,7 +322,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         if (ret->func->paramLen > 0) {
             // Merge xrl:apply parameters to xrl:function parameters to get the
             // list of the parameters to process in the runtime.
-            XRLT_MALLOC(newp, xrltFunctionParamPtr*,
+            XRLT_MALLOC(NULL, sheet, node, newp, xrltFunctionParamPtr*,
                         sizeof(xrltFunctionParamPtr) * ret->func->paramLen,
                         NULL);
 
@@ -428,7 +429,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ASSERT_NODE_DATA(node, n);
 
-        XRLT_MALLOC(tdata, xrltApplyTransformingData*,
+        XRLT_MALLOC(ctx, NULL, acomp->node, tdata, xrltApplyTransformingData*,
                     sizeof(xrltApplyTransformingData), FALSE);
 
         n->data = tdata;

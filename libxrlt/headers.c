@@ -9,8 +9,8 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     xrltResponseHeaderData  *ret = NULL;
     int                      _test;
 
-    XRLT_MALLOC(ret, xrltResponseHeaderData*, sizeof(xrltResponseHeaderData),
-                NULL);
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltResponseHeaderData*,
+                sizeof(xrltResponseHeaderData), NULL);
 
     if (!xrltCompileTestNameValueNode(sheet, node,
                                       XRLT_TESTNAMEVALUE_TEST_ATTR |
@@ -95,7 +95,8 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ASSERT_NODE_DATA(node, n);
 
-        XRLT_MALLOC(tdata, xrltResponseHeaderTransformingData*,
+        XRLT_MALLOC(ctx, NULL, hcomp->node, tdata,
+                    xrltResponseHeaderTransformingData*,
                     sizeof(xrltResponseHeaderTransformingData), FALSE);
 
         n->data = tdata;
@@ -176,8 +177,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         val.data = val.len > 0 ? (char *)tdata->val : NULL;
 
         if (!xrltHeaderListPush(&ctx->header, &name, &val)) {
-            xrltTransformError(ctx, NULL, hcomp->node,
-                               "xrltResponseHeaderTransform: Out of memory\n");
+            RAISE_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
             return FALSE;
         }
 

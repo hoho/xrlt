@@ -9,8 +9,8 @@ xrltQueryStringParserInit(xmlNodePtr parent)
 
     if (parent == NULL) { return NULL; }
 
-    XRLT_MALLOC(ret, xrltQueryStringParserPtr, sizeof(xrltQueryStringParser),
-                NULL);
+    XRLT_MALLOC(NULL, NULL, NULL, ret, xrltQueryStringParserPtr,
+                sizeof(xrltQueryStringParser), NULL);
 
     ret->parent = parent;
 
