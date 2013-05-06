@@ -288,13 +288,15 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
             return FALSE;
         }
 
-        TRANSFORM_SUBTREE(ctx, node->children, newinsert);
+        if (node->children != NULL) {
+            TRANSFORM_SUBTREE(ctx, node->children, newinsert);
 
-        COUNTER_INCREASE(ctx, newinsert);
+            COUNTER_INCREASE(ctx, newinsert);
 
-        SCHEDULE_CALLBACK(
-            ctx, &ctx->tcb, xrltCopyNonXRLT, (void *)0x1, newinsert, data
-        );
+            SCHEDULE_CALLBACK(
+                ctx, &ctx->tcb, xrltCopyNonXRLT, (void *)0x1, newinsert, data
+            );
+        }
     } else {
         COUNTER_DECREASE(ctx, insert);
     }
