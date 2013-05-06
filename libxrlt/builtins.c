@@ -103,7 +103,7 @@ xrltLogCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltLogData  *ret = NULL;
     xmlChar      *level = NULL;
 
-    XRLT_MALLOC(ret, xrltLogData*, sizeof(xrltLogData), "xrltLogCompile", NULL);
+    XRLT_MALLOC(ret, xrltLogData*, sizeof(xrltLogData), NULL);
 
     level = xmlGetProp(node, (const xmlChar *)"level");
 
@@ -238,7 +238,7 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltIfData  *ret = NULL;
     xmlChar     *expr = NULL;
 
-    XRLT_MALLOC(ret, xrltIfData*, sizeof(xrltIfData), "xrltIfCompile", NULL);
+    XRLT_MALLOC(ret, xrltIfData*, sizeof(xrltIfData), NULL);
 
     expr = xmlGetProp(node, XRLT_ELEMENT_ATTR_TEST);
 
@@ -298,8 +298,7 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         return NULL;
     }
 
-    XRLT_MALLOC(ret, xrltValueOfData*, sizeof(xrltValueOfData),
-                "xrltValueOfCompile", NULL);
+    XRLT_MALLOC(ret, xrltValueOfData*, sizeof(xrltValueOfData), NULL);
 
     select = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
 
@@ -373,8 +372,7 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         ASSERT_NODE_DATA(node, n);
 
         XRLT_MALLOC(tdata, xrltValueOfTransformingData*,
-                    sizeof(xrltValueOfTransformingData),
-                    "xrltValueOfTransform", FALSE);
+                    sizeof(xrltValueOfTransformingData), FALSE);
 
         n->data = tdata;
         n->free = xrltValueOfTransformingFree;

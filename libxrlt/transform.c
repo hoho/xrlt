@@ -149,8 +149,7 @@ xrltElementRegister(const xmlChar *ns, const xmlChar *name,
         return TRUE;
     }
 
-    XRLT_MALLOC(elem, xrltElement*, sizeof(xrltElement),
-                "xrltElementRegister", FALSE);
+    XRLT_MALLOC(elem, xrltElement*, sizeof(xrltElement), FALSE);
 
     elem->compile = compile;
     elem->free = free;

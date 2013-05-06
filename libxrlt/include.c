@@ -59,8 +59,7 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     xmlChar                      *_type = NULL;
 
     XRLT_MALLOC(ret, xrltCompiledIncludeParamPtr,
-                sizeof(xrltCompiledIncludeParam), "xrltIncludeParamCompile",
-                NULL);
+                sizeof(xrltCompiledIncludeParam), NULL);
 
     if (header) {
         conf = XRLT_TESTNAMEVALUE_TEST_ATTR | XRLT_TESTNAMEVALUE_TEST_NODE |
@@ -116,7 +115,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlChar                      *tmp2;
 
     XRLT_MALLOC(ret, xrltCompiledIncludeData*,
-                sizeof(xrltCompiledIncludeData), "xrltIncludeCompile", NULL);
+                sizeof(xrltCompiledIncludeData), NULL);
 
     tmp = node->children;
 
@@ -910,8 +909,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         XRLT_MALLOC(tdata, xrltIncludeTransformingData*,
                     sizeof(xrltIncludeTransformingData) +
                     sizeof(xrltTransformingParam) * icomp->headerCount +
-                    sizeof(xrltTransformingParam) * icomp->paramCount,
-                    "xrltIncludeTransform", FALSE);
+                    sizeof(xrltTransformingParam) * icomp->paramCount, FALSE);
 
         tdata->header = (xrltTransformingParam *)(tdata + 1);
 

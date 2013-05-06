@@ -50,10 +50,10 @@ extern "C" {
 #define XRLT_TESTNAMEVALUE_NAME_OR_VALUE_REQUIRED   16384
 
 
-#define XRLT_MALLOC(ret, type, size, from, error) {                           \
+#define XRLT_MALLOC(ret, type, size, error) {                                 \
     ret = (type)xrltMalloc(size);                                             \
     if (ret == NULL) {                                                        \
-        xrltTransformError(NULL, NULL, NULL, from ": Out of memory\n");       \
+        xrltTransformError(NULL, NULL, NULL, "%s: Out of memory\n", __func__);\
         return error;                                                         \
     }                                                                         \
     memset(ret, 0, size);                                                     \
@@ -179,7 +179,7 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
     xrltTransformCallbackPtr   item;
 
     XRLT_MALLOC(item, xrltTransformCallbackPtr, sizeof(xrltTransformCallback),
-                "xrltTransformCallbackQueuePush", FALSE);
+                FALSE);
 
     item->func = func;
     item->insert = insert;

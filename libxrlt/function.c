@@ -39,8 +39,7 @@ xrltFunctionParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     xrltNodeDataPtr        n;
 
 
-    XRLT_MALLOC(ret, xrltFunctionParamPtr, sizeof(xrltFunctionParam),
-                "xrltFunctionParamCompile", NULL);
+    XRLT_MALLOC(ret, xrltFunctionParamPtr, sizeof(xrltFunctionParam), NULL);
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
     ret->ownName = TRUE;
@@ -115,8 +114,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltFunctionParamPtr  *newp;
     size_t                 i;
 
-    XRLT_MALLOC(ret, xrltFunctionData*, sizeof(xrltFunctionData),
-                "xrltFunctionCompile", NULL);
+    XRLT_MALLOC(ret, xrltFunctionData*, sizeof(xrltFunctionData), NULL);
 
     if (sheet->funcs == NULL) {
         sheet->funcs = xmlHashCreate(20);
@@ -249,8 +247,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     int                    k;
 
     if (prevcomp == NULL) {
-        XRLT_MALLOC(ret, xrltApplyData*, sizeof(xrltApplyData),
-                    "xrltApplyCompile", NULL);
+        XRLT_MALLOC(ret, xrltApplyData*, sizeof(xrltApplyData), NULL);
 
         tmp = node->children;
 
@@ -326,7 +323,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             // list of the parameters to process in the runtime.
             XRLT_MALLOC(newp, xrltFunctionParamPtr*,
                         sizeof(xrltFunctionParamPtr) * ret->func->paramLen,
-                        "xrltApplyCompile", NULL);
+                        NULL);
 
             memcpy(newp, ret->func->param,
                    sizeof(xrltFunctionParamPtr) * ret->func->paramLen);
@@ -432,8 +429,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         ASSERT_NODE_DATA(node, n);
 
         XRLT_MALLOC(tdata, xrltApplyTransformingData*,
-                    sizeof(xrltApplyTransformingData),
-                    "xrltApplyTransform", FALSE);
+                    sizeof(xrltApplyTransformingData), FALSE);
 
         n->data = tdata;
         n->free = xrltApplyTransformingFree;

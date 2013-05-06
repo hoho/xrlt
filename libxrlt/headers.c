@@ -10,7 +10,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     int                      _test;
 
     XRLT_MALLOC(ret, xrltResponseHeaderData*, sizeof(xrltResponseHeaderData),
-                "xrltResponseHeaderCompile", NULL);
+                NULL);
 
     if (!xrltCompileTestNameValueNode(sheet, node,
                                       XRLT_TESTNAMEVALUE_TEST_ATTR |
@@ -96,8 +96,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         ASSERT_NODE_DATA(node, n);
 
         XRLT_MALLOC(tdata, xrltResponseHeaderTransformingData*,
-                    sizeof(xrltResponseHeaderTransformingData),
-                    "xrltResponseHeaderTransform", FALSE);
+                    sizeof(xrltResponseHeaderTransformingData), FALSE);
 
         n->data = tdata;
         n->free = xrltResponseHeaderTransformingFree;

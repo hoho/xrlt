@@ -63,8 +63,7 @@ xrltRequestsheetCreate(xmlDocPtr doc)
     xrltRequestsheetPtr       ret;
     xmlNodePtr                root;
 
-    XRLT_MALLOC(ret, xrltRequestsheetPtr, sizeof(xrltRequestsheet),
-                "xrltRequestsheetCreate", NULL);
+    XRLT_MALLOC(ret, xrltRequestsheetPtr, sizeof(xrltRequestsheet), NULL);
 
     root = xmlDocGetRootElement(doc);
 
@@ -173,8 +172,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     if (sheet == NULL) { return NULL; }
 
-    XRLT_MALLOC(ret, xrltContextPtr, sizeof(xrltContext),
-                "xrltContextCreate", NULL);
+    XRLT_MALLOC(ret, xrltContextPtr, sizeof(xrltContext), NULL);
 
     ret->sheet = sheet;
 
@@ -438,8 +436,7 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     xrltInputCallbackQueue  *q, *newq;
     size_t                   len;
 
-    XRLT_MALLOC(cb, xrltInputCallbackPtr, sizeof(xrltInputCallback),
-                "xrltInputSubscribe", FALSE);
+    XRLT_MALLOC(cb, xrltInputCallbackPtr, sizeof(xrltInputCallback), FALSE);
 
     //cb->type = type;
     //cb->id = id;

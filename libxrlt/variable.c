@@ -11,7 +11,7 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlChar                   *tmp;
 
     XRLT_MALLOC(ret, xrltCompiledVariableData*,
-                sizeof(xrltCompiledVariableData), "xrltVariableCompile", NULL);
+                sizeof(xrltCompiledVariableData), NULL);
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
 
