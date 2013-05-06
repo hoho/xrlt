@@ -294,8 +294,7 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlChar          *select = NULL;
 
     if (node->children != NULL) {
-        xrltTransformError(NULL, sheet, node,
-                           "Element can't have content\n");
+        xrltTransformError(NULL, sheet, node, "Element can't have content\n");
         return NULL;
     }
 
@@ -390,7 +389,7 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         TRANSFORM_TO_STRING(ctx, node, NULL, NULL, vcomp->select, &tdata->val);
 
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltValueOfTransform, comp, node,
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltValueOfTransform, comp, insert,
                           tdata);
     } else {
         tdata = (xrltValueOfTransformingData *)data;

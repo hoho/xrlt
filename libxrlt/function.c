@@ -13,8 +13,13 @@ static void
 xrltFunctionParamFree(xrltFunctionParamPtr param)
 {
     if (param != NULL) {
-        if (param->name != NULL) { xmlFree(param->name); }
-        if (param->jsname != NULL) { xmlFree(param->jsname); }
+        if (param->name != NULL && param->ownName) {
+            xmlFree(param->name);
+        }
+
+        if (param->jsname != NULL && param->ownJsname) {
+            xmlFree(param->jsname);
+        }
 
         if (param->xval != NULL && param->ownXval) {
             xmlXPathFreeCompExpr(param->xval);
@@ -38,6 +43,7 @@ xrltFunctionParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                 "xrltFunctionParamCompile", NULL);
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
+    ret->ownName = TRUE;
 
     if (xmlValidateNCName(ret->name, 0)) {
         xrltTransformError(NULL, sheet, node, "Invalid function name\n");
@@ -239,7 +245,8 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlNodePtr             tmp;
     xrltFunctionParamPtr   p;
     xrltFunctionParamPtr  *newp;
-    size_t                 i;
+    size_t                 i, j;
+    int                    k;
 
     if (prevcomp == NULL) {
         XRLT_MALLOC(ret, xrltApplyData*, sizeof(xrltApplyData),
@@ -316,22 +323,52 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
         if (ret->func->paramLen > 0) {
             // Merge xrl:apply parameters to xrl:function parameters to get the
-            // list of the parameters to process the runtime.
+            // list of the parameters to process in the runtime.
             XRLT_MALLOC(newp, xrltFunctionParamPtr*,
                         sizeof(xrltFunctionParamPtr) * ret->func->paramLen,
                         "xrltApplyCompile", NULL);
 
-            // TODO: Merge.
+            memcpy(newp, ret->func->param,
+                   sizeof(xrltFunctionParamPtr) * ret->func->paramLen);
+
+            for (i = 0; i < ret->func->paramLen; i++) {
+                newp[i]->ownName = FALSE;
+                newp[i]->ownJsname = FALSE;
+                newp[i]->ownXval = FALSE;
+            }
+
+            i = 0;
+            j = 0;
+
+            while (i < ret->func->paramLen && j < ret->paramLen) {
+                k = xmlStrcmp(newp[i]->name, ret->param[j]->name);
+
+                if (k == 0) {
+                    memcpy(newp[i], ret->param[j], sizeof(xrltFunctionParam));
+                    memset(ret->param[j], 0, sizeof(xrltFunctionParam));
+                    i++;
+                    j++;
+                } else if (k < 0) {
+                    i++;
+                } else {
+                    j++;
+                }
+            }
         } else {
             newp = NULL;
         }
 
         if (ret->param != NULL) {
-            // TODO: Free the remainings of the ret->param.
+            for (i = 0; i < ret->paramLen; i++) {
+                xrltFunctionParamFree(ret->param[i]);
+            }
+
+            xrltFree(ret->param);
         }
 
         ret->param = newp;
         ret->paramLen = ret->func->paramLen;
+        ret->paramSize = ret->paramLen;
     }
 
     return ret;
@@ -363,9 +400,81 @@ xrltApplyFree(void *comp)
 }
 
 
+static void
+xrltApplyTransformingFree(void *data)
+{
+    xrltApplyTransformingData  *tdata;
+
+    if (data != NULL) {
+        tdata = (xrltApplyTransformingData *)data;
+
+        xrltFree(data);
+    }
+}
+
+
 xrltBool
 xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                    void *data)
 {
+    if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
+
+    xmlNodePtr                  node;
+    xmlDocPtr                   pdoc;
+    xrltApplyData              *acomp = (xrltApplyData *)comp;
+    xrltNodeDataPtr             n;
+    xrltApplyTransformingData  *tdata;
+    size_t                      i;
+
+    if (data == NULL) {
+        NEW_CHILD(ctx, node, insert, "a");
+
+        ASSERT_NODE_DATA(node, n);
+
+        XRLT_MALLOC(tdata, xrltApplyTransformingData*,
+                    sizeof(xrltApplyTransformingData),
+                    "xrltApplyTransform", FALSE);
+
+        n->data = tdata;
+        n->free = xrltApplyTransformingFree;
+
+        COUNTER_INCREASE(ctx, node);
+
+        tdata->node = node;
+
+        NEW_CHILD(ctx, node, node, "p");
+
+        tdata->paramNode = node;
+
+        for (i = 0; i < acomp->paramLen; i++) {
+            pdoc = xmlNewDoc(NULL);
+            xmlAddChild(node, (xmlNodePtr)pdoc);
+
+            if (acomp->param[i]->nval != NULL) {
+                TRANSFORM_SUBTREE(ctx, acomp->param[i]->nval, (xmlNodePtr)pdoc);
+            } else if (acomp->param[i]->xval != NULL) {
+
+            }
+
+            printf("pppp %s\n", (char *)acomp->param[i]->name);
+        }
+
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
+                          tdata);
+    } else {
+        tdata = (xrltApplyTransformingData *)data;
+
+        ASSERT_NODE_DATA(tdata->paramNode, n);
+
+        if (n->count > 0) {
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp, insert,
+                              data);
+
+            return TRUE;
+        }
+
+        COUNTER_DECREASE(ctx, tdata->node);
+    }
+
     return TRUE;
 }

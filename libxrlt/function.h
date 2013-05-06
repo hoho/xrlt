@@ -17,7 +17,10 @@ typedef xrltFunctionParam* xrltFunctionParamPtr;
 struct _xrltFunctionParam {
     xmlNodePtr            node;
 
+    xrltBool              ownName;
     xmlChar              *name;
+
+    xrltBool              ownJsname;
     xmlChar              *jsname;
 
     xmlNodePtr            nval;
@@ -58,13 +61,9 @@ typedef struct {
 
 typedef struct {
     xmlNodePtr                         node;
-    xmlNodePtr                         dataNode;
+    xmlNodePtr                         paramNode;
 
     //xrltFunctionTransformStage   stage;
-
-    xrltBool                           test;
-    xmlChar                           *name;
-    xmlChar                           *val;
 } xrltApplyTransformingData;
 
 
