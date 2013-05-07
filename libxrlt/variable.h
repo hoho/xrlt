@@ -12,14 +12,23 @@ extern "C" {
 #endif
 
 
-typedef struct {
-    xmlNodePtr            node;
+typedef struct _xrltVariableData xrltVariableData;
+typedef xrltVariableData* xrltVariableDataPtr;
+struct _xrltVariableData {
+    xmlNodePtr      node;
 
-    xmlChar              *name;
+    xrltBool        ownName;    // For parameters only.
+    xmlChar        *name;
 
-    xmlNodePtr            nval;
-    xmlXPathCompExprPtr   xval;
-} xrltCompiledVariableData;
+    xrltBool        ownJsname;  // For parameters only.
+    xmlChar        *jsname;
+
+    xrltBool        ownNval;    // For parameters only.
+    xmlNodePtr      nval;
+
+    xrltBool        ownXval;    // For parameters only.
+    xrltXPathExpr   xval;
+};
 
 
 typedef struct {

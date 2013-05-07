@@ -127,12 +127,14 @@ struct _xrltContext {
     xrltNeedHeaderList           needHeader;
 
     size_t                       includeId;
+    size_t                       lastVarScope;
 
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
     xmlNodePtr                   responseCur;
     xmlNodePtr                   var;
     xmlNodePtr                   varContext;
+    size_t                       varScope;
     xmlDocPtr                    xpathDefault;
     xmlXPathContextPtr           xpath;
     xmlNodePtr                   xpathWait;
@@ -152,12 +154,14 @@ struct _xrltTransformCallback {
                                         // freed by free function of
                                         // xrltTransformingElement, when the
                                         // context is being freed.
+    size_t                     varScope;
     xrltTransformCallbackPtr   next;    // Next callback in this queue.
 };
 
 
 struct _xrltInputCallback {
     xrltInputFunction      func;
+    size_t                 varScope;
     void                  *data;
     xrltInputCallbackPtr   next;
 };
@@ -197,7 +201,7 @@ XRLTPUBFUN int XRLTCALL
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr insert,
-                                   xmlXPathCompExprPtr expr,
+                                   xrltXPathExpr *expr, xmlNodePtr scope,
                                    xmlXPathObjectPtr *ret);
 
 XRLTPUBFUN xrltBool XRLTCALL

@@ -30,7 +30,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
     if (_test > 0) {
         ret->test = _test == 1 ? TRUE : FALSE;
-    } else if (ret->ntest == NULL && ret->xtest == NULL) {
+    } else if (ret->ntest == NULL && ret->xtest.expr == NULL) {
         ret->test = TRUE;
     }
 
@@ -50,13 +50,13 @@ xrltResponseHeaderFree(void *comp)
 {
     xrltResponseHeaderData  *ret = (xrltResponseHeaderData *)comp;
     if (ret != NULL) {
-        if (ret->xtest) { xmlXPathFreeCompExpr(ret->xtest); }
+        if (ret->xtest.expr) { xmlXPathFreeCompExpr(ret->xtest.expr); }
 
         if (ret->name != NULL) { xmlFree(ret->name); }
-        if (ret->xname != NULL) { xmlXPathFreeCompExpr(ret->xname); }
+        if (ret->xname.expr != NULL) { xmlXPathFreeCompExpr(ret->xname.expr); }
 
         if (ret->val != NULL) { xmlFree(ret->val); }
-        if (ret->xval != NULL) { xmlXPathFreeCompExpr(ret->xval); }
+        if (ret->xval.expr != NULL) { xmlXPathFreeCompExpr(ret->xval.expr); }
 
         xrltFree(ret);
     }
@@ -114,15 +114,15 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
             TRANSFORM_TO_STRING(ctx, node, hcomp->name, hcomp->nname,
-                                hcomp->xname, &tdata->name);
+                                &hcomp->xname, &tdata->name);
 
             TRANSFORM_TO_STRING(ctx, node, hcomp->val, hcomp->nval,
-                                hcomp->xval, &tdata->val);
+                                &hcomp->xval, &tdata->val);
         } else {
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_TEST;
 
             TRANSFORM_TO_BOOLEAN(ctx, node, hcomp->test, hcomp->ntest,
-                                 hcomp->xtest, &tdata->test);
+                                 &hcomp->xtest, &tdata->test);
         }
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform, comp,
@@ -146,10 +146,10 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
                 TRANSFORM_TO_STRING(ctx, insert, hcomp->name, hcomp->nname,
-                                    hcomp->xname, &tdata->name);
+                                    &hcomp->xname, &tdata->name);
 
                 TRANSFORM_TO_STRING(ctx, insert, hcomp->val, hcomp->nval,
-                                    hcomp->xval, &tdata->val);
+                                    &hcomp->xval, &tdata->val);
 
                 SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform,
                                   comp, insert, data);

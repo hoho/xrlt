@@ -5,6 +5,7 @@
 #include <libxml/tree.h>
 #include <libxml/hash.h>
 #include <libxml/xpath.h>
+#include <libxml/xpathInternals.h>
 
 #include "xrltstruct.h"
 #include "xrlt.h"
@@ -92,7 +93,9 @@ extern "C" {
 
 
 #define SCHEDULE_CALLBACK(ctx, tcb, func, comp, insert, data) {               \
-    if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert, data)) {     \
+    if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert,              \
+                                        ctx->varScope, data))                 \
+    {                                                                         \
         xrltTransformError(ctx, NULL, NULL, "Failed to push callback\n");     \
         return FALSE;                                                         \
     }                                                                         \
@@ -133,9 +136,32 @@ extern "C" {
     if (!xrltElementTransform(ctx, first, insert)) { return FALSE; }          \
 }
 
+
 #define TRANSFORM_SUBTREE_GOTO(ctx, first, insert) {                          \
     if (!xrltElementTransform(ctx, first, insert)) { goto error; }            \
 }
+
+
+#define TRANSFORM_TO_STRING(ctx, node, val, nval, xval, ret) {                \
+    if (!xrltTransformToString(ctx, node, val, nval, xval, ret)) {            \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define TRANSFORM_TO_BOOLEAN(ctx, node, val, nval, xval, ret) {               \
+    if (!xrltTransformToBoolean(ctx, node, val, nval, xval, ret)) {           \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
+#define TRANSFORM_XPATH_TO_NODE(ctx, expr, insert) {                          \
+    if (!xrltTransformByXPath(ctx, expr, insert, NULL)) {                     \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
 
 
 typedef struct _xrltElement xrltElement;
@@ -174,7 +200,7 @@ xrltBool
 static inline xrltBool
 xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
-                               xmlNodePtr insert, void *data)
+                               xmlNodePtr insert, size_t varScope, void *data)
 {
     if (tcb == NULL || func == NULL) {
         return FALSE;
@@ -188,6 +214,7 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
     item->func = func;
     item->insert = insert;
     item->comp = comp;
+    item->varScope = varScope;
     item->data = data;
 
 
@@ -205,7 +232,8 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
 static inline xrltBool
 xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
                                 xrltTransformFunction *func, void **comp,
-                                xmlNodePtr *insert, void **data)
+                                xmlNodePtr *insert, size_t *varScope,
+                                void **data)
 {
     if (tcb == NULL) { return FALSE; }
 
@@ -218,6 +246,7 @@ xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
     *func = item->func;
     *comp = item->comp;
     *insert = item->insert;
+    *varScope = item->varScope;
     *data = item->data;
 
     tcb->first = item->next;
@@ -235,9 +264,11 @@ xrltTransformCallbackQueueClear(xrltTransformCallbackQueue *tcb)
     xrltTransformFunction   func;
     void                   *comp;
     xmlNodePtr              insert;
+    size_t                  varScope;
     void                   *data;
 
-    while (xrltTransformCallbackQueueShift(tcb, &func, &comp, &insert, &data));
+    while (xrltTransformCallbackQueueShift(tcb, &func, &comp, &insert,
+                                           &varScope, &data));
 }
 
 
@@ -301,11 +332,11 @@ xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
 static inline xrltBool
 xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
                              int conf, int *test, xmlNodePtr *ntest,
-                             xmlXPathCompExprPtr *xtest, xmlChar **type,
-                             xmlNodePtr *ntype, xmlXPathCompExprPtr *xtype,
+                             xrltXPathExpr *xtest, xmlChar **type,
+                             xmlNodePtr *ntype, xrltXPathExpr *xtype,
                              xmlChar **name, xmlNodePtr *nname,
-                             xmlXPathCompExprPtr *xname, xmlChar **val,
-                             xmlNodePtr *nval, xmlXPathCompExprPtr *xval)
+                             xrltXPathExpr *xname, xmlChar **val,
+                             xmlNodePtr *nval, xrltXPathExpr *xval)
 {
     xmlNodePtr        _ntest = NULL;
     xmlNodePtr        _ntype = NULL;
@@ -328,7 +359,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     {
         *test = 0;
         *ntest = NULL;
-        *xtest = NULL;
+        xtest->expr = NULL;
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) |
@@ -336,7 +367,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     {
         *type = NULL;
         *ntype = NULL;
-        *xtype = NULL;
+        xtype->expr = NULL;
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_NAME_ATTR) |
@@ -344,7 +375,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     {
         *name = NULL;
         *nname = NULL;
-        *xname = NULL;
+        xname->expr = NULL;
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) |
@@ -352,7 +383,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     {
         *val = NULL;
         *nval = NULL;
-        *xval = NULL;
+        xval->expr = NULL;
     }
 
     tmp = node->children;
@@ -531,12 +562,13 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (_test != NULL) {
-        *xtest = xmlXPathCompile(_test);
+        xtest->src = node;
+        xtest->expr = xmlXPathCompile(_test);
 
         xmlFree(_test);
         _test = NULL;
 
-        if (*xtest == NULL) {
+        if (xtest->expr == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile 'test' expression\n");
             goto error;
@@ -558,12 +590,13 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         *type = _type;
         _type = NULL;
     } else if (_etype != NULL) {
-        *xtype = xmlXPathCompile(_etype);
+        xtype->src = node;
+        xtype->expr = xmlXPathCompile(_etype);
 
         xmlFree(_etype);
         _etype = NULL;
 
-        if (*xtype == NULL) {
+        if (xtype->src == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile 'type' select expression\n");
             goto error;
@@ -580,12 +613,13 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         *name = _name;
         _name = NULL;
     } else if (_ename != NULL) {
-        *xname = xmlXPathCompile(_ename);
+        xname->src = node;
+        xname->expr = xmlXPathCompile(_ename);
 
         xmlFree(_ename);
         _ename = NULL;
 
-        if (*xname == NULL) {
+        if (xname->expr == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile 'name' select expression\n");
             goto error;
@@ -599,23 +633,25 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if (_val != NULL) {
-        *xval = xmlXPathCompile(_val);
+        xval->src = node;
+        xval->expr = xmlXPathCompile(_val);
 
         xmlFree(_val);
         _val = NULL;
 
-        if (*xval == NULL) {
+        if (xval->expr == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile 'value' select expression\n");
             goto error;
         }
     } else if (_eval != NULL) {
-        *xval = xmlXPathCompile(_eval);
+        xval->src = node;
+        xval->expr = xmlXPathCompile(_eval);
 
         xmlFree(_eval);
         _eval = NULL;
 
-        if (*xval == NULL) {
+        if (xval->expr == NULL) {
             xrltTransformError(NULL, sheet, node,
                                "Failed to compile 'value' select expression\n");
             goto error;
@@ -631,7 +667,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_TEST_REQUIRED) && *type == 0 &&
-        *ntype == NULL && *xtype == NULL)
+        *ntype == NULL && xtype->expr == NULL)
     {
         xrltTransformError(
             NULL, sheet, node, "'test' attribute or 'test' node is required\n"
@@ -640,7 +676,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_TYPE_REQUIRED) && *type == NULL &&
-        *ntype == NULL && *xtype == NULL)
+        *ntype == NULL && xtype->expr == NULL)
     {
         xrltTransformError(
             NULL, sheet, node, "'type' attribute or 'type' node is required\n"
@@ -649,7 +685,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_NAME_REQUIRED) && *name == NULL &&
-        *nname == NULL && *xname == NULL)
+        *nname == NULL && xname->expr == NULL)
     {
         xrltTransformError(
             NULL, sheet, node, "'name' attribute or 'name' node is required\n"
@@ -658,7 +694,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_VALUE_REQUIRED) && *val == NULL &&
-        *nval == NULL && *xval == NULL)
+        *nval == NULL && xval->expr == NULL)
     {
         xrltTransformError(
             NULL, sheet, node, "'select' attribute or content is required\n"
@@ -667,8 +703,8 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     }
 
     if ((conf & XRLT_TESTNAMEVALUE_NAME_OR_VALUE_REQUIRED) && *val == NULL &&
-        *nval == NULL && *xval == NULL && *name == NULL && *nname == NULL &&
-        *xname == NULL)
+        *nval == NULL && xval->expr == NULL && *name == NULL &&
+        *nname == NULL && xname->expr == NULL)
     {
         xrltTransformError(NULL, sheet, node, "Name or value are required\n");
         goto error;
@@ -689,31 +725,31 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
     if (_eval != NULL) { xmlFree(_eval); }
 
     if (((conf & XRLT_TESTNAMEVALUE_TEST_ATTR) |
-         (conf & XRLT_TESTNAMEVALUE_TEST_NODE)) && *xtest != NULL)
+         (conf & XRLT_TESTNAMEVALUE_TEST_NODE)) && xtest->expr != NULL)
     {
-        xmlXPathFreeCompExpr(*xtest);
-        *xtest = NULL;
+        xmlXPathFreeCompExpr(xtest->expr);
+        xtest->expr = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_TYPE_ATTR) |
-         (conf & XRLT_TESTNAMEVALUE_TYPE_NODE)) && *xtype != NULL)
+         (conf & XRLT_TESTNAMEVALUE_TYPE_NODE)) && xtype->expr != NULL)
     {
-        xmlXPathFreeCompExpr(*xtype);
-        *xtype = NULL;
+        xmlXPathFreeCompExpr(xtype->expr);
+        xtype->expr = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_NAME_ATTR) |
-         (conf & XRLT_TESTNAMEVALUE_NAME_NODE)) && *xname != NULL)
+         (conf & XRLT_TESTNAMEVALUE_NAME_NODE)) && xname->expr != NULL)
     {
-        xmlXPathFreeCompExpr(*xname);
-        *xname = NULL;
+        xmlXPathFreeCompExpr(xname->expr);
+        xname->expr = NULL;
     }
 
     if (((conf & XRLT_TESTNAMEVALUE_VALUE_ATTR) |
-         (conf & XRLT_TESTNAMEVALUE_VALUE_NODE)) && *xval != NULL)
+         (conf & XRLT_TESTNAMEVALUE_VALUE_NODE)) && xval->expr != NULL)
     {
-        xmlXPathFreeCompExpr(*xval);
-        *xval = NULL;
+        xmlXPathFreeCompExpr(xval->expr);
+        xval->expr = NULL;
     }
 
     return FALSE;
@@ -736,7 +772,7 @@ xrltBool
 
 static inline xrltBool
 xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
-                      xmlChar *val, xmlNodePtr nval, xmlXPathCompExprPtr xval,
+                      xmlChar *val, xmlNodePtr nval, xrltXPathExpr *xval,
                       xmlChar **ret)
 {
     if (val != NULL) {
@@ -751,7 +787,7 @@ xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
         SCHEDULE_CALLBACK(
             ctx, &ctx->tcb, xrltSetStringResult, node, insert, ret
         );
-    } else if (xval != NULL) {
+    } else if (xval->expr != NULL) {
         COUNTER_INCREASE(ctx, insert);
 
         return xrltSetStringResultByXPath(ctx, xval, insert, ret);
@@ -763,7 +799,7 @@ xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
 
 static inline xrltBool
 xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert, xrltBool val,
-                       xmlNodePtr nval, xmlXPathCompExprPtr xval, xrltBool *ret)
+                       xmlNodePtr nval, xrltXPathExpr *xval, xrltBool *ret)
 {
     if (nval != NULL) {
         xmlNodePtr   node;
@@ -775,7 +811,7 @@ xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert, xrltBool val,
         SCHEDULE_CALLBACK(
             ctx, &ctx->tcb, xrltSetBooleanResult, node, insert, ret
         );
-    } else if (xval != NULL) {
+    } else if (xval->expr != NULL) {
         COUNTER_INCREASE(ctx, insert);
 
         return xrltSetBooleanResultByXPath(ctx, xval, insert, ret);
@@ -787,17 +823,139 @@ xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert, xrltBool val,
 }
 
 
-#define TRANSFORM_TO_STRING(ctx, node, val, nval, xval, ret) {                \
-    if (!xrltTransformToString(ctx, node, val, nval, xval, ret)) {            \
-        return FALSE;                                                         \
-    }                                                                         \
-}
+static inline xrltBool
+xrltTransformByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                     void *data)
+{
+    xrltXPathExpr                *expr = (xrltXPathExpr *)comp;
+    xmlXPathObjectPtr             v;
+    int                           i;
+    xmlChar                      *s = NULL;
+    xmlNodePtr                    node;
+    xmlNodeSetPtr                 ns = NULL;
+    xrltBool                      ret = TRUE;
 
+    if (!xrltXPathEval(ctx, insert, expr, expr->src->parent, &v)) {
+        return FALSE;
+    }
 
-#define TRANSFORM_TO_BOOLEAN(ctx, node, val, nval, xval, ret) {               \
-    if (!xrltTransformToBoolean(ctx, node, val, nval, xval, ret)) {           \
-        return FALSE;                                                         \
-    }                                                                         \
+    if (v == NULL) {
+        // Some variables are not ready.
+        xrltNodeDataPtr   n;
+
+        ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+        if (data == NULL) {
+            COUNTER_INCREASE(ctx, insert);
+        }
+
+        SCHEDULE_CALLBACK(
+            ctx, &n->tcb, xrltTransformByXPath, comp, insert, (void *)0x1
+        );
+    } else {
+        switch (v->type) {
+            case XPATH_NODESET:
+                if (!xmlXPathNodeSetIsEmpty(v->nodesetval)) {
+                    ns = xmlXPathNodeSetCreate(NULL);
+                    if (ns == NULL) {
+                        xrltTransformError(ctx, NULL, expr->src,
+                                           "Failed to create node-set\n");
+                        ret = FALSE;
+                        goto error;
+                    }
+
+                    for (i = 0; i < v->nodesetval->nodeNr; i++) {
+                        node = v->nodesetval->nodeTab[i];
+
+                        if (node != NULL) {
+                            if (node->type == XML_DOCUMENT_NODE) {
+                                node = node->children;
+
+                                while (node != NULL) {
+                                    xmlXPathNodeSetAdd(ns, node);
+                                    node = node->next;
+                                }
+                            } else {
+                                xmlXPathNodeSetAdd(ns, node);
+                            }
+                        }
+                    }
+
+                    for (i = 0; i < ns->nodeNr; i++) {
+                        node = xmlDocCopyNode(ns->nodeTab[i], insert->doc, 1);
+
+                        if (node == NULL) {
+                            xrltTransformError(
+                                ctx, NULL, expr->src,
+                                "Failed to copy response node\n"
+                            );
+                            ret = FALSE;
+                            goto error;
+                        }
+
+                        if (xmlAddChild(insert, node) == NULL) {
+                            xrltTransformError(ctx, NULL, expr->src,
+                                               "Failed to add response node\n");
+                            xmlFreeNode(node);
+                            ret = FALSE;
+                            goto error;
+                        }
+                    }
+                }
+
+                break;
+
+            case XPATH_BOOLEAN:
+            case XPATH_NUMBER:
+            case XPATH_STRING:
+                s = xmlXPathCastToString(v);
+
+                if (s == NULL) {
+                    xrltTransformError(ctx, NULL, expr->src,
+                                       "Failed to cast result to string\n");
+                    ret = FALSE;
+                    goto error;
+                }
+
+                node = xmlNewText(s);
+
+                if (node == NULL) {
+                    xrltTransformError(ctx, NULL, expr->src,
+                                       "Failed to create response node\n");
+                    ret = FALSE;
+                    goto error;
+                }
+
+                if (xmlAddChild(insert, node) == NULL) {
+                    xrltTransformError(ctx, NULL, expr->src,
+                                       "Failed to add response node\n");
+                    xmlFreeNode(node);
+                    ret = FALSE;
+                    goto error;
+                }
+
+                break;
+
+            case XPATH_UNDEFINED:
+            case XPATH_POINT:
+            case XPATH_RANGE:
+            case XPATH_LOCATIONSET:
+            case XPATH_USERS:
+            case XPATH_XSLT_TREE:
+                break;
+        }
+
+        if (data != NULL) {
+            COUNTER_DECREASE(ctx, insert);
+        }
+    }
+
+  error:
+    if (v != NULL) { xmlXPathFreeObject(v); }
+    if (ns != NULL) { xmlXPathFreeNodeSet(ns); }
+    if (s != NULL) { xmlFree(s); }
+
+    return ret;
 }
 
 

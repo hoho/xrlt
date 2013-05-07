@@ -19,14 +19,14 @@ typedef struct {
 
 
 typedef struct {
-    xmlXPathCompExprPtr   test;
-    xmlNodePtr            children;
+    xrltXPathExpr   test;
+    xmlNodePtr      children;
 } xrltIfData;
 
 
 typedef struct {
-    xmlNodePtr            node;
-    xmlXPathCompExprPtr   select;
+    xmlNodePtr      node;
+    xrltXPathExpr   select;
 } xrltValueOfData;
 
 

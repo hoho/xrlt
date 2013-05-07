@@ -15,17 +15,17 @@ extern "C" {
 typedef struct {
     xmlNodePtr   node;
 
-    xrltBool              test;
-    xmlNodePtr            ntest;
-    xmlXPathCompExprPtr   xtest;
+    xrltBool        test;
+    xmlNodePtr      ntest;
+    xrltXPathExpr   xtest;
 
-    xmlChar              *name;
-    xmlNodePtr            nname;
-    xmlXPathCompExprPtr   xname;
+    xmlChar        *name;
+    xmlNodePtr      nname;
+    xrltXPathExpr   xname;
 
-    xmlChar              *val;
-    xmlNodePtr            nval;
-    xmlXPathCompExprPtr   xval;
+    xmlChar        *val;
+    xmlNodePtr      nval;
+    xrltXPathExpr   xval;
 
 } xrltResponseHeaderData;
 

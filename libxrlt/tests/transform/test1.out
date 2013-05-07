@@ -1,19 +1,19 @@
 XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
-sr type: TEXT
-sr url: /test/href/2
-sr query: (null)
-sr body: ololololo
-XRLT_STATUS_SUBREQUEST
-sr id: 2
-sr method: GET
 sr type: XML
 sr header: Content-Type: Some type
 sr header: Content-Length: 100500
 sr url: /test/href/1
 sr query: par1=p%261&par2=p%3B2&par4=p%264
 sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
+sr type: TEXT
+sr url: /test/href/2
+sr query: (null)
+sr body: ololololo
 XRLT_STATUS_SUBREQUEST
 sr id: 3
 sr method: POST

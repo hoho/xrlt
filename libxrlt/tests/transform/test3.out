@@ -1,3 +1,5 @@
+XRLT_STATUS_CHUNK
+chunk: yo
 XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
@@ -19,8 +21,7 @@ sr type: TEXT
 sr url: /test/href/3
 sr query: (null)
 sr body: (null)
-XRLT_STATUS_CHUNK
-chunk: yo
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 4

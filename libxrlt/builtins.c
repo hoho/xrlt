@@ -31,6 +31,8 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xmlNodePtr           response;
 
     if (data == NULL) {
+        ctx->varScope = ++ctx->lastVarScope;
+
         TRANSFORM_SUBTREE(ctx, ((xmlNodePtr)comp)->children, ctx->response);
 
         // Schedule the next call.
@@ -249,9 +251,10 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
-    ret->test = xmlXPathCompile(expr);
+    ret->test.src = node;
+    ret->test.expr = xmlXPathCompile(expr);
 
-    if (ret->test == NULL) {
+    if (ret->test.expr == NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Failed to compile expression\n");
         goto error;
@@ -275,7 +278,7 @@ void
 xrltIfFree(void *comp)
 {
     if (comp != NULL) {
-        xmlXPathFreeCompExpr(((xrltIfData *)comp)->test);
+        xmlXPathFreeCompExpr(((xrltIfData *)comp)->test.expr);
         xrltFree(comp);
     }
 }
@@ -310,9 +313,10 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
-    ret->select = xmlXPathCompile(select);
+    ret->select.src = node;
+    ret->select.expr = xmlXPathCompile(select);
 
-    if (ret->select == NULL) {
+    if (ret->select.expr == NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Failed to compile expression\n");
         goto error;
@@ -336,7 +340,7 @@ void
 xrltValueOfFree(void *comp)
 {
     if (comp != NULL) {
-        xmlXPathFreeCompExpr(((xrltValueOfData *)comp)->select);
+        xmlXPathFreeCompExpr(((xrltValueOfData *)comp)->select.expr);
         xrltFree(comp);
     }
 }
@@ -387,7 +391,7 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->dataNode = node;
 
-        TRANSFORM_TO_STRING(ctx, node, NULL, NULL, vcomp->select, &tdata->val);
+        TRANSFORM_TO_STRING(ctx, node, NULL, NULL, &vcomp->select, &tdata->val);
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltValueOfTransform, comp, insert,
                           tdata);

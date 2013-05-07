@@ -122,7 +122,7 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 static xmlXPathObjectPtr
 xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 {
-    xmlChar              id[sizeof(xmlNodePtr) * 3];
+    xmlChar              id[sizeof(xmlNodePtr) * 7]; // TODO: Count actual size.
     xmlXPathObjectPtr    ret;
     xrltContextPtr       ctx = (xrltContextPtr)ctxt;
     xmlNodePtr           node;
@@ -133,7 +133,9 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
     node = ctx->varContext;
 
     while (TRUE) {
-        sprintf((char *)id, "%p", node);
+        sprintf((char *)id, "%p-%zd", node, node == NULL ? 0 : ctx->varScope);
+
+        fprintf(stderr, "FUUUUU: %s %s %s %d\n", (char *)name, id, node == NULL ? NULL : (char *)node->name, node == NULL ? NULL : node->line);
 
         ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
 
@@ -208,6 +210,15 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
     if (ret->xpath == NULL) {
         xrltTransformError(ret, NULL, NULL, "Failed to create XPath context\n");
         goto error;
+    }
+
+    if (ret->xpath->varHash == NULL) {
+        ret->xpath->varHash = xmlHashCreate(5);
+        if (ret->xpath->varHash == NULL) {
+            xrltTransformError(ret, NULL, NULL,
+                               "Variable hash creation failed\n");
+            goto error;
+        }
     }
 
     TRANSFORM_SUBTREE_GOTO(
@@ -292,6 +303,7 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
     xrltTransformFunction     func;
     void                     *comp;
     xmlNodePtr                insert;
+    size_t                    varScope;
     void                     *data;
     size_t                    len;
     xrltInputCallbackQueue   *q = NULL;
@@ -320,6 +332,8 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
             cb = q->first;
 
             while (cb != NULL) {
+                ctx->varScope = cb->varScope;
+
                 if (!cb->func(ctx, id, val, cb->data)) {
                     ctx->cur |= XRLT_STATUS_ERROR;
                     return ctx->cur;
@@ -351,8 +365,10 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
     }
 
     while (xrltTransformCallbackQueueShift(&ctx->tcb, &func, &comp,
-                                           &insert, &data))
+                                           &insert, &varScope, &data))
     {
+        ctx->varScope = varScope;
+
         if (!func(ctx, comp, insert, data)) {
             ctx->cur |= XRLT_STATUS_ERROR;
             return ctx->cur;
@@ -375,8 +391,8 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
 
 xrltBool
-xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert,
-              xmlXPathCompExprPtr expr, xmlXPathObjectPtr *ret)
+xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert, xrltXPathExpr *expr,
+              xmlNodePtr scope, xmlXPathObjectPtr *ret)
 {
     xmlXPathObjectPtr  r;
     xmlNodePtr         node = insert;
@@ -395,12 +411,14 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert,
         ctx->xpath->node = (xmlNodePtr)n->root;
     }
 
-    ctx->varContext = insert;
+    ctx->varContext = scope;
     ctx->xpathWait = NULL;
 
-    r = xmlXPathCompiledEval(expr, ctx->xpath);
+    r = xmlXPathCompiledEval(expr->expr, ctx->xpath);
 
     if (r == NULL) {
+        xrltTransformError(ctx, NULL, expr->src,
+                           "Failed to evaluate expression\n");
         return FALSE;
     }
 
@@ -444,6 +462,7 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     //cb->type = type;
     //cb->id = id;
     cb->func = callback;
+    cb->varScope = ctx->varScope;
     cb->data = data;
 
     if (type == XRLT_PROCESS_HEADER) {

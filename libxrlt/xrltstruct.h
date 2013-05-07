@@ -135,6 +135,12 @@ typedef struct {
 } xrltLogList;
 
 
+typedef struct {
+    xmlNodePtr            src;
+    xmlXPathCompExprPtr   expr;
+} xrltXPathExpr;
+
+
 static inline xrltBool
         xrltStringInit            (xrltString *str, char *val);
 static inline xrltBool

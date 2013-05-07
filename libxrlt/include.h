@@ -18,19 +18,19 @@ typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
     xrltBool                      test;
     xmlNodePtr                    ntest;
-    xmlXPathCompExprPtr           xtest;
+    xrltXPathExpr                 xtest;
 
     xrltBool                      body;
     xmlNodePtr                    nbody;
-    xmlXPathCompExprPtr           xbody;
+    xrltXPathExpr                 xbody;
 
     xmlChar                      *name;
     xmlNodePtr                    nname;
-    xmlXPathCompExprPtr           xname;
+    xrltXPathExpr                 xname;
 
     xmlChar                      *val;
     xmlNodePtr                    nval;
-    xmlXPathCompExprPtr           xval;
+    xrltXPathExpr                 xval;
 
     xrltCompiledIncludeParamPtr   next;
 };
@@ -41,15 +41,15 @@ typedef struct {
 
     xmlChar                      *href;
     xmlNodePtr                    nhref;
-    xmlXPathCompExprPtr           xhref;
+    xrltXPathExpr                 xhref;
 
     xrltHTTPMethod                method;
     xmlNodePtr                    nmethod;
-    xmlXPathCompExprPtr           xmethod;
+    xrltXPathExpr                 xmethod;
 
     xrltSubrequestDataType        type;
     xmlNodePtr                    ntype;
-    xmlXPathCompExprPtr           xtype;
+    xrltXPathExpr                 xtype;
 
     xrltCompiledIncludeParamPtr   fheader;
     xrltCompiledIncludeParamPtr   lheader;
@@ -61,13 +61,13 @@ typedef struct {
 
     xrltBool                      tbody;
     xmlNodePtr                    tnbody;
-    xmlXPathCompExprPtr           txbody;
+    xrltXPathExpr                 txbody;
     xmlChar                      *body;
     xmlNodePtr                    nbody;
-    xmlXPathCompExprPtr           xbody;
+    xrltXPathExpr                 xbody;
 
     xmlNodePtr                    nsuccess;
-    xmlXPathCompExprPtr           xsuccess;
+    xrltXPathExpr                 xsuccess;
 
     xmlNodePtr                    nfailure;
 } xrltCompiledIncludeData;

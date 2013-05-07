@@ -375,9 +375,10 @@ xrltBool
 xrltSetStringResultByXPath(xrltContextPtr ctx, void *comp,
                            xmlNodePtr insert, void *data)
 {
-    xmlXPathObjectPtr  v;
+    xrltXPathExpr      *expr = (xrltXPathExpr *)comp;
+    xmlXPathObjectPtr   v;
 
-    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
+    if (!xrltXPathEval(ctx, insert, expr, expr->src->parent, &v)) {
         return FALSE;
     }
 
@@ -431,9 +432,10 @@ xrltBool
 xrltSetBooleanResultByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             void *data)
 {
-    xmlXPathObjectPtr  v;
+    xrltXPathExpr      *expr = (xrltXPathExpr *)comp;
+    xmlXPathObjectPtr   v;
 
-    if (!xrltXPathEval(ctx, insert, (xmlXPathCompExprPtr)comp, &v)) {
+    if (!xrltXPathEval(ctx, insert, expr, expr->src->parent, &v)) {
         return FALSE;
     }
 

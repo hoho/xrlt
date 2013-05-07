@@ -1,3 +1,5 @@
+XRLT_STATUS_CHUNK
+chunk: 11abcsdafkjhl
 XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
@@ -5,8 +7,6 @@ sr type: TEXT
 sr url: /sub2
 sr query: (null)
 sr body: (null)
-XRLT_STATUS_CHUNK
-chunk: 11abcsdafkjhl
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING

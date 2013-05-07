@@ -5,6 +5,7 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <xrlt.h>
+#include "variable.h"
 
 
 #ifdef __cplusplus
@@ -12,46 +13,31 @@ extern "C" {
 #endif
 
 
-typedef struct _xrltFunctionParam xrltFunctionParam;
-typedef xrltFunctionParam* xrltFunctionParamPtr;
-struct _xrltFunctionParam {
+typedef struct {
     xmlNodePtr            node;
 
-    xrltBool              ownName;
     xmlChar              *name;
 
-    xrltBool              ownJsname;
-    xmlChar              *jsname;
+    xrltBool              js;
 
-    xmlNodePtr            nval;
+    xrltVariableDataPtr  *param;
+    size_t                paramLen;
+    size_t                paramSize;
 
-    xmlXPathCompExprPtr   xval;
-    xrltBool              ownXval;
-};
-
-
-typedef struct {
-    xmlNodePtr             node;
-
-    xmlChar               *name;
-
-    xrltBool               js;
-
-    xrltFunctionParamPtr  *param;
-    size_t                 paramLen;
-    size_t                 paramSize;
-
-    xmlNodePtr             children;
+    xmlNodePtr            children;
 } xrltFunctionData;
 
 
 typedef struct {
-    xmlNodePtr             node;
-    xrltFunctionData      *func;
+    xmlNodePtr            node;
+    xrltFunctionData     *func;
 
-    xrltFunctionParamPtr  *param;
-    size_t                 paramLen;
-    size_t                 paramSize;
+    xrltVariableDataPtr  *param;
+    size_t                paramLen;
+    size_t                paramSize;
+
+    xmlNodePtr            decl;
+    size_t                declPos;
 } xrltApplyData;
 
 

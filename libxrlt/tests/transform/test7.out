@@ -1,15 +1,17 @@
 XRLT_STATUS_HEADER
+header: Test-Header With-Value
+XRLT_STATUS_HEADER
 header: Test-Header4 46
 XRLT_STATUS_HEADER
 header: This-Is Some-Header
 XRLT_STATUS_HEADER
+header: It-Is Another-Header
+XRLT_STATUS_HEADER
+header: Test-Header3 With-Value3
+XRLT_STATUS_HEADER
 header: Test-Header6 48
 XRLT_STATUS_HEADER
 header: He3 Va3
-XRLT_STATUS_HEADER
-header: Test-Header With-Value
-XRLT_STATUS_HEADER
-header: It-Is Another-Header
 XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
@@ -38,8 +40,6 @@ sr type: TEXT
 sr url: /yeah3
 sr query: (null)
 sr body: (null)
-XRLT_STATUS_HEADER
-header: Test-Header3 With-Value3
 XRLT_STATUS_HEADER
 header: He1 AWESOME
 XRLT_STATUS_WAITING
