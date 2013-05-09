@@ -132,10 +132,9 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 
     node = ctx->varContext;
 
-    while (TRUE) {
-        sprintf((char *)id, "%p-%zd", node, node == NULL ? 0 : ctx->varScope);
-
-        fprintf(stderr, "FUUUUU: %s %s %s %d\n", (char *)name, id, node == NULL ? NULL : (char *)node->name, node == NULL ? NULL : node->line);
+    while (node) {
+        sprintf((char *)id, "%p-%zd", node,
+                node == ctx->sheetNode ? 0 : ctx->varScope);
 
         ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
 
@@ -143,12 +142,14 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
             if (ret->type == XPATH_NODESET) {
                 node = xmlXPathNodeSetItem(ret->nodesetval, 0);
 
-                n = (xrltNodeDataPtr)node->_private;
+                if (node != NULL) {
+                    n = (xrltNodeDataPtr)node->_private;
 
-                if (n != NULL && n->count > 0) {
-                    ctx->xpathWait = node;
+                    if (n != NULL && n->count > 0) {
+                        ctx->xpathWait = node;
 
-                    return xmlXPathNewNodeSet(NULL);
+                        return xmlXPathNewNodeSet(NULL);
+                    }
                 }
             }
 
@@ -156,7 +157,7 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
         }
 
         // Try upper scope.
-        if (node != NULL) {
+        if (node != ctx->sheetNode) {
             node = node->parent;
         } else {
             break;
@@ -221,8 +222,10 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
         }
     }
 
+    ret->sheetNode = xmlDocGetRootElement(sheet->doc);
+
     TRANSFORM_SUBTREE_GOTO(
-        ret, xmlDocGetRootElement(sheet->doc)->children, NULL
+        ret, ret->sheetNode->children, NULL
     );
 
     return ret;
@@ -392,7 +395,7 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
 xrltBool
 xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert, xrltXPathExpr *expr,
-              xmlNodePtr scope, xmlXPathObjectPtr *ret)
+              xmlXPathObjectPtr *ret)
 {
     xmlXPathObjectPtr  r;
     xmlNodePtr         node = insert;
@@ -411,7 +414,7 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert, xrltXPathExpr *expr,
         ctx->xpath->node = (xmlNodePtr)n->root;
     }
 
-    ctx->varContext = scope;
+    ctx->varContext = expr->scope;
     ctx->xpathWait = NULL;
 
     r = xmlXPathCompiledEval(expr->expr, ctx->xpath);

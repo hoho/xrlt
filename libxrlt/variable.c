@@ -6,37 +6,59 @@
 void *
 xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
-    xrltVariableData *ret;
-    int                        conf;
-    xmlChar                   *tmp;
+    xrltVariableDataPtr   ret = NULL;
+    xmlChar              *select;
+    xrltNodeDataPtr       n;
 
-    XRLT_MALLOC(NULL, sheet, node, ret, xrltVariableData*,
+
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltVariableDataPtr,
                 sizeof(xrltVariableData), NULL);
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
+    ret->ownName = TRUE;
 
     if (xmlValidateNCName(ret->name, 0)) {
-        xrltTransformError(NULL, sheet, node, "Invalid variable name\n");
+        xrltTransformError(NULL, sheet, node, "Invalid name\n");
         goto error;
     }
 
-    conf = XRLT_TESTNAMEVALUE_VALUE_ATTR |
-           XRLT_TESTNAMEVALUE_VALUE_NODE |
-           XRLT_TESTNAMEVALUE_VALUE_REQUIRED;
+    ASSERT_NODE_DATA_GOTO(node, n);
+    n->xrlt = TRUE;
 
-    if (!xrltCompileTestNameValueNode(sheet, node, conf, NULL, NULL, NULL,
-                                      NULL, NULL, NULL, NULL, NULL, NULL, &tmp,
-                                      &ret->nval, &ret->xval))
-    {
+    select = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
+    if (select != NULL) {
+        ret->xval.src = node;
+        ret->xval.scope = node->parent;
+        ret->xval.expr = xmlXPathCompile(select);
+        ret->ownXval = TRUE;
+
+        xmlFree(select);
+
+        if (ret->xval.expr == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile 'select' expression\n");
+            goto error;
+        }
+    }
+
+    ret->nval = node->children;
+
+    if (ret->xval.expr != NULL && ret->nval != NULL) {
+        xrltTransformError(
+            NULL, sheet, node,
+            "Element shouldn't have both 'select' attribute and content\n"
+        );
         goto error;
     }
 
     ret->node = node;
+    ret->declScope = node->parent;
 
     return ret;
 
   error:
     xrltVariableFree(ret);
+
     return NULL;
 }
 
@@ -47,32 +69,52 @@ xrltVariableFree(void *comp)
     if (comp != NULL) {
         xrltVariableData *data = (xrltVariableData *)comp;
 
-        if (data->name != NULL) { xmlFree(data->name); }
-        if (data->xval.expr != NULL) { xmlXPathFreeCompExpr(data->xval.expr); }
+        if (data->name != NULL && data->ownName) {
+            xmlFree(data->name);
+        }
 
-        xmlFree(data);
+        if (data->jsname != NULL && data->ownJsname) {
+            xmlFree(data->jsname);
+        }
+
+        if (data->xval.expr != NULL && data->ownXval) {
+            xmlXPathFreeCompExpr(data->xval.expr);
+        }
+
+        xrltFree(data);
     }
 }
 
 
-#define XRLT_SET_VARIABLE_ID(id, scope, pos)                                  \
-    sprintf((char *)id, "%p-%zd", scope, pos);
+#define XRLT_SET_VARIABLE_ID(_id, _scope, _pos)                               \
+    sprintf((char *)_id, "%p-%zd", _scope, _pos);
 
 
-#define XRLT_SET_VARIABLE(ctx, node, name, vdoc, val) {                       \
-    if (vdoc) {                                                               \
-        val = xmlXPathNewNodeSet((xmlNodePtr)vdoc);                           \
+#define XRLT_SET_VARIABLE(_id, _node, _name, _scope, _pos, _vdoc, _val) {     \
+    xmlNodePtr   _lookup = _scope;                                            \
+    while (_lookup != NULL && _lookup != ctx->sheetNode) {                    \
+        XRLT_SET_VARIABLE_ID(_id, _lookup, _pos);                             \
+        if (xmlHashLookup2(ctx->xpath->varHash, _id, _name)) {                \
+            if (_val) { xmlXPathFreeObject(_val); }                           \
+            xrltTransformError(ctx, NULL, _node,                              \
+                               "Redefinition of variable '%s'\n", _name);     \
+            return FALSE;                                                     \
+        }                                                                     \
+        _lookup = _lookup->parent;                                            \
     }                                                                         \
-    if (val == NULL) {                                                        \
+    if (_vdoc) {                                                              \
+        _val = xmlXPathNewNodeSet((xmlNodePtr)_vdoc);                         \
+    }                                                                         \
+    if (_val == NULL) {                                                       \
         xrltTransformError(ctx, NULL, NULL,                                   \
                            "Failed to initialize variable\n");                \
         return FALSE;                                                         \
     }                                                                         \
-fprintf(stderr,"DECL: %s\n", id);\
-    if (xmlHashAddEntry2(ctx->xpath->varHash, id, name, val)) {               \
-        xmlXPathFreeObject(val);                                              \
-        xrltTransformError(ctx, NULL, node,                                   \
-                           "Variable already exists\n");                      \
+    XRLT_SET_VARIABLE_ID(_id, _scope, _pos);                                  \
+    if (xmlHashAddEntry2(ctx->xpath->varHash, _id, _name, _val)) {            \
+        xmlXPathFreeObject(_val);                                             \
+        xrltTransformError(ctx, NULL, _node,                                  \
+                           "Redefinition of variable '%s'\n", _name);         \
         return FALSE;                                                         \
     }                                                                         \
 }
@@ -87,15 +129,22 @@ xrltVariableFromXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xmlXPathObjectPtr   val;
     xmlChar             id[sizeof(xmlNodePtr) * 7];
     xrltNodeDataPtr     n;
+    size_t              sc;
 
-    if (!xrltXPathEval(ctx, insert, &vcomp->xval, NULL, &val)) {
+    if (!xrltXPathEval(ctx, insert, &vcomp->xval, &val)) {
         return FALSE;
     }
 
     ASSERT_NODE_DATA(vdoc, n);
 
     if (ctx->xpathWait == NULL) {
-        XRLT_SET_VARIABLE_ID(id, insert, 1);
+        if (n->data != NULL) {
+            sc = ((size_t)n->data) - 1;
+        } else {
+            sc = vcomp->declScopePos > 0 ? vcomp->declScopePos : ctx->varScope;
+        }
+
+        XRLT_SET_VARIABLE_ID(id, vcomp->declScope, sc);
 
         if (n->data != NULL) {
             xmlHashRemoveEntry2(ctx->xpath->varHash, id, vcomp->name,
@@ -104,20 +153,24 @@ xrltVariableFromXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             COUNTER_DECREASE(ctx, (xmlNodePtr)vdoc);
         }
 
-        XRLT_SET_VARIABLE(ctx, vcomp->node, vcomp->name, NULL, val);
+        XRLT_SET_VARIABLE(
+            id, vcomp->node, vcomp->name, vcomp->declScope, sc, NULL, val
+        );
 
         SCHEDULE_CALLBACK(
             ctx, &ctx->tcb, xrltVariableTransform, comp, insert, data
         );
     } else {
         if (n->data == NULL) {
-            XRLT_SET_VARIABLE_ID(id, insert, 1);
+            sc = vcomp->declScopePos > 0 ? vcomp->declScopePos : ctx->varScope;
 
-            XRLT_SET_VARIABLE(ctx, vcomp->node, vcomp->name, vdoc, val);
+            XRLT_SET_VARIABLE(
+                id, vcomp->node, vcomp->name, vcomp->declScope, sc, vdoc, val
+            );
 
             COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
 
-            n->data = (void *)0x1;
+            n->data = (void *)(sc + 1);
         }
 
         ASSERT_NODE_DATA(ctx->xpathWait, n);
@@ -139,6 +192,9 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xmlDocPtr           vdoc;
     xmlXPathObjectPtr   val = NULL;
     xmlChar             id[sizeof(xmlNodePtr) * 7];
+    size_t              sc;
+
+    sc = vcomp->declScopePos > 0 ? vcomp->declScopePos : ctx->varScope;
 
     if (data == NULL) {
         vdoc = xmlNewDoc(NULL);
@@ -146,9 +202,9 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
 
         if (vcomp->nval != NULL) {
-            XRLT_SET_VARIABLE_ID(id, insert, 1);
-
-            XRLT_SET_VARIABLE(ctx, vcomp->node, vcomp->name, vdoc, val);
+            XRLT_SET_VARIABLE(
+                id, vcomp->node, vcomp->name, vcomp->declScope, sc, vdoc, val
+            );
 
             COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
 
@@ -163,6 +219,12 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             if (!xrltVariableFromXPath(ctx, comp, insert, vdoc)) {
                 return FALSE;
             }
+        } else {
+            val = xmlXPathNewNodeSet(NULL);
+
+            XRLT_SET_VARIABLE(
+                id, vcomp->node, vcomp->name, vcomp->declScope, sc, NULL, val
+            );
         }
     } else {
         COUNTER_DECREASE(ctx, (xmlNodePtr)data);

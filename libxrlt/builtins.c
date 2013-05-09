@@ -31,7 +31,7 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xmlNodePtr           response;
 
     if (data == NULL) {
-        ctx->varScope = ++ctx->lastVarScope;
+        ctx->varScope = ++ctx->maxVarScope;
 
         TRANSFORM_SUBTREE(ctx, ((xmlNodePtr)comp)->children, ctx->response);
 
@@ -252,6 +252,7 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     }
 
     ret->test.src = node;
+    ret->test.scope = node->parent;
     ret->test.expr = xmlXPathCompile(expr);
 
     if (ret->test.expr == NULL) {
@@ -314,6 +315,7 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     }
 
     ret->select.src = node;
+    ret->select.scope = node->parent;
     ret->select.expr = xmlXPathCompile(select);
 
     if (ret->select.expr == NULL) {

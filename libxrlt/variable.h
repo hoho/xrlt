@@ -16,17 +16,18 @@ typedef struct _xrltVariableData xrltVariableData;
 typedef xrltVariableData* xrltVariableDataPtr;
 struct _xrltVariableData {
     xmlNodePtr      node;
+    xmlNodePtr      declScope;
+    size_t          declScopePos;
 
-    xrltBool        ownName;    // For parameters only.
+    xrltBool        ownName;
     xmlChar        *name;
 
-    xrltBool        ownJsname;  // For parameters only.
+    xrltBool        ownJsname;
     xmlChar        *jsname;
 
-    xrltBool        ownNval;    // For parameters only.
     xmlNodePtr      nval;
 
-    xrltBool        ownXval;    // For parameters only.
+    xrltBool        ownXval;
     xrltXPathExpr   xval;
 };
 

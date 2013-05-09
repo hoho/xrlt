@@ -779,7 +779,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                      void *data)
 {
     xrltCompiledIncludeData      *icomp = (xrltCompiledIncludeData *)comp;
-    xmlNodePtr                    node = NULL, node2, node3;
+    xmlNodePtr                    node = NULL;
     xrltNodeDataPtr               n;
     xrltIncludeTransformingData  *tdata;
     xrltCompiledIncludeParamPtr   p;
@@ -1049,25 +1049,11 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_END:
-                node = tdata->node;
-                node2 = tdata->rnode->children;
-
-                while (node2 != NULL) {
-                    node3 = node2->next;
-
-                    node = xmlAddNextSibling(node, node2);
-                    if (node == NULL) {
-                        xrltTransformError(ctx, NULL, tdata->srcNode,
-                                           "Failed to add response node\n");
-                        return FALSE;
-                    }
-
-                    node2 = node3;
-                }
-
                 COUNTER_DECREASE(ctx, tdata->node);
 
-                REMOVE_RESPONSE_NODE(ctx, tdata->node);
+                REPLACE_RESPONSE_NODE(
+                    ctx, tdata->node, tdata->rnode->children, tdata->srcNode
+                );
 
                 //xmlDocFormatDump(stdout, ctx->responseDoc, 1);
 

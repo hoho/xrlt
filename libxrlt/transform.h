@@ -92,6 +92,24 @@ extern "C" {
 }
 
 
+#define REPLACE_RESPONSE_NODE(ctx, node, children, src) {                     \
+    xmlNodePtr   n1 = node;                                                   \
+    xmlNodePtr   n2 = children;                                               \
+    xmlNodePtr   n3;                                                          \
+    while (n2 != NULL) {                                                      \
+        n3 = n2->next;                                                        \
+        n1 = xmlAddNextSibling(n1, n2);                                       \
+        if (n1 == NULL) {                                                     \
+            xrltTransformError(ctx, NULL, src,                                \
+                               "Failed to add response node\n");              \
+            return FALSE;                                                     \
+        }                                                                     \
+        n2 = n3;                                                              \
+    }                                                                         \
+    REMOVE_RESPONSE_NODE(ctx, node);                                          \
+}
+
+
 #define SCHEDULE_CALLBACK(ctx, tcb, func, comp, insert, data) {               \
     if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert,              \
                                         ctx->varScope, data))                 \
@@ -563,6 +581,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
     if (_test != NULL) {
         xtest->src = node;
+        xtest->scope = node->parent;
         xtest->expr = xmlXPathCompile(_test);
 
         xmlFree(_test);
@@ -591,6 +610,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         _type = NULL;
     } else if (_etype != NULL) {
         xtype->src = node;
+        xtype->scope = node->parent;
         xtype->expr = xmlXPathCompile(_etype);
 
         xmlFree(_etype);
@@ -598,7 +618,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
         if (xtype->src == NULL) {
             xrltTransformError(NULL, sheet, node,
-                               "Failed to compile 'type' select expression\n");
+                               "Failed to compile type 'select' expression\n");
             goto error;
         }
     } else if (_ntype != NULL) {
@@ -614,6 +634,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         _name = NULL;
     } else if (_ename != NULL) {
         xname->src = node;
+        xname->scope = node->parent;
         xname->expr = xmlXPathCompile(_ename);
 
         xmlFree(_ename);
@@ -634,6 +655,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
     if (_val != NULL) {
         xval->src = node;
+        xval->scope = node->parent;
         xval->expr = xmlXPathCompile(_val);
 
         xmlFree(_val);
@@ -646,6 +668,7 @@ xrltCompileTestNameValueNode(xrltRequestsheetPtr sheet, xmlNodePtr node,
         }
     } else if (_eval != NULL) {
         xval->src = node;
+        xval->scope = node->parent;
         xval->expr = xmlXPathCompile(_eval);
 
         xmlFree(_eval);
@@ -791,6 +814,8 @@ xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
         COUNTER_INCREASE(ctx, insert);
 
         return xrltSetStringResultByXPath(ctx, xval, insert, ret);
+    } else {
+        *ret = NULL;
     }
 
     return TRUE;
@@ -835,7 +860,7 @@ xrltTransformByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xmlNodeSetPtr                 ns = NULL;
     xrltBool                      ret = TRUE;
 
-    if (!xrltXPathEval(ctx, insert, expr, expr->src->parent, &v)) {
+    if (!xrltXPathEval(ctx, insert, expr, &v)) {
         return FALSE;
     }
 

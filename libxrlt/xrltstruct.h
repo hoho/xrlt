@@ -137,6 +137,7 @@ typedef struct {
 
 typedef struct {
     xmlNodePtr            src;
+    xmlNodePtr            scope;
     xmlXPathCompExprPtr   expr;
 } xrltXPathExpr;
 

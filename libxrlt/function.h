@@ -33,11 +33,9 @@ typedef struct {
     xrltFunctionData     *func;
 
     xrltVariableDataPtr  *param;
+    xrltVariableDataPtr  *merged;
     size_t                paramLen;
     size_t                paramSize;
-
-    xmlNodePtr            decl;
-    size_t                declPos;
 } xrltApplyData;
 
 
@@ -46,8 +44,9 @@ typedef struct {
 
 
 typedef struct {
-    xmlNodePtr                         node;
-    xmlNodePtr                         paramNode;
+    xmlNodePtr   node;
+    //xmlNodePtr   paramNode;
+    xmlNodePtr   ret;
 
     //xrltFunctionTransformStage   stage;
 } xrltApplyTransformingData;

@@ -1,0 +1,28 @@
+XRLT_STATUS_CHUNK
+chunk: hahaha
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: hehe
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: 1fAWESOME2
+chunk: First call:
+chunk: |111|22222||
+chunk: |hahaha|AAAA22222|
+chunk: Second call:
+chunk: |111|222||158||
+chunk: |hahaha|AAAA222|
+chunk: Third call:
+chunk: |111|222||
+chunk: |hahaha|AAAA222|
+chunk: Fourth call:
+chunk: ||42||
+chunk: |hahaha|AAAA42|
+chunk: Fifth call:
+chunk: |fuckyeah|222|yo|
+chunk: |hahaha|AAAA222|
+XRLT_STATUS_DONE

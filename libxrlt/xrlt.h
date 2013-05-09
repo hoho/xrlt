@@ -127,8 +127,9 @@ struct _xrltContext {
     xrltNeedHeaderList           needHeader;
 
     size_t                       includeId;
-    size_t                       lastVarScope;
+    size_t                       maxVarScope;
 
+    xmlNodePtr                   sheetNode;
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
     xmlNodePtr                   responseCur;
@@ -201,8 +202,7 @@ XRLTPUBFUN int XRLTCALL
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr insert,
-                                   xrltXPathExpr *expr, xmlNodePtr scope,
-                                   xmlXPathObjectPtr *ret);
+                                   xrltXPathExpr *expr, xmlXPathObjectPtr *ret);
 
 XRLTPUBFUN xrltBool XRLTCALL
         xrltInputSubscribe        (xrltContextPtr ctx,

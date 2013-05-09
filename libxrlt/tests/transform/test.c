@@ -326,6 +326,9 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
     }
     fclose(infile);
 
+    //xmlDocFormatDump(stderr, ctx->responseDoc, 1);
+
+
     ASSERT_CSTR(indata, outdata);
 
     xrltContextFree(ctx);
@@ -347,6 +350,7 @@ int main()
     test_xrltTransform("transform/test5.xrl", "transform/test5.in", "transform/test5.out");
     test_xrltTransform("transform/test6.xrl", "transform/test6.in", "transform/test6.out");
     test_xrltTransform("transform/test7.xrl", "transform/test7.in", "transform/test7.out");
+    test_xrltTransform("transform/test8.xrl", "transform/test8.in", "transform/test8.out");
 
     xrltCleanup();
     xmlCleanupParser();
