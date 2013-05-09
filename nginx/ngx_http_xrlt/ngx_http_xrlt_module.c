@@ -234,7 +234,7 @@ ngx_http_xrlt_init_subrequest_headers(ngx_http_request_t *sr, off_t len)
 }
 
 
-void
+static void
 ngx_http_xrlt_wev_handler(ngx_http_request_t *r)
 {
     dd("XRLT end (main: %p)", r);
@@ -710,6 +710,10 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
     rc = ngx_http_xrlt_transform(r, ctx, NULL, 0);
     if (rc == NGX_ERROR) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (rc == NGX_DONE) {
+        ngx_http_finalize_request(r, NGX_OK);
     }
 
     return rc == NGX_DONE ? NGX_OK : NGX_DONE;

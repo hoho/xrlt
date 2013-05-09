@@ -48,7 +48,9 @@ xrltDeregisterNodeFunc(xmlNodePtr node)
             data->free(data->data);
         }
 
-        xrltTransformCallbackQueueClear(&data->tcb);
+        if (data->tcb.first != NULL) {
+            xrltTransformCallbackQueueClear(&data->tcb);
+        }
 
         xrltFree(data);
     }
@@ -292,7 +294,9 @@ xrltContextFree(xrltContextPtr ctx)
         xmlFreeDoc(ctx->responseDoc);
     }
 
-    xrltTransformCallbackQueueClear(&ctx->tcb);
+    if (ctx->tcb.first != NULL) {
+        xrltTransformCallbackQueueClear(&ctx->tcb);
+    }
 
     xrltFree(ctx);
 }
