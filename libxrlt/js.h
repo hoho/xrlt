@@ -5,6 +5,7 @@
 #include <libxml/xpath.h>
 
 #include <xrltstruct.h>
+#include "variable.h"
 
 
 #ifdef __cplusplus
@@ -54,11 +55,13 @@ xrltJSContextPtr
 void
         xrltJSContextFree          (xrltJSContextPtr jsctx);
 xrltBool
-        xrltJSFunction             (xrltJSContextPtr jsctx, char *name,
-                                    xrltJSArgumentListPtr args, char *code);
+        xrltJSFunction             (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    xmlChar *name, xrltVariableDataPtr *param,
+                                    size_t paramLen, const xmlChar *code);
 xrltBool
-        xrltJSApply                (xrltJSContextPtr jsctx, char *name,
-                                    xrltJSArgumentListPtr args, char **ret);
+        xrltJSApply                (xrltContextPtr ctx, xmlNodePtr node,
+                                    xmlChar *name, xrltVariableDataPtr *param,
+                                    size_t paramLen, xmlNodePtr insert);
 xrltBool
         xrltJSCallback             (xrltJSContextPtr jsctx, void *callback,
                                     xrltJSArgumentListPtr args);

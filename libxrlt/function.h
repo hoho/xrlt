@@ -6,6 +6,7 @@
 #include <libxml/xpath.h>
 #include <xrlt.h>
 #include "variable.h"
+#include "js.h"
 
 
 #ifdef __cplusplus

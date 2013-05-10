@@ -1,8 +1,11 @@
 #include <v8.h>
 #include <string>
 
+#include "xrlterror.h"
 #include "js.h"
 #include "xml2json.h"
+#include "json2xml.h"
+#include "transform.h"
 
 
 typedef struct {
@@ -10,9 +13,6 @@ typedef struct {
     v8::Persistent<v8::Object>           global;
     v8::Persistent<v8::Object>           functions;
     v8::Persistent<v8::Context>          context;
-    v8::Persistent<v8::Object>           JSONobject;
-    v8::Persistent<v8::Function>         stringify;
-    v8::Persistent<v8::Function>         replacer;
 } xrltJSContextPrivate;
 
 
@@ -207,18 +207,6 @@ xrltJSContextCreate(void)
 
     priv->global->Set(v8::String::New("global"), priv->global);
 
-    priv->JSONobject = v8::Persistent<v8::Object>::New(
-        priv->global->Get(v8::String::New("JSON"))->ToObject()
-    );
-    stringify = v8::Local<v8::Function>::Cast(
-        priv->JSONobject->Get(v8::String::New("stringify"))
-    );
-    priv->stringify = v8::Persistent<v8::Function>::New(stringify);
-
-    priv->replacer = v8::Persistent<v8::Function>::New(
-        xrltStringifyReplacerTemplate->GetFunction()
-    );
-
     return ret;
 }
 
@@ -231,9 +219,6 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
     xrltJSContextPrivate  *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (priv != NULL) {
-        priv->stringify.Dispose();
-        priv->JSONobject.Dispose();
-        priv->replacer.Dispose();
         priv->functions.Dispose();
         priv->context.Dispose();
         priv->global.Dispose();
@@ -247,12 +232,27 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
 
 
 xrltBool
-xrltJSFunction(xrltJSContextPtr jsctx, char *name,
-               xrltJSArgumentListPtr args, char *code)
+xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
+               xrltVariableDataPtr *param, size_t paramLen,
+               const xmlChar *code)
 {
-    if (jsctx == NULL || name == NULL || code == NULL) { return FALSE; }
+    if (sheet == NULL || name == NULL || code == NULL) { return FALSE; }
 
-    xrltJSContextPrivate  *priv = (xrltJSContextPrivate *)jsctx->_private;
+    xrltJSContextPtr   jsctx = (xrltJSContextPtr)sheet->js;
+
+    if (jsctx == NULL) {
+        jsctx = xrltJSContextCreate();
+
+        if (jsctx == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "JavaScript context creation failed\n");
+            return FALSE;
+        }
+
+        sheet->js = jsctx;
+    }
+
+    xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     v8::HandleScope           scope;
     v8::Context::Scope        context_scope(priv->context);
@@ -260,19 +260,22 @@ xrltJSFunction(xrltJSContextPtr jsctx, char *name,
     v8::Local<v8::Function>   constr;
     v8::Local<v8::Value>      argv[2];
     int                       argc;
-    int                       count;
+    size_t                    count;
     v8::Local<v8::Object>     funcwrap = v8::Object::New();
     v8::Local<v8::Object>     func;
 
-    if (args != NULL && args->len > 0) {
-        xrltJSArgumentPtr   arg;
-        std::string        _args;
-        for (count = 0; count < args->len; count++) {
-            arg = &args->arg[count];
-            funcwrap->Set(v8::String::New(arg->name), v8::Number::New(count));
-            _args.append(arg->name);
-            if (count < args->len - 1) { _args.append(", "); }
+    if (param != NULL && paramLen > 0) {
+        std::string   _args;
+
+        for (count = 0; count < paramLen; count++) {
+            funcwrap->Set(v8::String::New((char *)param[count]->name),
+                          v8::Number::New(count));
+
+            _args.append((char *)param[count]->name);
+
+            if (count < paramLen - 1) { _args.append(", "); }
         }
+
         argv[0] = v8::String::New(_args.c_str());
         argc = 1;
     } else {
@@ -280,51 +283,133 @@ xrltJSFunction(xrltJSContextPtr jsctx, char *name,
         count = 0;
     }
 
-    argv[argc++] = v8::String::New(code);
+    argv[argc++] = v8::String::New((char *)code);
 
     constr = v8::Local<v8::Function>::Cast(
         priv->global->Get(v8::String::New("Function"))
     );
+
+    v8::TryCatch   trycatch;
+
     func = constr->NewInstance(argc, argv);
+
+    if (func.IsEmpty()) {
+        v8::Handle<v8::Value>    exception = trycatch.Exception();
+        v8::String::AsciiValue   exception_str(exception);
+
+        xrltTransformError(NULL, sheet, node, "%s\n", *exception_str);
+
+        return FALSE;
+    }
 
     funcwrap->Set(v8::String::New("0"), func);
     funcwrap->Set(v8::String::New("1"), v8::Number::New(count));
 
-    priv->functions->Set(v8::String::New(name), funcwrap);
+    priv->functions->Set(v8::String::New((char *)name), funcwrap);
 
     return TRUE;
 }
 
 
-xrltBool
-xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args,
-            char **ret)
+static void
+xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
 {
-    if (jsctx == NULL || name == NULL || ret == NULL) { return FALSE; }
+    if (val->IsString() || val->IsDate()) {
+        v8::Local<v8::String>   _val = val->ToString();
+        v8::String::Utf8Value   __val(_val);
 
+        xrltJSON2XMLString(
+            js2xml, (const unsigned char *)*__val, (size_t)_val->Length()
+        );
+    } else if (val->IsNumber()) {
+        v8::Local<v8::String>   _val = val->ToString();
+        v8::String::Utf8Value   __val(_val);
+
+        xrltJSON2XMLNumber(
+            js2xml, (const char *)*__val, (size_t)_val->Length()
+        );
+    } else if (val->IsBoolean()) {
+        xrltJSON2XMLBoolean(js2xml, val->ToBoolean()->Value() ? 1 : 0);
+    } else if (val->IsNull()) {
+        xrltJSON2XMLNull(js2xml);
+    } else if (val->IsArray()) {
+        v8::Local<v8::Array>   _val = v8::Local<v8::Array>::Cast(val);
+        uint32_t               i;
+
+        xrltJSON2XMLArrayStart(js2xml);
+
+        for (i = 0; i < _val->Length(); i++) {
+            xrltJS2XML(js2xml, _val->Get(i));
+        }
+
+        xrltJSON2XMLArrayEnd(js2xml);
+    } else if (val->IsObject()) {
+        v8::Local<v8::Object>   _val = val->ToObject();
+        v8::Local<v8::Array>    keys = _val->GetPropertyNames();
+        uint32_t                i;
+        v8::Local<v8::Value>    key;
+        v8::Local<v8::String>   _key;
+
+        xrltJSON2XMLMapStart(js2xml);
+
+        for (i = 0; i < keys->Length(); i++) {
+            key = keys->Get(i);
+            if (key->IsString()) {
+                _key = key->ToString();
+            } else {
+                _key = v8::Local<v8::String>::Cast(key);
+            }
+
+            v8::String::Utf8Value   __key(_key);
+
+            xrltJSON2XMLMapKey(
+                js2xml, (const unsigned char *)*__key, (size_t)_key->Length()
+            );
+
+            xrltJS2XML(js2xml, _val->Get(key));
+        }
+
+        xrltJSON2XMLMapEnd(js2xml);
+    }
+}
+
+
+xrltBool
+xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
+            xrltVariableDataPtr *param, size_t paramLen, xmlNodePtr insert)
+{
+    if (ctx == NULL || name == NULL || insert == NULL) { return FALSE; }
+
+    xrltJSContextPtr          jsctx = (xrltJSContextPtr)ctx->sheet->js;
     xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     v8::HandleScope           scope;
     v8::Context::Scope        context_scope(priv->context);
+
     v8::Local<v8::Object>     funcwrap;
     v8::Local<v8::Function>   func;
-    int                       argc;
+    size_t                    argc;
     v8::Local<v8::Value>      _ret;
 
-    funcwrap = priv->functions->Get(v8::String::New(name))->ToObject();
+    funcwrap = priv->functions->Get(v8::String::New((char *)name))->ToObject();
     if (!funcwrap->IsUndefined()) {
-        argc = args != NULL && args->len > 0 ? args->len : 0;
+        argc = paramLen;
+
         func = v8::Local<v8::Function>::Cast(
             funcwrap->Get(v8::String::New("0"))
         );
 
+        v8::TryCatch   trycatch;
+
         if (argc > 0) {
             v8::Local<v8::Value>   argv[argc];
-            int                    i;
+            size_t                 i;
 
             for (i = 0; i < argc; i++) {
                 argv[i] = v8::Local<v8::Value>::New(
-                    xrltXML2JSONCreate(args->arg[i].val)
+                    xrltXML2JSONCreate(
+                        xrltVariableLookupFunc(ctx, param[i]->name, NULL)
+                    )
                 );
             }
             _ret = func->Call(priv->global, argc, argv);
@@ -332,22 +417,27 @@ xrltJSApply(xrltJSContextPtr jsctx, char *name, xrltJSArgumentListPtr args,
             _ret = func->Call(priv->global, 0, NULL);
         }
 
-        if (_ret.IsEmpty() || _ret->IsUndefined()) {
-            *ret = NULL;
-        } else {
-            v8::Local<v8::Value>   __ret;
-            v8::Local<v8::Value>   argv[2] = {
-                _ret,
-                v8::Local<v8::Value>::New(priv->replacer)
-            };
+        if (_ret.IsEmpty()) {
+            v8::Handle<v8::Value>    exception = trycatch.Exception();
+            v8::String::AsciiValue   exception_str(exception);
 
-            __ret = priv->stringify->Call(priv->JSONobject, 2, argv);
-            v8::String::Utf8Value   ___ret(__ret);
-            *ret = strdup(*___ret);
+            xrltTransformError(ctx, NULL, node, "%s\n", *exception_str);
+
+            return FALSE;
         }
+
+        if (!_ret->IsUndefined()) {
+            xrltJSON2XMLPtr   js2xml;
+
+            js2xml = xrltJSON2XMLInit(insert, TRUE);
+
+            xrltJS2XML(js2xml, _ret);
+
+            xrltJSON2XMLFree(js2xml);
+        }
+
+        return TRUE;
     } else {
         return FALSE;
     }
-
-    return TRUE;
 }

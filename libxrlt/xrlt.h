@@ -109,6 +109,8 @@ struct _xrltRequestsheet {
                                    // from.
     xmlHashTablePtr   funcs;       // Functions of this requestsheet.
     xmlHashTablePtr   transforms;  // Transformations of this requestsheet.
+
+    void             *js;          // JavaScript context.
 };
 
 

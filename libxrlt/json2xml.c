@@ -8,7 +8,7 @@
 
 
 inline const xmlChar*
-yajlCallbackGetNodeName(xrltJSON2XMLPtr json2xml)
+xrltJSON2XMLGetNodeName(xrltJSON2XMLPtr json2xml)
 {
     if (json2xml->stackPos >= 0) {
         xrltJSON2XMLStackItemPtr stackItem =
@@ -110,12 +110,12 @@ xrltJSON2XMLSetType(xrltJSON2XMLPtr json2xml, xmlNodePtr node,
 }
 
 
-static int
-yajlCallbackNull(void *ctx)
+int
+xrltJSON2XMLNull(void *ctx)
 {
     ASSERT_json2xml;
 
-    const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+    const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
     if (name == NULL || json2xml->cur == NULL) { return 0; }
 
@@ -128,8 +128,8 @@ yajlCallbackNull(void *ctx)
 }
 
 
-static int
-yajlCallbackBoolean(void *ctx, int value)
+int
+xrltJSON2XMLBoolean(void *ctx, int value)
 {
     ASSERT_json2xml;
 
@@ -139,7 +139,7 @@ yajlCallbackBoolean(void *ctx, int value)
     if (json2xml->stackPos < 0) {
         parent = json2xml->cur;
     } else {
-        const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+        const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
         if (name == NULL) {
             return 0;
@@ -170,8 +170,8 @@ yajlCallbackBoolean(void *ctx, int value)
 }
 
 
-static int
-yajlCallbackNumber(void *ctx, const char *s, size_t l)
+int
+xrltJSON2XMLNumber(void *ctx, const char *s, size_t l)
 {
     ASSERT_json2xml;
 
@@ -180,7 +180,7 @@ yajlCallbackNumber(void *ctx, const char *s, size_t l)
     if (json2xml->stackPos < 0) {
         parent = json2xml->cur;
     } else {
-        const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+        const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
         if (name == NULL) {
             return 0;
@@ -211,8 +211,8 @@ yajlCallbackNumber(void *ctx, const char *s, size_t l)
 }
 
 
-static int
-yajlCallbackString(void *ctx, const unsigned char *s, size_t l)
+int
+xrltJSON2XMLString(void *ctx, const unsigned char *s, size_t l)
 {
     ASSERT_json2xml;
 
@@ -221,7 +221,7 @@ yajlCallbackString(void *ctx, const unsigned char *s, size_t l)
     if (json2xml->stackPos < 0) {
         parent = json2xml->cur;
     } else {
-        const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+        const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
         if (name == NULL) {
             return 0;
@@ -252,8 +252,8 @@ yajlCallbackString(void *ctx, const unsigned char *s, size_t l)
 }
 
 
-static int
-yajlCallbackMapStart(void *ctx)
+int
+xrltJSON2XMLMapStart(void *ctx)
 {
     ASSERT_json2xml;
 
@@ -264,7 +264,7 @@ yajlCallbackMapStart(void *ctx)
         if (json2xml->stack[i].type == XRLT_JSON2XML_ARRAY ||
             json2xml->stack[i].type == XRLT_JSON2XML_OBJECT)
         {
-            const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+            const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
             if (name == NULL || json2xml->cur == NULL) { return 0; }
 
@@ -282,8 +282,8 @@ yajlCallbackMapStart(void *ctx)
 }
 
 
-static int
-yajlCallbackMapKey(void *ctx, const unsigned char *s, size_t l)
+int
+xrltJSON2XMLMapKey(void *ctx, const unsigned char *s, size_t l)
 {
     ASSERT_json2xml;
 
@@ -298,16 +298,16 @@ yajlCallbackMapKey(void *ctx, const unsigned char *s, size_t l)
 }
 
 
-static int
-yajlCallbackMapEnd(void *ctx)
+int
+xrltJSON2XMLMapEnd(void *ctx)
 {
     ASSERT_json2xml;
     return xrltJSON2XMLStackPop(json2xml) ? 1 : 0;
 }
 
 
-static int
-yajlCallbackArrayStart(void *ctx)
+int
+xrltJSON2XMLArrayStart(void *ctx)
 {
     ASSERT_json2xml;
 
@@ -318,7 +318,7 @@ yajlCallbackArrayStart(void *ctx)
         xrltJSON2XMLSetType(json2xml, json2xml->cur, XRLT_JSON2XML_ARRAY);
     } else {
         if (json2xml->stack[i].type == XRLT_JSON2XML_ARRAY) {
-            const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+            const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
             if (name == NULL || json2xml->cur == NULL) { return 0; }
 
@@ -347,8 +347,8 @@ yajlCallbackArrayStart(void *ctx)
 }
 
 
-static int
-yajlCallbackArrayEnd(void *ctx)
+int
+xrltJSON2XMLArrayEnd(void *ctx)
 {
     ASSERT_json2xml;
 
@@ -362,7 +362,7 @@ yajlCallbackArrayEnd(void *ctx)
 
     if (ret) {
         if (!hasContent) {
-            const xmlChar *name = yajlCallbackGetNodeName(json2xml);
+            const xmlChar *name = xrltJSON2XMLGetNodeName(json2xml);
 
             if (name == NULL || json2xml->cur == NULL) { return 0; }
 
@@ -382,23 +382,23 @@ yajlCallbackArrayEnd(void *ctx)
 }
 
 
-static yajl_callbacks yajlCallbacks = {
-    yajlCallbackNull,
-    yajlCallbackBoolean,
+static yajl_callbacks xrltJSON2XMLCallbacks = {
+    xrltJSON2XMLNull,
+    xrltJSON2XMLBoolean,
     NULL,
     NULL,
-    yajlCallbackNumber,
-    yajlCallbackString,
-    yajlCallbackMapStart,
-    yajlCallbackMapKey,
-    yajlCallbackMapEnd,
-    yajlCallbackArrayStart,
-    yajlCallbackArrayEnd
+    xrltJSON2XMLNumber,
+    xrltJSON2XMLString,
+    xrltJSON2XMLMapStart,
+    xrltJSON2XMLMapKey,
+    xrltJSON2XMLMapEnd,
+    xrltJSON2XMLArrayStart,
+    xrltJSON2XMLArrayEnd
 };
 
 
 xrltJSON2XMLPtr
-xrltJSON2XMLInit(xmlNodePtr insert)
+xrltJSON2XMLInit(xmlNodePtr insert, xrltBool noparser)
 {
     xrltJSON2XMLPtr   ret = NULL;
 
@@ -414,10 +414,12 @@ xrltJSON2XMLInit(xmlNodePtr insert)
     ret->ns = xmlSearchNsByHref(insert->doc, insert, XRLT_NS);
     ret->stackPos = -1;
 
-    ret->parser = yajl_alloc(&yajlCallbacks, NULL, (void *)ret);
-    if (ret->parser == NULL) { goto error; }
+    if (!noparser) {
+        ret->parser = yajl_alloc(&xrltJSON2XMLCallbacks, NULL, (void *)ret);
+        if (ret->parser == NULL) { goto error; }
 
-    yajl_config(ret->parser, yajl_allow_comments, 1);
+        yajl_config(ret->parser, yajl_allow_comments, 1);
+    }
 
     return ret;
 

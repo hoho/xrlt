@@ -33,7 +33,7 @@ compile:
 
 .PHONY: transform
 transform:
-	g++ -o .build/transform_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../xrlterror.c transform/test.c -lxml2 -lyajl
+	g++ -o .build/transform_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../js.cc ../xrlterror.c transform/test.c -lxml2 -lyajl -lv8
 
 .PHONY: querystring
 querystring:

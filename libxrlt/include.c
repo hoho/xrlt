@@ -497,7 +497,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 break;
 
             case XRLT_SUBREQUEST_DATA_JSON:
-                tdata->jsonparser = xrltJSON2XMLInit((xmlNodePtr)tdata->doc);
+                tdata->jsonparser = xrltJSON2XMLInit((xmlNodePtr)tdata->doc,
+                                                     FALSE);
 
                 if (tdata->jsonparser == NULL) {
                     xrltTransformError(ctx, NULL, tdata->srcNode,

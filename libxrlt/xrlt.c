@@ -3,6 +3,7 @@
 
 #include "xrlt.h"
 #include "transform.h"
+#include "js.h"
 
 
 static inline void
@@ -117,56 +118,11 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
         xmlFreeDoc(sheet->doc);
     }
 
-    xrltFree(sheet);
-}
-
-
-static xmlXPathObjectPtr
-xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
-{
-    xmlChar              id[sizeof(xmlNodePtr) * 7]; // TODO: Count actual size.
-    xmlXPathObjectPtr    ret;
-    xrltContextPtr       ctx = (xrltContextPtr)ctxt;
-    xmlNodePtr           node;
-    xrltNodeDataPtr      n;
-
-    if (ctx == NULL) { return NULL; }
-
-    node = ctx->varContext;
-
-    while (node) {
-        sprintf((char *)id, "%p-%zd", node,
-                node == ctx->sheetNode ? 0 : ctx->varScope);
-
-        ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
-
-        if (ret != NULL) {
-            if (ret->type == XPATH_NODESET) {
-                node = xmlXPathNodeSetItem(ret->nodesetval, 0);
-
-                if (node != NULL) {
-                    n = (xrltNodeDataPtr)node->_private;
-
-                    if (n != NULL && n->count > 0) {
-                        ctx->xpathWait = node;
-
-                        return xmlXPathNewNodeSet(NULL);
-                    }
-                }
-            }
-
-            return xmlXPathObjectCopy(ret);
-        }
-
-        // Try upper scope.
-        if (node != ctx->sheetNode) {
-            node = node->parent;
-        } else {
-            break;
-        }
+    if (sheet->js != NULL) {
+        xrltJSContextFree((xrltJSContextPtr)sheet->js);
     }
 
-    return NULL;
+    xrltFree(sheet);
 }
 
 
@@ -445,6 +401,7 @@ xrltInit(void)
 {
     xmlRegisterNodeDefault(xrltRegisterNodeFunc);
     xmlDeregisterNodeDefault(xrltDeregisterNodeFunc);
+    xrltJSInit();
 }
 
 
@@ -452,6 +409,7 @@ void
 xrltCleanup(void)
 {
     xrltUnregisterBuiltinElements();
+    xrltJSFree();
 }
 
 

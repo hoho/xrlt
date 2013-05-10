@@ -60,15 +60,35 @@ struct _xrltJSON2XML {
 
 
 xrltJSON2XMLPtr
-        xrltJSON2XMLInit           (xmlNodePtr insert);
+        xrltJSON2XMLInit         (xmlNodePtr insert, xrltBool noparser);
 void
-        xrltJSON2XMLFree           (xrltJSON2XMLPtr json2xml);
+        xrltJSON2XMLFree         (xrltJSON2XMLPtr json2xml);
 xrltBool
-        xrltJSON2XMLFeed           (xrltJSON2XMLPtr json2xml, char *chunk,
-                                    size_t l);
+        xrltJSON2XMLFeed         (xrltJSON2XMLPtr json2xml, char *chunk,
+                                  size_t l);
 xmlChar *
-        xrltJSON2XMLGetError       (xrltJSON2XMLPtr json2xml, char *chunk,
-                                    size_t l);
+        xrltJSON2XMLGetError     (xrltJSON2XMLPtr json2xml, char *chunk,
+                                  size_t l);
+
+
+int
+        xrltJSON2XMLNull         (void *ctx);
+int
+        xrltJSON2XMLBoolean      (void *ctx, int value);
+int
+        xrltJSON2XMLNumber       (void *ctx, const char *s, size_t l);
+int
+        xrltJSON2XMLString       (void *ctx, const unsigned char *s, size_t l);
+int
+        xrltJSON2XMLMapStart     (void *ctx);
+int
+        xrltJSON2XMLMapKey       (void *ctx, const unsigned char *s, size_t l);
+int
+        xrltJSON2XMLMapEnd       (void *ctx);
+int
+        xrltJSON2XMLArrayStart   (void *ctx);
+int
+        xrltJSON2XMLArrayEnd     (void *ctx);
 
 
 #ifdef __cplusplus

@@ -1,6 +1,6 @@
 #include "transform.h"
 #include "function.h"
-#include "variable.h"
+
 
 
 static void
@@ -27,10 +27,12 @@ void *
 xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltFunctionData     *ret = NULL;
-    xmlNodePtr            tmp;
+    xmlNodePtr            tmp, tmp2;
+    xmlChar              *t;
     xrltVariableDataPtr   p;
     xrltVariableDataPtr  *newp;
     size_t                i;
+    xmlBufferPtr          buf = NULL;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltFunctionData*,
                 sizeof(xrltFunctionData), NULL);
@@ -50,6 +52,14 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     if (xmlValidateNCName(ret->name, 0)) {
         xrltTransformError(NULL, sheet, node, "Invalid function name\n");
         goto error;
+    }
+
+    t = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
+    if (t != NULL) {
+        if (xmlStrcasecmp(t, (xmlChar *)"javascript") == 0) {
+            ret->js = TRUE;
+        }
+        xmlFree(t);
     }
 
     // We keep the last function declaration as a function.
@@ -107,7 +117,46 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
     }
 
-    ret->children = tmp;
+    if (ret->js) {
+        tmp2 = tmp;
+
+        while (tmp2 != NULL) {
+            if (tmp2->type != XML_TEXT_NODE &&
+                tmp2->type != XML_CDATA_SECTION_NODE)
+            {
+                xrltTransformError(NULL, sheet, node, "Unexpected element\n");
+                goto error;
+            }
+            tmp2 = tmp2->next;
+        }
+
+        buf = xmlBufferCreateSize(64);
+        if (buf == NULL) {
+            xrltTransformError(NULL, sheet, node, "Failed to create buffer\n");
+            goto error;
+        }
+
+        if (tmp != NULL) {
+            while (tmp != NULL) {
+                xmlBufferCat(buf, tmp->content);
+                tmp = tmp->next;
+            }
+        } else {
+            xmlBufferCat(buf, (const xmlChar *)"return undefined;");
+        }
+
+        if (!xrltJSFunction(sheet, node, ret->name, ret->param, ret->paramLen,
+                            xmlBufferContent(buf)))
+        {
+            xmlBufferFree(buf);
+            goto error;
+        }
+
+        xmlBufferFree(buf);
+    } else {
+        ret->children = tmp;
+    }
+
     ret->node = node;
 
     return ret;
@@ -373,8 +422,6 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         n->data = tdata;
         n->free = xrltApplyTransformingFree;
 
-        COUNTER_INCREASE(ctx, node);
-
         tdata->node = node;
 
         NEW_CHILD(ctx, node, node, "tmp");
@@ -392,10 +439,20 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ctx->varScope = newScope;
 
-        TRANSFORM_SUBTREE(ctx, acomp->func->children, node);
+        if (acomp->func->js) {
+            if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name, NULL,
+                             0, insert))
+            {
+                return FALSE;
+            }
+        } else {
+            COUNTER_INCREASE(ctx, tdata->node);
 
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
-                          tdata);
+            TRANSFORM_SUBTREE(ctx, acomp->func->children, node);
+
+            SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
+                              tdata);
+        }
     } else {
         tdata = (xrltApplyTransformingData *)data;
 

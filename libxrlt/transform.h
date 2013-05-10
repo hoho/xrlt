@@ -212,10 +212,13 @@ struct _xrltNodeData {
 void
         xrltUnregisterBuiltinElements   (void);
 xrltBool
-        xrltHasXRLTElement(xmlNodePtr node);
+        xrltHasXRLTElement              (xmlNodePtr node);
+xmlXPathObjectPtr
+        xrltVariableLookupFunc          (void *ctxt, const xmlChar *name,
+                                         const xmlChar *ns_uri);
 
 
-static inline xrltBool
+        static inline xrltBool
 xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
                                xmlNodePtr insert, size_t varScope, void *data)
