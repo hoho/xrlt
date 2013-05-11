@@ -455,12 +455,10 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ctx->varContext = acomp->func->node;
 
             if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
-                             acomp->param, acomp->paramLen, insert))
+                             acomp->param, acomp->paramLen, tdata->ret))
             {
                 return FALSE;
             }
-
-            COUNTER_DECREASE(ctx, tdata->node);
         } else {
             ASSERT_NODE_DATA(tdata->ret, n);
 
@@ -470,13 +468,13 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 return TRUE;
             }
-
-            COUNTER_DECREASE(ctx, tdata->node);
-
-            REPLACE_RESPONSE_NODE(
-                ctx, tdata->node, tdata->ret->children, acomp->node
-            );
         }
+
+        COUNTER_DECREASE(ctx, tdata->node);
+
+        REPLACE_RESPONSE_NODE(
+            ctx, tdata->node, tdata->ret->children, acomp->node
+        );
     }
 
     return TRUE;
