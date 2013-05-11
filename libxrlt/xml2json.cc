@@ -272,7 +272,7 @@ xrltXML2JSONCreate(xmlXPathObjectPtr value)
 
     switch (value->type) {
         case XPATH_BOOLEAN:
-            return v8::Boolean::New(value->boolval);
+            return v8::Boolean::New(value->boolval ? true : false);
         case XPATH_NUMBER:
             return v8::Number::New(value->floatval);
         case XPATH_STRING:

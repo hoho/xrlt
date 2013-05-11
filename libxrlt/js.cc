@@ -17,31 +17,19 @@ typedef struct {
 
 
 v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
-v8::Persistent<v8::FunctionTemplate> xrltStringifyReplacerTemplate;
 
 
 v8::Handle<v8::Value>
 xrltDeferredThen(const v8::Arguments& args) {
-    printf("then\n");
+    fprintf(stderr, "then\n");
     return v8::True();
 }
 
 
 v8::Handle<v8::Value>
 xrltDeferredResolve(const v8::Arguments& args) {
-    printf("resolve\n");
+    fprintf(stderr, "resolve\n");
     return v8::True();
-}
-
-
-v8::Handle<v8::Value>
-xrltStringifyReplacer(const v8::Arguments& args) {
-    if (xrltDeferredConstructor->HasInstance(args[1])) {
-        printf("fuckfuckufckfuckfuck\n");
-        return v8::True();
-    } else {
-        return args[1];
-    }
 }
 
 
@@ -56,6 +44,8 @@ xrltJSInit(void)
         v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
     xrltDeferredConstructor->SetClassName(v8::String::New("Deferred"));
 
+    xrltDeferredConstructor->InstanceTemplate()->SetInternalFieldCount(1);
+
     xrltDeferredConstructor->PrototypeTemplate()->Set(
         v8::String::New("then"),
         v8::FunctionTemplate::New(xrltDeferredThen)
@@ -65,10 +55,6 @@ xrltJSInit(void)
         v8::String::New("resolve"),
         v8::FunctionTemplate::New(xrltDeferredResolve)
     );
-
-    xrltStringifyReplacerTemplate = v8::Persistent<v8::FunctionTemplate>::New(
-         v8::FunctionTemplate::New(xrltStringifyReplacer)
-    );
 }
 
 
@@ -77,7 +63,6 @@ xrltJSFree(void)
 {
     xrltXML2JSONTemplateFree();
     xrltDeferredConstructor.Dispose();
-    xrltStringifyReplacerTemplate.Dispose();
 }
 
 
@@ -268,10 +253,10 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
         std::string   _args;
 
         for (count = 0; count < paramLen; count++) {
-            funcwrap->Set(v8::String::New((char *)param[count]->name),
+            funcwrap->Set(v8::String::New((char *)param[count]->jsname),
                           v8::Number::New(count));
 
-            _args.append((char *)param[count]->name);
+            _args.append((char *)param[count]->jsname);
 
             if (count < paramLen - 1) { _args.append(", "); }
         }
@@ -374,25 +359,62 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
 }
 
 
+static xrltBool
+xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                            void *data)
+{
+    xrltDeferredTransformingPtr   dcomp = (xrltDeferredTransformingPtr)comp;
+    xmlXPathObjectPtr             val;
+    v8::Persistent<v8::Object>   *obj;
+
+    obj = (v8::Persistent<v8::Object> *)dcomp->deferred;
+
+    ctx->varContext = dcomp->varContext;
+
+    val = xrltVariableLookupFunc(ctx, dcomp->name, NULL);
+
+    if (val == NULL) {
+        xrltTransformError(ctx, NULL, dcomp->node,
+                           "Variable '%s' lookup failed\n", dcomp->name);
+        return FALSE;
+    }
+
+    // TODO: Call deferred callbacks.
+
+    obj->Dispose();
+    delete obj;
+
+    xrltFree(comp);
+
+    return TRUE;
+}
+
+
 xrltBool
 xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
             xrltVariableDataPtr *param, size_t paramLen, xmlNodePtr insert)
 {
     if (ctx == NULL || name == NULL || insert == NULL) { return FALSE; }
 
-    xrltJSContextPtr          jsctx = (xrltJSContextPtr)ctx->sheet->js;
-    xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
+    xrltJSContextPtr              jsctx = (xrltJSContextPtr)ctx->sheet->js;
+    xrltJSContextPrivate         *priv = \
+                                      (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::HandleScope           scope;
-    v8::Context::Scope        context_scope(priv->context);
+    v8::HandleScope               scope;
+    v8::Context::Scope            context_scope(priv->context);
 
-    v8::Local<v8::Object>     funcwrap;
-    v8::Local<v8::Function>   func;
-    size_t                    argc;
-    v8::Local<v8::Value>      _ret;
+    v8::Local<v8::Object>         funcwrap;
+    v8::Local<v8::Function>       func;
+    size_t                        argc;
+    v8::Local<v8::Value>          _ret;
+    xmlXPathObjectPtr             val;
+    xrltDeferredTransformingPtr   deferredData;
+    v8::Local<v8::Function>       deferredConstr;
+    xrltNodeDataPtr               n;
 
     funcwrap = priv->functions->Get(v8::String::New((char *)name))->ToObject();
-    if (!funcwrap->IsUndefined()) {
+
+    if (!funcwrap.IsEmpty() && !funcwrap->IsUndefined()) {
         argc = paramLen;
 
         func = v8::Local<v8::Function>::Cast(
@@ -402,16 +424,66 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
         v8::TryCatch   trycatch;
 
         if (argc > 0) {
-            v8::Local<v8::Value>   argv[argc];
-            size_t                 i;
+            v8::Handle<v8::Value>   argv[argc];
+            size_t                  i;
 
             for (i = 0; i < argc; i++) {
-                argv[i] = v8::Local<v8::Value>::New(
-                    xrltXML2JSONCreate(
-                        xrltVariableLookupFunc(ctx, param[i]->name, NULL)
-                    )
-                );
+                ctx->xpathWait = NULL;
+
+                val = xrltVariableLookupFunc(ctx, param[i]->name, NULL);
+
+                if (val == NULL) {
+                    xrltTransformError(ctx, NULL, param[i]->node,
+                                       "Variable '%s' lookup failed\n",
+                                       param[i]->name);
+                    return FALSE;
+                }
+
+                if (ctx->xpathWait != NULL) {
+                    if (deferredConstr.IsEmpty()) {
+                        deferredConstr = xrltDeferredConstructor->GetFunction();
+                    }
+
+                    XRLT_MALLOC(ctx, NULL, node, deferredData,
+                                xrltDeferredTransformingPtr,
+                                sizeof(xrltDeferredTransforming), FALSE);
+
+                    v8::Persistent<v8::Object>   *_val;
+
+                    _val = new v8::Persistent<v8::Object>;
+
+                    *_val = v8::Persistent<v8::Object>::New(
+                        deferredConstr->NewInstance()
+                    );
+
+                    deferredData->node = param[i]->node;
+                    deferredData->name = param[i]->name;
+                    deferredData->varContext = ctx->varContext;
+                    deferredData->deferred = _val;
+
+                    (*_val)->SetInternalField(
+                        0, v8::External::New(deferredData)
+                    );
+
+                    ASSERT_NODE_DATA(ctx->xpathWait, n);
+
+                    SCHEDULE_CALLBACK(ctx, &n->tcb,
+                                      xrltDeferredVariableResolve,
+                                      deferredData, insert, &_val);
+
+                    // TODO: Create callbacks for cleanup in XRLT because
+                    //       we're deleting *_val inside
+                    //       xrltDeferredVariableResolve, so memory leak is
+                    //       possible in case of error before.
+
+                    argv[i] = *_val;
+                } else {
+                    argv[i] = v8::Local<v8::Value>::New(
+                        xrltXML2JSONCreate(val)
+                    );
+                }
             }
+
             _ret = func->Call(priv->global, argc, argv);
         } else {
             _ret = func->Call(priv->global, 0, NULL);

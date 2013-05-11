@@ -278,7 +278,7 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
 
     while (node) {
         sprintf((char *)id, "%p-%zd", node,
-        node == ctx->sheetNode ? 0 : ctx->varScope);
+                node == ctx->sheetNode ? 0 : ctx->varScope);
 
         ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
 

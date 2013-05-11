@@ -9,6 +9,7 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltVariableDataPtr   ret = NULL;
     xmlChar              *select;
     xrltNodeDataPtr       n;
+    int                   i;
 
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltVariableDataPtr,
@@ -20,6 +21,20 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     if (xmlValidateNCName(ret->name, 0)) {
         xrltTransformError(NULL, sheet, node, "Invalid name\n");
         goto error;
+    }
+
+    ret->jsname = xmlStrdup(ret->name);
+    ret->ownJsname = TRUE;
+
+    if (ret->jsname == NULL) {
+        RAISE_OUT_OF_MEMORY(NULL, sheet, node);
+        goto error;
+    }
+
+    for (i = xmlStrlen(ret->jsname); i >= 0; i--) {
+        if (ret->jsname[i] == '-') {
+            ret->jsname[i] = '_';
+        }
     }
 
     ASSERT_NODE_DATA_GOTO(node, n);

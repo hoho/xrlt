@@ -37,6 +37,16 @@ struct _xrltJSArgumentList {
 };
 
 
+typedef struct _xrltDeferredTransforming xrltDeferredTransforming;
+typedef xrltDeferredTransforming* xrltDeferredTransformingPtr;
+struct _xrltDeferredTransforming {
+    xmlNodePtr   node;
+    xmlChar     *name;
+    xmlNodePtr   varContext;
+    void        *deferred;
+};
+
+
 static inline xrltJSArgumentListPtr
         xrltJSArgumentListCreate   (int size);
 static inline xrltBool

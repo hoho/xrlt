@@ -304,6 +304,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 memcpy(p, ret->func->param[i], sizeof(xrltVariableData));
 
                 p->ownName = FALSE;
+                p->ownJsname = FALSE;
                 p->ownXval = FALSE;
             }
 
@@ -439,37 +440,43 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ctx->varScope = newScope;
 
-        if (acomp->func->js) {
-            if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name, NULL,
-                             0, insert))
-            {
-                return FALSE;
-            }
-        } else {
-            COUNTER_INCREASE(ctx, tdata->node);
+        COUNTER_INCREASE(ctx, tdata->node);
 
+        if (!acomp->func->js) {
             TRANSFORM_SUBTREE(ctx, acomp->func->children, node);
-
-            SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
-                              tdata);
         }
+
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
+                          tdata);
     } else {
         tdata = (xrltApplyTransformingData *)data;
 
-        ASSERT_NODE_DATA(tdata->ret, n);
+        if (acomp->func->js) {
+            ctx->varContext = acomp->func->node;
 
-        if (n->count > 0) {
-            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp, insert,
-                              data);
+            if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
+                             acomp->param, acomp->paramLen, insert))
+            {
+                return FALSE;
+            }
 
-            return TRUE;
+            COUNTER_DECREASE(ctx, tdata->node);
+        } else {
+            ASSERT_NODE_DATA(tdata->ret, n);
+
+            if (n->count > 0) {
+                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp, insert,
+                                  data);
+
+                return TRUE;
+            }
+
+            COUNTER_DECREASE(ctx, tdata->node);
+
+            REPLACE_RESPONSE_NODE(
+                ctx, tdata->node, tdata->ret->children, acomp->node
+            );
         }
-
-        COUNTER_DECREASE(ctx, tdata->node);
-
-        REPLACE_RESPONSE_NODE(
-            ctx, tdata->node, tdata->ret->children, acomp->node
-        );
     }
 
     return TRUE;
