@@ -37,6 +37,12 @@ typedef struct {
 } xrltValueOfTransformingData;
 
 
+typedef struct {
+    xmlNodePtr   node;
+    xmlChar     *text;
+} xrltTextData;
+
+
 void *
         xrltResponseCompile        (xrltRequestsheetPtr sheet, xmlNodePtr node,
                                     void *prevcomp);
@@ -73,6 +79,16 @@ void
         xrltValueOfFree            (void *comp);
 xrltBool
         xrltValueOfTransform       (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
+
+void *
+        xrltTextCompile            (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
+void
+        xrltTextFree               (void *comp);
+xrltBool
+        xrltTextTransform          (xrltContextPtr ctx, void *comp,
                                     xmlNodePtr insert, void *data);
 
 

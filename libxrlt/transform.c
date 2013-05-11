@@ -113,6 +113,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltApplyFree,
                                xrltApplyTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"text",
+                               XRLT_COMPILE_PASS1,
+                               xrltTextCompile,
+                               xrltTextFree,
+                               xrltTextTransform);
+
     if (!ret) {
         xrltUnregisterBuiltinElements();
         return FALSE;

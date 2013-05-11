@@ -431,3 +431,98 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
     return TRUE;
 }
+
+
+void *
+xrltTextCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
+{
+
+    xrltTextData  *ret = NULL;
+    xmlNodePtr     tmp;
+    xmlBufferPtr   buf = NULL;
+
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltTextData*, sizeof(xrltTextData),
+                NULL);
+
+    tmp = node->children;
+
+    while (tmp != NULL) {
+        if (tmp->type != XML_TEXT_NODE && tmp->type != XML_CDATA_SECTION_NODE)
+        {
+            xrltTransformError(NULL, sheet, node, "Unexpected element\n");
+            goto error;
+        }
+        tmp = tmp->next;
+    }
+
+    buf = xmlBufferCreateSize(64);
+    if (buf == NULL) {
+        xrltTransformError(NULL, sheet, node, "Failed to create buffer\n");
+        goto error;
+    }
+
+    tmp = node->children;
+
+    while (tmp != NULL) {
+        xmlBufferCat(buf, tmp->content);
+        tmp = tmp->next;
+    }
+
+    ret->text = xmlStrdup(xmlBufferContent(buf));
+
+    xmlBufferFree(buf);
+    buf = NULL;
+
+    ret->node = node;
+
+    return ret;
+
+  error:
+    if (buf != NULL) { xmlBufferFree(buf); }
+
+    xrltTextFree(ret);
+
+    return NULL;
+
+}
+
+
+void
+xrltTextFree(void *comp)
+{
+    if (comp) {
+        xrltTextData  *tcomp = (xrltTextData *)comp;
+
+        if (tcomp->text != NULL) { xmlFree(tcomp->text); }
+
+        xrltFree(tcomp);
+    }
+}
+
+
+xrltBool
+xrltTextTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                  void *data)
+{
+    xrltTextData  *tcomp = (xrltTextData *)comp;
+    xmlNodePtr     node;
+
+    if (tcomp->text != NULL) {
+        node = xmlNewText(tcomp->text);
+
+        if (node == NULL) {
+            xrltTransformError(ctx, NULL, tcomp->node,
+                               "Failed to create response node\n");
+            return FALSE;
+        }
+
+        if (xmlAddChild(insert, node) == NULL) {
+            xrltTransformError(ctx, NULL, tcomp->node,
+                               "Failed to append response node\n");
+            xmlFreeNode(node);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
