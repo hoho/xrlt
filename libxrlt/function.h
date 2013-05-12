@@ -33,6 +33,8 @@ typedef struct {
     xmlNodePtr            node;
     xrltFunctionData     *func;
 
+    xrltBool              hasSyncParam;
+
     xrltVariableDataPtr  *param;
     xrltVariableDataPtr  *merged;
     size_t                paramLen;
@@ -46,8 +48,8 @@ typedef struct {
 
 typedef struct {
     xmlNodePtr   node;
-    //xmlNodePtr   paramNode;
-    xmlNodePtr   ret;
+    xmlNodePtr   paramNode;
+    xmlNodePtr   retNode;
 
     //xrltFunctionTransformStage   stage;
 } xrltApplyTransformingData;

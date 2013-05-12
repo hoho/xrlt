@@ -41,6 +41,7 @@ typedef struct _xrltDeferredTransforming xrltDeferredTransforming;
 typedef xrltDeferredTransforming* xrltDeferredTransformingPtr;
 struct _xrltDeferredTransforming {
     xmlNodePtr   node;
+    xmlNodePtr   codeNode;
     xmlChar     *name;
     xmlNodePtr   varContext;
     void        *deferred;

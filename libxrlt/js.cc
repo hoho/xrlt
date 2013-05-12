@@ -19,17 +19,118 @@ typedef struct {
 v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
 
 
+void ReportException(xrltContextPtr ctx, xrltRequestsheetPtr sheet,
+                     xmlNodePtr node, v8::TryCatch* trycatch)
+{
+    v8::HandleScope          scope;
+
+    v8::Local<v8::Value>     exception(trycatch->Exception());
+    v8::String::AsciiValue   exception_str(exception);
+    v8::Local<v8::Message>   message = trycatch->Message();
+
+    if (message.IsEmpty()) {
+        xrltTransformError(ctx, sheet, node, "%s\n", *exception_str);
+    } else {
+        xrltTransformError(ctx, sheet, node, "Line %i: %s\n",
+                           message->GetLineNumber() + node->line - 1,
+                           *exception_str);
+    }
+}
+
+
+v8::Handle<v8::Value>
+xrltDeferredInit(const v8::Arguments& args) {
+    args.This()->SetAlignedPointerInInternalField(0, NULL);
+
+    args.This()->Set(0, v8::Array::New(0));
+
+    return args.This();
+}
+
+
 v8::Handle<v8::Value>
 xrltDeferredThen(const v8::Arguments& args) {
+    v8::HandleScope        scope;
+
+    v8::Local<v8::Array>   cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
+
+    if (args.Length() < 1) {
+        return v8::ThrowException(v8::String::New("Too few arguments"));
+    }
+
+    if (!args[0]->IsFunction()) {
+        return v8::ThrowException(
+            v8::Exception::TypeError(v8::String::New("Function is expected"))
+        );
+    }
+
+    cb->Set(cb->Length(), args[0]);
+
     fprintf(stderr, "then\n");
-    return v8::True();
+
+    return v8::Undefined();
 }
 
 
 v8::Handle<v8::Value>
 xrltDeferredResolve(const v8::Arguments& args) {
+    v8::HandleScope           scope;
+
+    v8::Local<v8::Array>      cb;
+    v8::Local<v8::Function>   func;
+    uint32_t                  i;
+    v8::Local<v8::Value>      argv[1];
+
+
+    if (args.Length() < 1) {
+        return v8::ThrowException(v8::String::New("Too few arguments"));
+    }
+
+    if (args.This()->Get(1)->BooleanValue()) {
+        return v8::ThrowException(
+            v8::String::New("Can't resolve internal Deferred")
+        );
+    }
+
+    argv[0] = args[0];
+
+    cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
+
+    v8::TryCatch   trycatch;
+
+    for (i = 0; i < cb->Length(); i++) {
+        func = v8::Local<v8::Function>::Cast(cb->Get(i));
+
+        func->Call(args.This(), 1, argv);
+
+        if (trycatch.HasCaught()) {
+            void                         *internal;
+            xrltDeferredTransformingPtr   deferredData;
+            xrltContextPtr                ctx;
+
+            internal = args.This()->GetAlignedPointerFromInternalField(0);
+
+            if (internal == NULL) {
+                return trycatch.ReThrow();
+            }
+
+            deferredData = (xrltDeferredTransformingPtr)args.This()->
+                                        GetAlignedPointerFromInternalField(1);
+            ctx = (xrltContextPtr)args.This()->
+                                        GetAlignedPointerFromInternalField(2);
+
+            if (deferredData != NULL && ctx != NULL) {
+                ReportException(ctx, NULL, deferredData->codeNode, &trycatch);
+
+                ctx->cur |= XRLT_STATUS_ERROR;
+            }
+
+            break;
+        }
+    }
+
     fprintf(stderr, "resolve\n");
-    return v8::True();
+    return v8::Undefined();
 }
 
 
@@ -44,7 +145,9 @@ xrltJSInit(void)
         v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
     xrltDeferredConstructor->SetClassName(v8::String::New("Deferred"));
 
-    xrltDeferredConstructor->InstanceTemplate()->SetInternalFieldCount(1);
+    xrltDeferredConstructor->InstanceTemplate()->SetInternalFieldCount(3);
+
+    xrltDeferredConstructor->SetCallHandler(xrltDeferredInit);
 
     xrltDeferredConstructor->PrototypeTemplate()->Set(
         v8::String::New("then"),
@@ -115,8 +218,10 @@ Apply(const v8::Arguments& args) {
 
         funcwrap = v8::Local<v8::Object>::Cast(priv->functions->Get(args[0]));
 
-        func = v8::Local<v8::Function>::Cast(funcwrap->Get(v8::String::New("0")));
-        count = v8::Local<v8::Number>::Cast(funcwrap->Get(v8::String::New("1")));
+        func = \
+            v8::Local<v8::Function>::Cast(funcwrap->Get(v8::String::New("0")));
+        count = \
+            v8::Local<v8::Number>::Cast(funcwrap->Get(v8::String::New("1")));
 
         i = count->Int32Value();
         v8::Local<v8::Value>      argv[i > 0 ? i : 1];
@@ -131,13 +236,16 @@ Apply(const v8::Arguments& args) {
             v8::Local<v8::Array>    argnames = _args->GetOwnPropertyNames();
             v8::Local<v8::String>   name;
             v8::Local<v8::Number>   index;
+
             for (i = argnames->Length() - 1; i >= 0; i--) {
                 name = v8::Local<v8::String>::Cast(argnames->Get(i));
                 index = v8::Local<v8::Number>::Cast(funcwrap->Get(name));
+
                 if (!index->IsUndefined()) {
                     argv[index->Int32Value()] = _args->Get(name);
                 }
             }
+
             i = count->Int32Value();
         }
 
@@ -156,7 +264,6 @@ xrltJSContextCreate(void)
     v8::HandleScope           scope;
 
     v8::Local<v8::External>   data;
-    v8::Local<v8::Function>   stringify;
 
     ret = (xrltJSContextPtr)xrltMalloc(sizeof(xrltJSContext) +
                                        sizeof(xrltJSContextPrivate));
@@ -278,11 +385,8 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
 
     func = constr->NewInstance(argc, argv);
 
-    if (func.IsEmpty()) {
-        v8::Handle<v8::Value>    exception = trycatch.Exception();
-        v8::String::AsciiValue   exception_str(exception);
-
-        xrltTransformError(NULL, sheet, node, "%s\n", *exception_str);
+    if (trycatch.HasCaught()) {
+        ReportException(NULL, sheet, node, &trycatch);
 
         return FALSE;
     }
@@ -329,32 +433,36 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
 
         xrltJSON2XMLArrayEnd(js2xml);
     } else if (val->IsObject()) {
-        v8::Local<v8::Object>   _val = val->ToObject();
-        v8::Local<v8::Array>    keys = _val->GetPropertyNames();
-        uint32_t                i;
-        v8::Local<v8::Value>    key;
-        v8::Local<v8::String>   _key;
+        v8::Local<v8::Object>   _val = v8::Local<v8::Object>::Cast(val);
 
-        xrltJSON2XMLMapStart(js2xml);
+        if (xrltDeferredConstructor->HasInstance(_val)) {
+            // TODO: Insert deferred object into response document.
+        } else {
+            v8::Local<v8::Array>    keys = _val->GetPropertyNames();
+            uint32_t                i;
+            v8::Local<v8::Value>    key;
+            v8::Local<v8::String>   _key;
 
-        for (i = 0; i < keys->Length(); i++) {
-            key = keys->Get(i);
-            if (key->IsString()) {
-                _key = key->ToString();
-            } else {
-                _key = v8::Local<v8::String>::Cast(key);
+            xrltJSON2XMLMapStart(js2xml);
+
+            for (i = 0; i < keys->Length(); i++) {
+                key = keys->Get(i);
+                if (key->IsString()) {
+                    _key = v8::Local<v8::String>::Cast(key);
+                } else {
+                    _key = key->ToString();
+                }
+
+                v8::String::Utf8Value   __key(_key);
+
+                xrltJSON2XMLMapKey(js2xml, (const unsigned char *)*__key,
+                                   (size_t)_key->Length());
+
+                xrltJS2XML(js2xml, _val->Get(key));
             }
 
-            v8::String::Utf8Value   __key(_key);
-
-            xrltJSON2XMLMapKey(
-                js2xml, (const unsigned char *)*__key, (size_t)_key->Length()
-            );
-
-            xrltJS2XML(js2xml, _val->Get(key));
+            xrltJSON2XMLMapEnd(js2xml);
         }
-
-        xrltJSON2XMLMapEnd(js2xml);
     }
 }
 
@@ -365,7 +473,14 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 {
     xrltDeferredTransformingPtr   dcomp = (xrltDeferredTransformingPtr)comp;
     xmlXPathObjectPtr             val;
+
+    v8::HandleScope               scope;
+
     v8::Persistent<v8::Object>   *obj;
+    v8::Local<v8::Array>          cb;
+    v8::Local<v8::Function>       resolve;
+    v8::Local<v8::Value>          argv[1];
+    uint32_t                      i;
 
     obj = (v8::Persistent<v8::Object> *)dcomp->deferred;
 
@@ -379,12 +494,21 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         return FALSE;
     }
 
-    // TODO: Call deferred callbacks.
+    resolve = \
+        v8::Local<v8::Function>::Cast((*obj)->Get(v8::String::New("resolve")));
+
+    argv[0] = v8::Local<v8::String>::New(v8::String::New("FUCKYEAH!!"));
+
+    resolve->Call(*obj, 1, argv);
 
     obj->Dispose();
     delete obj;
 
     xrltFree(comp);
+
+    if (ctx->cur & XRLT_STATUS_ERROR) {
+        return FALSE;
+    }
 
     return TRUE;
 }
@@ -457,13 +581,14 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                     );
 
                     deferredData->node = param[i]->node;
+                    deferredData->codeNode = node;
                     deferredData->name = param[i]->name;
                     deferredData->varContext = ctx->varContext;
                     deferredData->deferred = _val;
 
-                    (*_val)->SetInternalField(
-                        0, v8::External::New(deferredData)
-                    );
+                    (*_val)->SetAlignedPointerInInternalField(0, (void *)0x2);
+                    (*_val)->SetAlignedPointerInInternalField(1, deferredData);
+                    (*_val)->SetAlignedPointerInInternalField(2, ctx);
 
                     ASSERT_NODE_DATA(ctx->xpathWait, n);
 
@@ -489,11 +614,8 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
             _ret = func->Call(priv->global, 0, NULL);
         }
 
-        if (_ret.IsEmpty()) {
-            v8::Handle<v8::Value>    exception = trycatch.Exception();
-            v8::String::AsciiValue   exception_str(exception);
-
-            xrltTransformError(ctx, NULL, node, "%s\n", *exception_str);
+        if (trycatch.HasCaught()) {
+            ReportException(ctx, NULL, node, &trycatch);
 
             return FALSE;
         }

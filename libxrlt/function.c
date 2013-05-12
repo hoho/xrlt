@@ -2,7 +2,6 @@
 #include "function.h"
 
 
-
 static void
 xrltFunctionRemove(void *payload, xmlChar *name)
 {
@@ -98,6 +97,15 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         ret->param[ret->paramLen++] = p;
+
+        t = xmlGetProp(tmp, XRLT_ELEMENT_ATTR_ASYNC);
+        if (t != NULL) {
+            p->sync = \
+                xmlStrcasecmp(t, (const xmlChar *)"yes") == 0 ? FALSE : TRUE;
+            xmlFree(t);
+        } else {
+            p->sync = TRUE;
+        }
 
         tmp = tmp->next;
     }
@@ -316,8 +324,16 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
                 if (k == 0) {
                     tmp = newp[i]->declScope;
+
                     memcpy(newp[i], ret->param[j], sizeof(xrltVariableData));
+
                     newp[i]->declScope = tmp;
+
+                    newp[i]->sync = ret->func->param[i]->sync;
+
+                    if (newp[i]->sync) {
+                        ret->hasSyncParam = TRUE;
+                    }
 
                     memset(ret->param[j], 0, sizeof(xrltVariableData));
 
@@ -390,9 +406,24 @@ static void
 xrltApplyTransformingFree(void *data)
 {
     xrltApplyTransformingData  *tdata;
+    xmlNodePtr                  tmp;
+    xmlDocPtr                   d;
 
     if (data != NULL) {
         tdata = (xrltApplyTransformingData *)data;
+
+        if (tdata->paramNode) {
+            tmp = tdata->paramNode->children;
+
+            while (tmp != NULL) {
+                d = (xmlDocPtr)tmp;
+
+                tmp = tmp->next;
+
+                xmlUnlinkNode((xmlNodePtr)d);
+                xmlFreeDoc(d);
+            }
+        }
 
         xrltFree(tdata);
     }
@@ -405,7 +436,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 {
     if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
 
-    xmlNodePtr                  node;
+    xmlNodePtr                  node, tmp;
     xrltApplyData              *acomp = (xrltApplyData *)comp;
     xrltNodeDataPtr             n;
     xrltApplyTransformingData  *tdata;
@@ -425,25 +456,32 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->node = node;
 
-        NEW_CHILD(ctx, node, node, "tmp");
-        tdata->ret = node;
+        if (acomp->hasSyncParam) {
+            NEW_CHILD(ctx, tdata->paramNode, node, "p");
+        }
+
+        NEW_CHILD(ctx, tdata->retNode, node, "r");
 
         newScope = ++ctx->maxVarScope;
+        node = ctx->var;
 
         for (i = 0; i < acomp->paramLen; i++) {
             acomp->param[i]->declScopePos = newScope;
+
+            ctx->var = acomp->param[i]->sync ? tdata->paramNode : node;
 
             if (!xrltVariableTransform(ctx, acomp->param[i], insert, NULL)) {
                 return FALSE;
             }
         }
 
+        ctx->var = node;
         ctx->varScope = newScope;
 
         COUNTER_INCREASE(ctx, tdata->node);
 
-        if (!acomp->func->js) {
-            TRANSFORM_SUBTREE(ctx, acomp->func->children, node);
+        if (!acomp->hasSyncParam && !acomp->func->js) {
+            TRANSFORM_SUBTREE(ctx, acomp->func->children, tdata->retNode);
         }
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,
@@ -451,20 +489,58 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     } else {
         tdata = (xrltApplyTransformingData *)data;
 
+        if (tdata->paramNode != NULL) {
+            ASSERT_NODE_DATA(tdata->paramNode, n);
+
+            if (n->count > 0) {
+                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
+                                  insert, tdata);
+                return TRUE;
+            }
+
+            node = tdata->paramNode->children;
+
+            while (node != NULL) {
+                tmp = node->next;
+
+                xmlUnlinkNode(node);
+
+                if (!xmlAddChild(ctx->var, node)) {
+                    RAISE_ADD_CHILD_ERROR(ctx, NULL, acomp->node);
+
+                    xmlFreeDoc((xmlDocPtr)node);
+
+                    return FALSE;
+                }
+
+                node = tmp;
+            }
+
+            tdata->paramNode = NULL;
+
+            if (!acomp->func->js) {
+                TRANSFORM_SUBTREE(ctx, acomp->func->children, tdata->retNode);
+
+                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp,
+                                  insert, tdata);
+                return TRUE;
+            }
+        }
+
         if (acomp->func->js) {
             ctx->varContext = acomp->func->node;
 
             if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
-                             acomp->param, acomp->paramLen, tdata->ret))
+                             acomp->param, acomp->paramLen, tdata->retNode))
             {
                 return FALSE;
             }
         } else {
-            ASSERT_NODE_DATA(tdata->ret, n);
+            ASSERT_NODE_DATA(tdata->retNode, n);
 
             if (n->count > 0) {
-                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp, insert,
-                                  data);
+                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
+                                  insert, data);
 
                 return TRUE;
             }
@@ -473,7 +549,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         COUNTER_DECREASE(ctx, tdata->node);
 
         REPLACE_RESPONSE_NODE(
-            ctx, tdata->node, tdata->ret->children, acomp->node
+            ctx, tdata->node, tdata->retNode->children, acomp->node
         );
     }
 

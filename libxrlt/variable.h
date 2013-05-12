@@ -19,6 +19,8 @@ struct _xrltVariableData {
     xmlNodePtr      declScope;
     size_t          declScopePos;
 
+    xrltBool        sync;
+
     xrltBool        ownName;
     xmlChar        *name;
 

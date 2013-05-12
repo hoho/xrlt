@@ -7,13 +7,6 @@
 #include "xml2json.h"
 
 
-#define XRLT_EXTRACT_XML2JSON_DATA                                            \
-    v8::Handle<v8::External> field =                                          \
-        v8::Handle<v8::External>::Cast(info.Holder()->GetInternalField(0));   \
-    xrltXML2JSONData *data =                                                  \
-        static_cast<xrltXML2JSONData *>(field->Value());
-
-
 // XML2JSON cache template, needs xrltXML2JSONTemplateInit to initialize.
 v8::Persistent<v8::ObjectTemplate> xrltXML2JSONCacheTemplate;
 // XML2JSON object template, needs xrltXML2JSONTemplateInit to initialize.
@@ -268,7 +261,7 @@ xrltXML2JSONCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
 
             rddm.MakeWeak(data, xrltXML2JSONWeakCallback);
 
-            rddm->SetInternalField(0, v8::External::New(data));
+            rddm->SetAlignedPointerInInternalField(0, data);
 
             ret = rddm;
             isXML2JSON = true;
@@ -331,7 +324,7 @@ xrltXML2JSONCreate(xmlXPathObjectPtr value)
     cache = new xrltXML2JSONCache(data);
 
     cacheobj.MakeWeak(cache, xrltXML2JSONCacheWeakCallback);
-    cacheobj->SetInternalField(0, v8::External::New(cache));
+    cacheobj->SetAlignedPointerInInternalField(0, cache);
 
     if (value->nodesetval->nodeNr == 1 &&
         value->nodesetval->nodeTab[0]->type == XML_DOCUMENT_NODE)
@@ -349,7 +342,9 @@ v8::Handle<v8::Value>
 xrltXML2JSONGetProperty(v8::Local<v8::String> name,
                         const v8::AccessorInfo& info)
 {
-    XRLT_EXTRACT_XML2JSON_DATA;
+    xrltXML2JSONData                                  *data;
+    data = (xrltXML2JSONData *)info.Holder()->
+                                        GetAlignedPointerFromInternalField(0);
 
     std::string                                        key;
     v8::String::Utf8Value                              keyarg(name);
@@ -387,7 +382,9 @@ xrltXML2JSONGetProperty(v8::Local<v8::String> name,
 v8::Handle<v8::Array>
 xrltXML2JSONEnumProperties(const v8::AccessorInfo& info)
 {
-    XRLT_EXTRACT_XML2JSON_DATA;
+    xrltXML2JSONData                                  *data;
+    data = (xrltXML2JSONData *)info.Holder()->
+                                         GetAlignedPointerFromInternalField(0);
 
     v8::HandleScope                                    scope;
 

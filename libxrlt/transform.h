@@ -21,6 +21,7 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_NAME      (const xmlChar *)"name"
 #define XRLT_ELEMENT_ATTR_SELECT    (const xmlChar *)"select"
 #define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
+#define XRLT_ELEMENT_ATTR_ASYNC     (const xmlChar *)"async"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
 #define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"
@@ -53,6 +54,10 @@ extern "C" {
 
 #define RAISE_OUT_OF_MEMORY(ctx, sheet, node)                                 \
     xrltTransformError(ctx, sheet, node, "%s: Out of memory\n", __func__);
+
+#define RAISE_ADD_CHILD_ERROR(ctx, sheet, node)                               \
+    xrltTransformError(ctx, sheet, node,                                      \
+                       "%s: Failed to add response element\n", __func__);
 
 
 #define XRLT_MALLOC(ctx, sheet, node, ret, type, size, error) {               \
