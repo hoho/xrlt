@@ -83,8 +83,6 @@ xrltDeferredThen(const v8::Arguments& args) {
 
     cb->Set(cb->Length(), args[0]);
 
-    fprintf(stderr, "then\n");
-
     return v8::Undefined();
 }
 
@@ -146,7 +144,6 @@ xrltDeferredResolve(const v8::Arguments& args) {
         }
     }
 
-    fprintf(stderr, "resolve\n");
     return v8::Undefined();
 }
 
@@ -571,7 +568,7 @@ xrltJS2XML(xrltContextPtr ctx, xrltJSON2XMLPtr js2xml, xmlNodePtr srcNode,
         v8::Local<v8::Object>   _val = v8::Local<v8::Object>::Cast(val);
 
         if (xrltDeferredConstructor->HasInstance(_val)) {
-            if (!xrltDeferredInsert(ctx, &_val, srcNode, js2xml->cur, NULL)) {
+            if (!xrltDeferredInsert(ctx, &_val, js2xml->cur, srcNode, NULL)) {
                 return FALSE;
             }
         } else {

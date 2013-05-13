@@ -491,64 +491,76 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     } else {
         tdata = (xrltApplyTransformingData *)data;
 
-        if (tdata->paramNode != NULL) {
-            ASSERT_NODE_DATA(tdata->paramNode, n);
+        if (!tdata->finalize) {
+            if (tdata->paramNode != NULL) {
+                ASSERT_NODE_DATA(tdata->paramNode, n);
 
-            if (n->count > 0) {
-                SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
-                                  insert, tdata);
-                return TRUE;
-            }
-
-            node = tdata->paramNode->children;
-
-            while (node != NULL) {
-                tmp = node->next;
-
-                xmlUnlinkNode(node);
-
-                if (!xmlAddChild(ctx->var, node)) {
-                    RAISE_ADD_CHILD_ERROR(ctx, NULL, acomp->node);
-
-                    xmlFreeDoc((xmlDocPtr)node);
-
-                    return FALSE;
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
+                                      insert, tdata);
+                    return TRUE;
                 }
 
-                node = tmp;
+                node = tdata->paramNode->children;
+
+                while (node != NULL) {
+                    tmp = node->next;
+
+                    xmlUnlinkNode(node);
+
+                    if (!xmlAddChild(ctx->var, node)) {
+                        RAISE_ADD_CHILD_ERROR(ctx, NULL, acomp->node);
+
+                        xmlFreeDoc((xmlDocPtr)node);
+
+                        return FALSE;
+                    }
+
+                    node = tmp;
+                }
+
+                tdata->paramNode = NULL;
+
+                if (!acomp->func->js) {
+                    TRANSFORM_SUBTREE(ctx, acomp->func->children,
+                                      tdata->retNode);
+
+                    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp,
+                                      insert, tdata);
+                    return TRUE;
+                }
             }
 
-            tdata->paramNode = NULL;
-
-            if (!acomp->func->js) {
-                TRANSFORM_SUBTREE(ctx, acomp->func->children, tdata->retNode);
-
-                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp,
-                                  insert, tdata);
-                return TRUE;
-            }
-        }
-
-        if (acomp->func->js) {
-            ctx->varContext = acomp->func->node;
-
-            if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
-                             acomp->param, acomp->paramLen, tdata->retNode))
-            {
-                return FALSE;
-            }
-        } else {
             ASSERT_NODE_DATA(tdata->retNode, n);
 
+            if (acomp->func->js) {
+                ctx->varContext = acomp->func->node;
+
+                if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
+                                 acomp->param, acomp->paramLen, tdata->retNode))
+                {
+                    return FALSE;
+                }
+            } else {
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
+                                      insert, data);
+
+                    return TRUE;
+                }
+            }
+
+            COUNTER_DECREASE(ctx, tdata->node);
+
             if (n->count > 0) {
+                tdata->finalize = TRUE;
+
                 SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
                                   insert, data);
 
                 return TRUE;
             }
         }
-
-        COUNTER_DECREASE(ctx, tdata->node);
 
         REPLACE_RESPONSE_NODE(
             ctx, tdata->node, tdata->retNode->children, acomp->node

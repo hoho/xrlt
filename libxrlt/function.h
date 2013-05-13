@@ -50,8 +50,7 @@ typedef struct {
     xmlNodePtr   node;
     xmlNodePtr   paramNode;
     xmlNodePtr   retNode;
-
-    //xrltFunctionTransformStage   stage;
+    xrltBool     finalize;
 } xrltApplyTransformingData;
 
 
