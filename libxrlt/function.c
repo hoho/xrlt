@@ -144,6 +144,8 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             goto error;
         }
 
+        xmlBufferCat(buf, (const xmlChar *)"\"use strict\";\n");
+
         if (tmp != NULL) {
             while (tmp != NULL) {
                 xmlBufferCat(buf, tmp->content);

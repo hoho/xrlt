@@ -16,6 +16,23 @@ typedef struct {
 } xrltJSContextPrivate;
 
 
+typedef struct {
+    xmlNodePtr                   node;
+    xmlNodePtr                   src;
+    v8::Persistent<v8::Object>   deferred;
+} xrltDeferredInsertTransformingData;
+
+
+static xrltBool xrltDeferredInsert   (xrltContextPtr ctx, void *val,
+                                      xmlNodePtr insert, xmlNodePtr src,
+                                      xrltDeferredInsertTransformingData *data);
+
+static xrltBool xrltJS2XML           (xrltContextPtr ctx,
+                                      xrltJSON2XMLPtr js2xml,
+                                      xmlNodePtr srcNode,
+                                      v8::Local<v8::Value> val);
+
+
 v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
 
 
@@ -32,7 +49,7 @@ void ReportException(xrltContextPtr ctx, xrltRequestsheetPtr sheet,
         xrltTransformError(ctx, sheet, node, "%s\n", *exception_str);
     } else {
         xrltTransformError(ctx, sheet, node, "Line %i: %s\n",
-                           message->GetLineNumber() + node->line - 1,
+                           message->GetLineNumber() + node->line - 2,
                            *exception_str);
     }
 }
@@ -130,6 +147,30 @@ xrltDeferredResolve(const v8::Arguments& args) {
     }
 
     fprintf(stderr, "resolve\n");
+    return v8::Undefined();
+}
+
+
+v8::Handle<v8::Value>
+xrltDeferredCallback(const v8::Arguments& args) {
+    v8::HandleScope                      scope;
+
+    v8::Local<v8::Object>                proto;
+    xrltContextPtr                       ctx;
+    xrltDeferredInsertTransformingData  *tdata;
+    v8::Local<v8::Value>                 val;
+
+    proto = v8::Local<v8::Object>::Cast(args.Callee()->GetPrototype());
+
+    ctx = (xrltContextPtr)proto->GetAlignedPointerFromInternalField(0);
+    tdata = (xrltDeferredInsertTransformingData *)proto->
+                                 GetAlignedPointerFromInternalField(1);
+
+    if (ctx != NULL && tdata != NULL) {
+        val = args[0];
+        xrltDeferredInsert(ctx, &val, NULL, NULL, tdata);
+    }
+
     return v8::Undefined();
 }
 
@@ -401,7 +442,99 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
 
 
 static void
-xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
+xrltDeferredInsertTransformingFree(void *data)
+{
+    if (data != NULL) {
+        xrltDeferredInsertTransformingData  *tdata = \
+                                    (xrltDeferredInsertTransformingData *)data;
+
+        if (!tdata->deferred.IsEmpty()) {
+            tdata->deferred.Dispose();
+        }
+
+        delete tdata;
+    }
+}
+
+
+static xrltBool
+xrltDeferredInsert(xrltContextPtr ctx, void *val, xmlNodePtr insert,
+                   xmlNodePtr src, xrltDeferredInsertTransformingData *data)
+{
+    xmlNodePtr                           node;
+    xrltNodeDataPtr                      n;
+
+    if (data == NULL) {
+        v8::Local<v8::Object>            *d = (v8::Local<v8::Object> *) val;
+        v8::Local<v8::ObjectTemplate>     protoTempl;
+        v8::Local<v8::Object>             proto;
+        v8::Local<v8::FunctionTemplate>   funcTempl;
+        v8::Local<v8::Object>             func;
+        v8::Local<v8::Function>           then;
+        v8::Local<v8::Value>              argv[1];
+
+        NEW_CHILD(ctx, node, insert, "d");
+
+        ASSERT_NODE_DATA(node, n);
+
+        data = new xrltDeferredInsertTransformingData;
+
+        n->data = data;
+        n->free = xrltDeferredInsertTransformingFree;
+
+        data->node = node;
+        data->src = src;
+        data->deferred = v8::Persistent<v8::Object>::New(*d);
+
+        protoTempl = v8::ObjectTemplate::New();
+        protoTempl->SetInternalFieldCount(2);
+        proto = protoTempl->NewInstance();
+        proto->SetAlignedPointerInInternalField(0, ctx);
+        proto->SetAlignedPointerInInternalField(1, data);
+
+        funcTempl = v8::FunctionTemplate::New(xrltDeferredCallback);
+        func = funcTempl->GetFunction();
+        func->SetPrototype(proto);
+
+        argv[0] = func;
+
+        then = \
+            v8::Local<v8::Function>::Cast((*d)->Get(v8::String::New("then")));
+
+        then->Call(*d, 1, argv);
+
+        COUNTER_INCREASE(ctx, node);
+    } else {
+        v8::Local<v8::Value>  *_val = (v8::Local<v8::Value> *)val;
+        xrltJSON2XMLPtr        js2xml;
+        xrltBool               r;
+
+        node = data->node;
+
+        js2xml = xrltJSON2XMLInit(node, TRUE);
+
+        r = xrltJS2XML(ctx, js2xml, data->src, *_val);
+
+        xrltJSON2XMLFree(js2xml);
+
+        COUNTER_DECREASE(ctx, node);
+
+        ASSERT_NODE_DATA(node, n);
+
+        if (r) {
+            REPLACE_RESPONSE_NODE(ctx, node, node->children, data->src);
+        }
+
+        return r;
+    }
+
+    return TRUE;
+}
+
+
+static xrltBool
+xrltJS2XML(xrltContextPtr ctx, xrltJSON2XMLPtr js2xml, xmlNodePtr srcNode,
+           v8::Local<v8::Value> val)
 {
     if (val->IsString() || val->IsDate()) {
         v8::Local<v8::String>   _val = val->ToString();
@@ -428,7 +561,9 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
         xrltJSON2XMLArrayStart(js2xml);
 
         for (i = 0; i < _val->Length(); i++) {
-            xrltJS2XML(js2xml, _val->Get(i));
+            if (!xrltJS2XML(ctx, js2xml, srcNode, _val->Get(i))) {
+                return FALSE;
+            }
         }
 
         xrltJSON2XMLArrayEnd(js2xml);
@@ -436,7 +571,9 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
         v8::Local<v8::Object>   _val = v8::Local<v8::Object>::Cast(val);
 
         if (xrltDeferredConstructor->HasInstance(_val)) {
-            // TODO: Insert deferred object into response document.
+            if (!xrltDeferredInsert(ctx, &_val, srcNode, js2xml->cur, NULL)) {
+                return FALSE;
+            }
         } else {
             v8::Local<v8::Array>    keys = _val->GetPropertyNames();
             uint32_t                i;
@@ -447,6 +584,7 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
 
             for (i = 0; i < keys->Length(); i++) {
                 key = keys->Get(i);
+
                 if (key->IsString()) {
                     _key = v8::Local<v8::String>::Cast(key);
                 } else {
@@ -458,12 +596,16 @@ xrltJS2XML(xrltJSON2XMLPtr js2xml, v8::Local<v8::Value> val)
                 xrltJSON2XMLMapKey(js2xml, (const unsigned char *)*__key,
                                    (size_t)_key->Length());
 
-                xrltJS2XML(js2xml, _val->Get(key));
+                if (!xrltJS2XML(ctx, js2xml, srcNode, _val->Get(key))) {
+                    return FALSE;
+                }
             }
 
             xrltJSON2XMLMapEnd(js2xml);
         }
     }
+
+    return TRUE;
 }
 
 
@@ -474,13 +616,16 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltDeferredTransformingPtr   dcomp = (xrltDeferredTransformingPtr)comp;
     xmlXPathObjectPtr             val;
 
+    xrltJSContextPtr              jsctx = (xrltJSContextPtr)ctx->sheet->js;
+    xrltJSContextPrivate         *priv = \
+                                      (xrltJSContextPrivate *)jsctx->_private;
+
     v8::HandleScope               scope;
+    v8::Context::Scope            context_scope(priv->context);
 
     v8::Persistent<v8::Object>   *obj;
-    v8::Local<v8::Array>          cb;
     v8::Local<v8::Function>       resolve;
     v8::Local<v8::Value>          argv[1];
-    uint32_t                      i;
 
     obj = (v8::Persistent<v8::Object> *)dcomp->deferred;
 
@@ -497,7 +642,7 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     resolve = \
         v8::Local<v8::Function>::Cast((*obj)->Get(v8::String::New("resolve")));
 
-    argv[0] = v8::Local<v8::String>::New(v8::String::New("FUCKYEAH!!"));
+    argv[0] = v8::Local<v8::Value>::New(xrltXML2JSONCreate(val));
 
     resolve->Call(*obj, 1, argv);
 
@@ -530,7 +675,7 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
     v8::Local<v8::Object>         funcwrap;
     v8::Local<v8::Function>       func;
     size_t                        argc;
-    v8::Local<v8::Value>          _ret;
+    v8::Local<v8::Value>          ret;
     xmlXPathObjectPtr             val;
     xrltDeferredTransformingPtr   deferredData;
     v8::Local<v8::Function>       deferredConstr;
@@ -609,9 +754,9 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                 }
             }
 
-            _ret = func->Call(priv->global, argc, argv);
+            ret = func->Call(priv->global, argc, argv);
         } else {
-            _ret = func->Call(priv->global, 0, NULL);
+            ret = func->Call(priv->global, 0, NULL);
         }
 
         if (trycatch.HasCaught()) {
@@ -620,17 +765,20 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
             return FALSE;
         }
 
-        if (!_ret->IsUndefined()) {
+        if (!ret->IsUndefined()) {
             xrltJSON2XMLPtr   js2xml;
+            xrltBool          r;
 
             js2xml = xrltJSON2XMLInit(insert, TRUE);
 
-            xrltJS2XML(js2xml, _ret);
+            r = xrltJS2XML(ctx, js2xml, node, ret);
 
             xrltJSON2XMLFree(js2xml);
-        }
 
-        return TRUE;
+            return r;
+        } else {
+            return TRUE;
+        }
     } else {
         return FALSE;
     }
