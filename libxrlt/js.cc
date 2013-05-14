@@ -307,8 +307,8 @@ xrltJSContextCreate(void)
 
     v8::Local<v8::External>   data;
 
-    ret = (xrltJSContextPtr)xrltMalloc(sizeof(xrltJSContext) +
-                                       sizeof(xrltJSContextPrivate));
+    ret = (xrltJSContextPtr)xmlMalloc(sizeof(xrltJSContext) +
+                                      sizeof(xrltJSContextPrivate));
 
     if (ret == NULL) { return NULL; }
 
@@ -359,7 +359,7 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
         priv->globalTemplate.Dispose();
     }
 
-    xrltFree(jsctx);
+    xmlFree(jsctx);
 
     while (!v8::V8::IdleNotification());
 }
@@ -650,7 +650,7 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     obj->Dispose();
     delete obj;
 
-    xrltFree(comp);
+    xmlFree(comp);
 
     if (ctx->cur & XRLT_STATUS_ERROR) {
         return FALSE;

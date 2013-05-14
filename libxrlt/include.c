@@ -101,7 +101,7 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
   error:
     if (_type != NULL) { xmlFree(_type); }
-    if (ret != NULL) { xrltFree(ret); }
+    if (ret != NULL) { xmlFree(ret); }
 
     return NULL;
 }
@@ -326,7 +326,7 @@ xrltIncludeFree(void *comp)
             }
 
             tmp = param->next;
-            xrltFree(param);
+            xmlFree(param);
             param = tmp;
         }
 
@@ -351,11 +351,11 @@ xrltIncludeFree(void *comp)
             }
 
             tmp = param->next;
-            xrltFree(param);
+            xmlFree(param);
             param = tmp;
         }
 
-        xrltFree(ret);
+        xmlFree(ret);
     }
 }
 
@@ -414,7 +414,7 @@ xrltIncludeTransformingFree(void *data)
             }
         }
 
-        xrltFree(tdata);
+        xmlFree(tdata);
     }
 }
 
@@ -693,11 +693,11 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 
     if (blen > 0 || qlen > 0) {
         if (blen > 0) {
-            ebody = (char *)xrltMalloc((blen * 3) + 1);
+            ebody = (char *)xmlMalloc((blen * 3) + 1);
         }
 
         if (qlen > 0) {
-            equery = (char *)xrltMalloc((qlen * 3) + 1);
+            equery = (char *)xmlMalloc((qlen * 3) + 1);
         }
 
         if ((blen > 0 && ebody == NULL) || (qlen > 0 && equery == NULL)) {
@@ -772,8 +772,8 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
   error:
     xrltHeaderListClear(&header);
 
-    if (ebody != NULL) { xrltFree(ebody); }
-    if (equery != NULL) { xrltFree(equery); }
+    if (ebody != NULL) { xmlFree(ebody); }
+    if (equery != NULL) { xmlFree(equery); }
 
     return ret;
 }

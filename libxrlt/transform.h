@@ -65,7 +65,7 @@ extern "C" {
 
 
 #define XRLT_MALLOC(ctx, sheet, node, ret, type, size, error) {               \
-    ret = (type)xrltMalloc(size);                                             \
+    ret = (type)xmlMalloc(size);                                              \
     if (ret == NULL) {                                                        \
         RAISE_OUT_OF_MEMORY(ctx, sheet, node);                                \
         return error;                                                         \
@@ -282,7 +282,7 @@ xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
     tcb->first = item->next;
     if (item->next == NULL) { tcb->last = NULL; }
 
-    xrltFree(item);
+    xmlFree(item);
 
     return TRUE;
 }

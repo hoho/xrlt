@@ -63,20 +63,20 @@ xrltQueryStringParserFeed(xrltQueryStringParserPtr parser,
 
                     node = xmlNewText(n);
 
-                    xrltFree(n);
+                    xmlFree(n);
                 } else {
                     n = xrltURLDecode(parser->name, parser->nameLen);
 
                     node = xmlNewNode(NULL, n);
 
-                    xrltFree(n);
+                    xmlFree(n);
 
                     if (node != NULL && parser->valLen > 0) {
                         n = xrltURLDecode(parser->val, parser->valLen);
 
                         xmlNodeAddContent(node, n);
 
-                        xrltFree(n);
+                        xmlFree(n);
                     }
                 }
 
@@ -113,7 +113,7 @@ xrltQueryStringParserFeed(xrltQueryStringParserPtr parser,
             if (pos >= sz) {
                 sz += 20;
 
-                tmp = (char *)xrltRealloc(cur, sz);
+                tmp = (char *)xmlRealloc(cur, sz);
                 if (tmp == NULL) {
                     return FALSE;
                 }
@@ -149,8 +149,8 @@ void
 xrltQueryStringParserFree(xrltQueryStringParserPtr parser)
 {
     if (parser != NULL) {
-        if (parser->name != NULL) { xrltFree(parser->name); }
-        if (parser->val != NULL) { xrltFree(parser->val); }
-        xrltFree(parser);
+        if (parser->name != NULL) { xmlFree(parser->name); }
+        if (parser->val != NULL) { xmlFree(parser->val); }
+        xmlFree(parser);
     }
 }

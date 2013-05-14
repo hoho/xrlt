@@ -7,7 +7,6 @@
 
 
 #include <string.h>
-#include <xrltmemory.h>
 
 
 #ifdef __cplusplus
@@ -256,7 +255,7 @@ static inline void
 xrltStringClear(xrltString *str)
 {
     if (str != NULL && str->data != NULL) {
-        xrltFree(str->data);
+        xmlFree(str->data);
         str->data = NULL;
         str->len = 0;
     }
@@ -285,7 +284,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *val)
 
     xrltHeaderPtr h;
 
-    h = (xrltHeaderPtr)xrltMalloc(sizeof(xrltHeader));
+    h = (xrltHeaderPtr)xmlMalloc(sizeof(xrltHeader));
 
     if (h == NULL) { return FALSE; }
 
@@ -306,7 +305,7 @@ xrltHeaderListPush(xrltHeaderList *list, xrltString *name, xrltString *val)
   error:
     xrltStringClear(&h->name);
     xrltStringClear(&h->val);
-    xrltFree(h);
+    xmlFree(h);
 
     return FALSE;
 }
@@ -331,7 +330,7 @@ xrltHeaderListShift(xrltHeaderList *list, xrltString *name, xrltString *val)
         list->first = h->next;
     }
 
-    xrltFree(h);
+    xmlFree(h);
 
     return TRUE;
 }
@@ -364,7 +363,7 @@ xrltNeedHeaderListPush(xrltNeedHeaderList *list, size_t id, xrltString *name)
 
     xrltNeedHeaderPtr h;
 
-    h = (xrltNeedHeaderPtr)xrltMalloc(sizeof(xrltNeedHeader));
+    h = (xrltNeedHeaderPtr)xmlMalloc(sizeof(xrltNeedHeader));
 
     if (h == NULL) { return FALSE; }
 
@@ -384,7 +383,7 @@ xrltNeedHeaderListPush(xrltNeedHeaderList *list, size_t id, xrltString *name)
 
   error:
     xrltStringClear(&h->name);
-    xrltFree(h);
+    xmlFree(h);
 
     return FALSE;
 }
@@ -409,7 +408,7 @@ xrltNeedHeaderListShift(xrltNeedHeaderList *list, size_t *id, xrltString *name)
         list->first = h->next;
     }
 
-    xrltFree(h);
+    xmlFree(h);
 
     return TRUE;
 }
@@ -444,7 +443,7 @@ xrltSubrequestListPush(xrltSubrequestList *list, size_t id,
 
     xrltSubrequestPtr sr;
 
-    sr = (xrltSubrequestPtr)xrltMalloc(sizeof(xrltSubrequest));
+    sr = (xrltSubrequestPtr)xmlMalloc(sizeof(xrltSubrequest));
 
     if (sr == NULL) { return FALSE; }
 
@@ -481,7 +480,7 @@ xrltSubrequestListPush(xrltSubrequestList *list, size_t id,
     xrltStringClear(&sr->query);
     xrltStringClear(&sr->body);
 
-    xrltFree(sr);
+    xmlFree(sr);
 
     return FALSE;
 }
@@ -521,7 +520,7 @@ xrltSubrequestListShift(xrltSubrequestList *list, size_t *id,
         list->first = sr->next;
     }
 
-    xrltFree(sr);
+    xmlFree(sr);
 
     return TRUE;
 }
@@ -564,14 +563,14 @@ xrltChunkListPush(xrltChunkList *list, xrltString *chunk)
 
     xrltChunkPtr c;
 
-    c = (xrltChunkPtr)xrltMalloc(sizeof(xrltChunk));
+    c = (xrltChunkPtr)xmlMalloc(sizeof(xrltChunk));
 
     if (c == NULL) { return FALSE; }
 
     memset(c, 0, sizeof(xrltChunk));
 
     if (!xrltStringCopy(&c->data, chunk)) {
-        xrltFree(c);
+        xmlFree(c);
         return FALSE;
     }
 
@@ -604,7 +603,7 @@ xrltChunkListShift(xrltChunkList *list, xrltString *chunk)
         list->first = c->next;
     }
 
-    xrltFree(c);
+    xmlFree(c);
 
     return TRUE;
 }
@@ -635,14 +634,14 @@ xrltLogListPush(xrltLogList *list, xrltLogType type, xrltString *msg)
 
     xrltLogPtr l;
 
-    l = (xrltLogPtr)xrltMalloc(sizeof(xrltLog));
+    l = (xrltLogPtr)xmlMalloc(sizeof(xrltLog));
 
     if (l == NULL) { return FALSE; }
 
     memset(l, 0, sizeof(xrltLog));
 
     if (!xrltStringCopy(&l->msg, msg)) {
-        xrltFree(l);
+        xmlFree(l);
         return FALSE;
     }
 
@@ -679,7 +678,7 @@ xrltLogListShift(xrltLogList *list, xrltLogType *type, xrltString *msg)
         list->first = l->next;
     }
 
-    xrltFree(l);
+    xmlFree(l);
 
     return TRUE;
 }

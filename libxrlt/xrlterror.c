@@ -12,7 +12,7 @@
     char     *larger;                                                         \
     va_list   ap;                                                             \
                                                                               \
-    str = (char *)xrltMalloc(150);                                            \
+    str = (char *)xmlMalloc(150);                                             \
     if (str == NULL)                                                          \
         return;                                                               \
                                                                               \
@@ -28,8 +28,8 @@
             size += chars + 1;                                                \
         else                                                                  \
             size += 100;                                                      \
-        if ((larger = (char *)xrltRealloc(str, size)) == NULL) {              \
-            xrltFree(str);                                                    \
+        if ((larger = (char *)xmlRealloc(str, size)) == NULL) {               \
+            xmlFree(str);                                                     \
             return;                                                           \
         }                                                                     \
         str = larger;                                                         \
@@ -205,5 +205,5 @@ xrltTransformError(xrltContextPtr ctxt, xrltRequestsheetPtr sheet,
 
     error(errctx, "%s", str);
 
-    if (str != NULL) { xrltFree(str); }
+    if (str != NULL) { xmlFree(str); }
 }

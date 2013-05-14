@@ -87,7 +87,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
         if (ret->paramLen >= ret->paramSize) {
             ret->paramSize += 10;
-            newp = (xrltVariableDataPtr *)xrltRealloc(
+            newp = (xrltVariableDataPtr *)xmlRealloc(
                 ret->param, sizeof(xrltVariableDataPtr) * ret->paramSize
             );
 
@@ -196,10 +196,10 @@ xrltFunctionFree(void *comp)
                 xrltVariableFree(f->param[i]);
             }
 
-            xrltFree(f->param);
+            xmlFree(f->param);
         }
 
-        xrltFree(comp);
+        xmlFree(comp);
     }
 }
 
@@ -240,7 +240,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
             if (ret->paramLen >= ret->paramSize) {
                 ret->paramSize += 10;
-                newp = (xrltVariableDataPtr *)xrltRealloc(
+                newp = (xrltVariableDataPtr *)xmlRealloc(
                     ret->param, sizeof(xrltVariableDataPtr) * ret->paramSize
                 );
 
@@ -360,7 +360,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 xrltVariableFree(ret->param[i]);
             }
 
-            xrltFree(ret->param);
+            xmlFree(ret->param);
         }
 
         ret->param = newp;
@@ -392,7 +392,7 @@ xrltApplyFree(void *comp)
                 xrltVariableFree(a->param[i]);
             }
 
-            xrltFree(a->param);
+            xmlFree(a->param);
         }
 
         if (a->merged != NULL) {
@@ -400,10 +400,10 @@ xrltApplyFree(void *comp)
                 xrltVariableFree(a->merged[i]);
             }
 
-            xrltFree(a->merged);
+            xmlFree(a->merged);
         }
 
-        xrltFree(comp);
+        xmlFree(comp);
     }
 }
 
@@ -431,7 +431,7 @@ xrltApplyTransformingFree(void *data)
             }
         }
 
-        xrltFree(tdata);
+        xmlFree(tdata);
     }
 }
 

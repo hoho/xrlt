@@ -100,7 +100,7 @@ xrltVariableFree(void *comp)
             xmlXPathFreeCompExpr(data->xval.expr);
         }
 
-        xrltFree(data);
+        xmlFree(data);
     }
 }
 

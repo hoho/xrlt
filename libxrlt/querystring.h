@@ -92,7 +92,7 @@ xrltURLDecode(char *str, size_t len)
     if (len == 0) { len = strlen(str); }
 
     xmlChar *pstr = (xmlChar *)str;
-    xmlChar *buf = (xmlChar *)xrltMalloc(len + 1);
+    xmlChar *buf = (xmlChar *)xmlMalloc(len + 1);
     xmlChar *pbuf = buf;
 
     if (buf == NULL) { return NULL; }

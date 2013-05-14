@@ -23,7 +23,7 @@ xrltRegisteredElementsDeallocator(void *payload, xmlChar *name)
         if (elem->passes > 1) {
             elem->passes--;
         } else {
-            xrltFree(elem);
+            xmlFree(elem);
         }
     }
 }

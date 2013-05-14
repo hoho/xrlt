@@ -86,8 +86,8 @@ static inline xrltJSArgumentListPtr
 xrltJSArgumentListCreate(int size)
 {
     xrltJSArgumentListPtr   ret;
-    ret = (xrltJSArgumentListPtr)xrltMalloc(sizeof(xrltJSArgumentList) +
-                                            sizeof(xrltJSArgument) * size);
+    ret = (xrltJSArgumentListPtr)xmlMalloc(sizeof(xrltJSArgumentList) +
+                                           sizeof(xrltJSArgument) * size);
 
     if (ret == NULL) { return NULL; }
 
@@ -132,11 +132,11 @@ xrltJSArgumentListFree(xrltJSArgumentListPtr list)
 
     for (i = list->len - 1; i >= 0; i--) {
         if (list->arg[i].name != NULL) {
-            xrltFree(list->arg[i].name);
+            xmlFree(list->arg[i].name);
         }
     }
 
-    xrltFree(list);
+    xmlFree(list);
 }
 
 

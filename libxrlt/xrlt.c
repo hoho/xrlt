@@ -33,7 +33,7 @@ xrltRegisterNodeFunc(xmlNodePtr node)
 {
     xrltNodeDataPtr   data;
 
-    data = (xrltNodeDataPtr)xrltMalloc(sizeof(xrltNodeData));
+    data = (xrltNodeDataPtr)xmlMalloc(sizeof(xrltNodeData));
 
     if (data != NULL) {
         memset(data, 0, sizeof(xrltNodeData));
@@ -57,7 +57,7 @@ xrltDeregisterNodeFunc(xmlNodePtr node)
             xrltTransformCallbackQueueClear(&data->tcb);
         }
 
-        xrltFree(data);
+        xmlFree(data);
     }
 }
 
@@ -126,7 +126,7 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
         xrltJSContextFree((xrltJSContextPtr)sheet->js);
     }
 
-    xrltFree(sheet);
+    xmlFree(sheet);
 }
 
 
@@ -194,7 +194,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
   error:
     if (ret != NULL) {
-        xrltFree(ret);
+        xmlFree(ret);
     }
 
     return NULL;
@@ -217,21 +217,21 @@ xrltContextFree(xrltContextPtr ctx)
         cb = ctx->icb.header[i].first;
         while (cb != NULL) {
             tmp = cb->next;
-            xrltFree(cb);
+            xmlFree(cb);
             cb = tmp;
         }
     }
-    if (ctx->icb.header != NULL) { xrltFree(ctx->icb.header); }
+    if (ctx->icb.header != NULL) { xmlFree(ctx->icb.header); }
 
     for (i = 0; i < ctx->icb.bodySize; i++) {
         cb = ctx->icb.body[i].first;
         while (cb != NULL) {
             tmp = cb->next;
-            xrltFree(cb);
+            xmlFree(cb);
             cb = tmp;
         }
     }
-    if (ctx->icb.body != NULL) { xrltFree(ctx->icb.body); }
+    if (ctx->icb.body != NULL) { xmlFree(ctx->icb.body); }
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 
@@ -258,7 +258,7 @@ xrltContextFree(xrltContextPtr ctx)
         xrltTransformCallbackQueueClear(&ctx->tcb);
     }
 
-    xrltFree(ctx);
+    xmlFree(ctx);
 }
 
 
@@ -317,7 +317,7 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
                         if (prevcb->next == NULL) { q->last = prevcb; }
                     }
 
-                    xrltFree(cb);
+                    xmlFree(cb);
                     cb = prevcb == NULL ? NULL : prevcb->next;
                 } else {
                     prevcb = cb;
@@ -443,7 +443,7 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     }
 
     if (id >= len) {
-        newq = (xrltInputCallbackQueue *)xrltRealloc(
+        newq = (xrltInputCallbackQueue *)xmlRealloc(
                 q,
                 sizeof(xrltInputCallbackQueue) * (id + 10)
         );
@@ -477,6 +477,6 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     return TRUE;
 
   error:
-    if (cb != NULL) { xrltFree(cb); }
+    if (cb != NULL) { xmlFree(cb); }
     return FALSE;
 }

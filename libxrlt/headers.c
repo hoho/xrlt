@@ -61,7 +61,7 @@ xrltHeaderElementFree(void *comp)
         if (ret->val != NULL) { xmlFree(ret->val); }
         if (ret->xval.expr != NULL) { xmlXPathFreeCompExpr(ret->xval.expr); }
 
-        xrltFree(ret);
+        xmlFree(ret);
     }
 }
 
@@ -77,7 +77,7 @@ xrltHeaderElementTransformingFree(void *data)
         if (tdata->name != NULL) { xmlFree(tdata->name); }
         if (tdata->val != NULL) { xmlFree(tdata->val); }
 
-        xrltFree(data);
+        xmlFree(data);
     }
 }
 

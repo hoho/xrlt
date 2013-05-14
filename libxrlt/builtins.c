@@ -146,7 +146,7 @@ void
 xrltLogFree(void *comp)
 {
     if (comp != NULL) {
-        xrltFree(comp);
+        xmlFree(comp);
     }
 }
 
@@ -284,7 +284,7 @@ xrltIfFree(void *comp)
 {
     if (comp != NULL) {
         xmlXPathFreeCompExpr(((xrltIfData *)comp)->test.expr);
-        xrltFree(comp);
+        xmlFree(comp);
     }
 }
 
@@ -347,7 +347,7 @@ xrltValueOfFree(void *comp)
 {
     if (comp != NULL) {
         xmlXPathFreeCompExpr(((xrltValueOfData *)comp)->select.expr);
-        xrltFree(comp);
+        xmlFree(comp);
     }
 }
 
@@ -362,7 +362,7 @@ xrltValueOfTransformingFree(void *data)
 
         if (tdata->val != NULL) { xmlFree(tdata->val); }
 
-        xrltFree(data);
+        xmlFree(data);
     }
 }
 
@@ -499,7 +499,7 @@ xrltTextFree(void *comp)
 
         if (tcomp->text != NULL) { xmlFree(tcomp->text); }
 
-        xrltFree(tcomp);
+        xmlFree(tcomp);
     }
 }
 
