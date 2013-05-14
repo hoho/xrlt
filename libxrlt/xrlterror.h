@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #ifndef __XRLT_ERROR_H__
 #define	__XRLT_ERROR_H__
 

@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include "transform.h"
 #include "builtins.h"
 

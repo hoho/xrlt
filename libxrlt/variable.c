@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include <libxml/xpathInternals.h>
 #include "transform.h"
 #include "variable.h"

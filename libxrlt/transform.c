@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include <libxml/tree.h>
 
 #include "transform.h"
@@ -95,11 +99,11 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltValueOfFree,
                                xrltValueOfTransform);
 
-    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"header",
                                XRLT_COMPILE_PASS1,
-                               xrltResponseHeaderCompile,
-                               xrltResponseHeaderFree,
-                               xrltResponseHeaderTransform);
+                               xrltHeaderElementCompile,
+                               xrltHeaderElementFree,
+                               xrltHeaderElementTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"function",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,

@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include <string.h>
 #include <libxml/xpathInternals.h>
 

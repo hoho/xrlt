@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #ifndef __XRLT_HEADERS_H__
 #define __XRLT_HEADERS_H__
 
@@ -13,7 +17,7 @@ extern "C" {
 
 
 typedef struct {
-    xmlNodePtr   node;
+    xmlNodePtr      node;
 
     xrltBool        test;
     xmlNodePtr      ntest;
@@ -27,35 +31,35 @@ typedef struct {
     xmlNodePtr      nval;
     xrltXPathExpr   xval;
 
-} xrltResponseHeaderData;
+} xrltHeaderElementData;
 
 
 typedef enum {
     XRLT_RESPONSE_HEADER_TRANSFORM_TEST = 0,
     XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE
-} xrltResponseHeaderTransformStage;
+} xrltHeaderElementTransformStage;
 
 
 typedef struct {
-    xmlNodePtr                         node;
-    xmlNodePtr                         dataNode;
+    xmlNodePtr                        node;
+    xmlNodePtr                        dataNode;
 
-    xrltResponseHeaderTransformStage   stage;
+    xrltHeaderElementTransformStage   stage;
 
-    xrltBool                           test;
-    xmlChar                           *name;
-    xmlChar                           *val;
-} xrltResponseHeaderTransformingData;
+    xrltBool                          test;
+    xmlChar                          *name;
+    xmlChar                          *val;
+} xrltHeaderElementTransformingData;
 
 
 void *
-        xrltResponseHeaderCompile     (xrltRequestsheetPtr sheet,
-                                       xmlNodePtr node, void *prevcomp);
+        xrltHeaderElementCompile     (xrltRequestsheetPtr sheet,
+                                      xmlNodePtr node, void *prevcomp);
 void
-        xrltResponseHeaderFree        (void *comp);
+        xrltHeaderElementFree        (void *comp);
 xrltBool
-        xrltResponseHeaderTransform   (xrltContextPtr ctx, void *comp,
-                                       xmlNodePtr insert, void *data);
+        xrltHeaderElementTransform   (xrltContextPtr ctx, void *comp,
+                                      xmlNodePtr insert, void *data);
 
 
 #ifdef __cplusplus

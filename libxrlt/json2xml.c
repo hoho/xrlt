@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include <xrlt.h>
 #include "json2xml.h"
 

@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include <vector>
 #include <map>
 #include <string>
@@ -9,6 +13,7 @@
 
 // XML2JSON cache template, needs xrltXML2JSONTemplateInit to initialize.
 v8::Persistent<v8::ObjectTemplate> xrltXML2JSONCacheTemplate;
+
 // XML2JSON object template, needs xrltXML2JSONTemplateInit to initialize.
 v8::Persistent<v8::ObjectTemplate> xrltXML2JSONTemplate;
 
@@ -287,12 +292,12 @@ xrltXML2JSONCreate(xmlXPathObjectPtr value)
     v8::Persistent<v8::Object>   cacheobj;
 
     switch (value->type) {
-        case XPATH_BOOLEAN:
-            return v8::Boolean::New(value->boolval ? true : false);
-        case XPATH_NUMBER:
-            return v8::Number::New(value->floatval);
         case XPATH_STRING:
             return v8::String::New((const char *)value->stringval);
+        case XPATH_NUMBER:
+            return v8::Number::New(value->floatval);
+        case XPATH_BOOLEAN:
+            return v8::Boolean::New(value->boolval ? true : false);
         case XPATH_NODESET:
             break;
         case XPATH_UNDEFINED:
@@ -310,7 +315,7 @@ xrltXML2JSONCreate(xmlXPathObjectPtr value)
         return v8::Undefined();
     }
 
-    // We will store objects in JavaScript array avoid freeing them by GC
+    // We will store objects in JavaScript array to avoid freeing them by GC
     // before cache is freed.
     v8::Local<v8::Array>         data = v8::Array::New();
 
@@ -354,6 +359,7 @@ xrltXML2JSONGetProperty(v8::Local<v8::String> name,
     key.assign(*keyarg);
 
     i = data->named.find(key);
+
     if (i != data->named.end()) {
         for (; i != data->named.upper_bound(key); i++) {
             values.push_back(i->second);

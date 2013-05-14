@@ -1,3 +1,7 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #ifndef __XRLT_JSON2XML_H__
 #define __XRLT_JSON2XML_H__
 

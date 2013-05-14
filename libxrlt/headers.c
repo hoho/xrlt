@@ -1,16 +1,20 @@
+/*
+ * Copyright Marat Abdullin (https://github.com/hoho)
+ */
+
 #include "transform.h"
 #include "headers.h"
 
 
 void *
-xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
-                          void *prevcomp)
+xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                         void *prevcomp)
 {
-    xrltResponseHeaderData  *ret = NULL;
-    int                      _test;
+    xrltHeaderElementData  *ret = NULL;
+    int                     _test;
 
-    XRLT_MALLOC(NULL, sheet, node, ret, xrltResponseHeaderData*,
-                sizeof(xrltResponseHeaderData), NULL);
+    XRLT_MALLOC(NULL, sheet, node, ret, xrltHeaderElementData*,
+                sizeof(xrltHeaderElementData), NULL);
 
     if (!xrltCompileTestNameValueNode(sheet, node,
                                       XRLT_TESTNAMEVALUE_TEST_ATTR |
@@ -18,8 +22,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                                       XRLT_TESTNAMEVALUE_NAME_ATTR |
                                       XRLT_TESTNAMEVALUE_NAME_NODE |
                                       XRLT_TESTNAMEVALUE_VALUE_ATTR |
-                                      XRLT_TESTNAMEVALUE_VALUE_NODE |
-                                      XRLT_TESTNAMEVALUE_NAME_REQUIRED,
+                                      XRLT_TESTNAMEVALUE_VALUE_NODE,
                                       &_test, &ret->ntest, &ret->xtest,
                                       NULL, NULL, NULL,
                                       &ret->name, &ret->nname, &ret->xname,
@@ -39,16 +42,16 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     return ret;
 
   error:
-    xrltResponseHeaderFree(ret);
+    xrltHeaderElementFree(ret);
 
     return NULL;
 }
 
 
 void
-xrltResponseHeaderFree(void *comp)
+xrltHeaderElementFree(void *comp)
 {
-    xrltResponseHeaderData  *ret = (xrltResponseHeaderData *)comp;
+    xrltHeaderElementData  *ret = (xrltHeaderElementData *)comp;
     if (ret != NULL) {
         if (ret->xtest.expr) { xmlXPathFreeCompExpr(ret->xtest.expr); }
 
@@ -64,12 +67,12 @@ xrltResponseHeaderFree(void *comp)
 
 
 static void
-xrltResponseHeaderTransformingFree(void *data)
+xrltHeaderElementTransformingFree(void *data)
 {
-    xrltResponseHeaderTransformingData  *tdata;
+    xrltHeaderElementTransformingData  *tdata;
 
     if (data != NULL) {
-        tdata = (xrltResponseHeaderTransformingData *)data;
+        tdata = (xrltHeaderElementTransformingData *)data;
 
         if (tdata->name != NULL) { xmlFree(tdata->name); }
         if (tdata->val != NULL) { xmlFree(tdata->val); }
@@ -80,15 +83,15 @@ xrltResponseHeaderTransformingFree(void *data)
 
 
 xrltBool
-xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
-                            void *data)
+xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                           void *data)
 {
     if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }
 
-    xmlNodePtr                           node;
-    xrltResponseHeaderData              *hcomp = (xrltResponseHeaderData *)comp;
-    xrltNodeDataPtr                      n;
-    xrltResponseHeaderTransformingData  *tdata;
+    xmlNodePtr                          node;
+    xrltHeaderElementData              *hcomp = (xrltHeaderElementData *)comp;
+    xrltNodeDataPtr                     n;
+    xrltHeaderElementTransformingData  *tdata;
 
     if (data == NULL) {
         NEW_CHILD(ctx, node, insert, "r-h");
@@ -96,11 +99,11 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         ASSERT_NODE_DATA(node, n);
 
         XRLT_MALLOC(ctx, NULL, hcomp->node, tdata,
-                    xrltResponseHeaderTransformingData*,
-                    sizeof(xrltResponseHeaderTransformingData), FALSE);
+                    xrltHeaderElementTransformingData*,
+                    sizeof(xrltHeaderElementTransformingData), FALSE);
 
         n->data = tdata;
-        n->free = xrltResponseHeaderTransformingFree;
+        n->free = xrltHeaderElementTransformingFree;
 
         COUNTER_INCREASE(ctx, node);
 
@@ -125,17 +128,17 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                  &hcomp->xtest, &tdata->test);
         }
 
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform, comp,
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform, comp,
                           node, tdata);
 
         ctx->headerCount++;
     } else {
-        tdata = (xrltResponseHeaderTransformingData *)data;
+        tdata = (xrltHeaderElementTransformingData *)data;
 
         ASSERT_NODE_DATA(tdata->dataNode, n);
 
         if (n->count > 0) {
-            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltResponseHeaderTransform,
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltHeaderElementTransform,
                               comp, insert, data);
 
             return TRUE;
@@ -151,7 +154,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 TRANSFORM_TO_STRING(ctx, insert, hcomp->val, hcomp->nval,
                                     &hcomp->xval, &tdata->val);
 
-                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform,
+                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform,
                                   comp, insert, data);
             } else {
                 COUNTER_DECREASE(ctx, tdata->node);
