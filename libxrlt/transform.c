@@ -99,7 +99,25 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltValueOfFree,
                                xrltValueOfTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
+                               XRLT_COMPILE_PASS1,
+                               xrltResponseHeaderCompile,
+                               xrltResponseHeaderFree,
+                               xrltResponseHeaderTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-cookie",
+                               XRLT_COMPILE_PASS1,
+                               xrltResponseHeaderCompile,
+                               xrltResponseHeaderFree,
+                               xrltResponseHeaderTransform);
+
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"header",
+                               XRLT_COMPILE_PASS1,
+                               xrltHeaderElementCompile,
+                               xrltHeaderElementFree,
+                               xrltHeaderElementTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"cookie",
                                XRLT_COMPILE_PASS1,
                                xrltHeaderElementCompile,
                                xrltHeaderElementFree,

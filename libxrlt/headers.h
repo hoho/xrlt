@@ -19,9 +19,27 @@ extern "C" {
 typedef struct {
     xmlNodePtr      node;
 
+    xrltBool        cookie;
+
     xrltBool        test;
     xmlNodePtr      ntest;
     xrltXPathExpr   xtest;
+
+    xmlChar        *name;
+    xmlNodePtr      nname;
+    xrltXPathExpr   xname;
+
+    xmlChar        *val;
+    xmlNodePtr      nval;
+    xrltXPathExpr   xval;
+
+} xrltResponseHeaderData;
+
+
+typedef struct {
+    xmlNodePtr      node;
+
+    xrltBool        cookie;
 
     xmlChar        *name;
     xmlNodePtr      nname;
@@ -37,29 +55,39 @@ typedef struct {
 typedef enum {
     XRLT_RESPONSE_HEADER_TRANSFORM_TEST = 0,
     XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE
-} xrltHeaderElementTransformStage;
+} xrltResponseHeaderTransformStage;
 
 
 typedef struct {
-    xmlNodePtr                        node;
-    xmlNodePtr                        dataNode;
+    xmlNodePtr                         node;
+    xmlNodePtr                         dataNode;
 
-    xrltHeaderElementTransformStage   stage;
+    xrltResponseHeaderTransformStage   stage;
 
-    xrltBool                          test;
-    xmlChar                          *name;
-    xmlChar                          *val;
-} xrltHeaderElementTransformingData;
+    xrltBool                           test;
+    xmlChar                           *name;
+    xmlChar                           *val;
+} xrltResponseHeaderTransformingData;
 
 
 void *
-        xrltHeaderElementCompile     (xrltRequestsheetPtr sheet,
-                                      xmlNodePtr node, void *prevcomp);
+        xrltResponseHeaderCompile     (xrltRequestsheetPtr sheet,
+                                       xmlNodePtr node, void *prevcomp);
 void
-        xrltHeaderElementFree        (void *comp);
+        xrltResponseHeaderFree        (void *comp);
 xrltBool
-        xrltHeaderElementTransform   (xrltContextPtr ctx, void *comp,
-                                      xmlNodePtr insert, void *data);
+        xrltResponseHeaderTransform   (xrltContextPtr ctx, void *comp,
+                                       xmlNodePtr insert, void *data);
+
+
+void *
+        xrltHeaderElementCompile      (xrltRequestsheetPtr sheet,
+                                       xmlNodePtr node, void *prevcomp);
+void
+        xrltHeaderElementFree         (void *comp);
+xrltBool
+        xrltHeaderElementTransform    (xrltContextPtr ctx, void *comp,
+                                       xmlNodePtr insert, void *data);
 
 
 #ifdef __cplusplus

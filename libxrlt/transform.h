@@ -30,6 +30,7 @@ extern "C" {
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
 #define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"
 #define XRLT_ELEMENT_WITH_HEADER    (const xmlChar *)"with-header"
+#define XRLT_ELEMENT_WITH_COOKIE    (const xmlChar *)"with-cookie"
 #define XRLT_ELEMENT_WITH_PARAM     (const xmlChar *)"with-param"
 #define XRLT_ELEMENT_WITH_BODY      (const xmlChar *)"with-body"
 #define XRLT_ELEMENT_SUCCESS        (const xmlChar *)"success"

@@ -78,6 +78,7 @@ typedef struct {
 
 
 typedef struct {
+    xrltBool   cookie;
     xrltBool   body;
     xrltBool   test;
     xmlChar   *name;
