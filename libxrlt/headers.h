@@ -70,6 +70,24 @@ typedef struct {
 } xrltResponseHeaderTransformingData;
 
 
+typedef enum {
+    XRLT_HEADER_ELEMENT_TRANSFORM_NAME = 0,
+    XRLT_HEADER_ELEMENT_TRANSFORM_VALUE
+} xrltHeaderElementTransformStage;
+
+
+typedef struct {
+    xmlNodePtr                        node;
+    xmlNodePtr                        dataNode;
+    xrltHeaderElementData            *comp;
+
+    xrltHeaderElementTransformStage   stage;
+
+    xmlChar                          *name;
+    xmlChar                          *val;
+} xrltHeaderElementTransformingData;
+
+
 void *
         xrltResponseHeaderCompile     (xrltRequestsheetPtr sheet,
                                        xmlNodePtr node, void *prevcomp);

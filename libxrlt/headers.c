@@ -209,7 +209,6 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                          void *prevcomp)
 {
     xrltHeaderElementData  *ret = NULL;
-    int                     _test;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltHeaderElementData*,
                 sizeof(xrltHeaderElementData), NULL);
@@ -258,16 +257,129 @@ xrltHeaderElementFree(void *comp)
 }
 
 
+static void
+xrltHeaderElementTransformingFree(void *data)
+{
+    if (data != NULL) {
+        xrltHeaderElementTransformingData  *tdata;
+
+        tdata = (xrltHeaderElementTransformingData *)data;
+
+        if (tdata->name != NULL) { xmlFree(tdata->name); }
+        if (tdata->val != NULL) { xmlFree(tdata->val); }
+
+        xmlFree(data);
+    }
+}
+
+
+static xrltBool
+xrltNeedHeaderCallback(xrltContextPtr ctx, size_t id, xrltTransformValue *val,
+                       void *data)
+{
+    xrltHeaderElementTransformingData  *tdata;
+    tdata = (xrltHeaderElementTransformingData *)data;
+
+    tdata->stage = XRLT_HEADER_ELEMENT_TRANSFORM_VALUE;
+
+    if (val->data.data != NULL) {
+        tdata->val = xmlStrndup((xmlChar *)val->data.data, val->data.len);
+    } else {
+        TRANSFORM_TO_STRING(ctx, tdata->dataNode, tdata->comp->val,
+                            tdata->comp->nval, &tdata->comp->xval,
+                            &tdata->val);
+    }
+
+    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform, tdata->comp,
+                      NULL, tdata);
+
+    return TRUE;
+}
+
+
 xrltBool
 xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                            void *data)
 {
-    xrltHeaderElementData  *hcomp = (xrltHeaderElementData *)comp;
+    xrltHeaderElementData              *hcomp = (xrltHeaderElementData *)comp;
+    xrltHeaderElementTransformingData  *tdata;
+    xmlNodePtr                          node;
+    xrltNodeDataPtr                     n;
+    size_t                              id;
+    xrltString                          s;
 
     if (data == NULL) {
+        NEW_CHILD(ctx, node, insert, "h");
 
+        ASSERT_NODE_DATA(node, n);
+
+        XRLT_MALLOC(ctx, NULL, hcomp->node, tdata,
+                    xrltHeaderElementTransformingData*,
+                    sizeof(xrltHeaderElementTransformingData), FALSE);
+
+        n->data = tdata;
+        n->free = xrltHeaderElementTransformingFree;
+
+        COUNTER_INCREASE(ctx, node);
+
+        tdata->node = node;
+        tdata->comp = hcomp;
+
+        NEW_CHILD(ctx, node, node, "n");
+
+        tdata->dataNode = node;
+
+        TRANSFORM_TO_STRING(ctx, node, hcomp->name, hcomp->nname,
+                            &hcomp->xname, &tdata->name);
+
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform, comp,
+                          insert, tdata);
     } else {
+        tdata = (xrltHeaderElementTransformingData *)data;
 
+        ASSERT_NODE_DATA(tdata->dataNode, n);
+
+        if (n->count > 0) {
+            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltHeaderElementTransform, comp,
+                              insert, tdata);
+
+            return TRUE;
+        }
+
+        switch (tdata->stage) {
+            case XRLT_HEADER_ELEMENT_TRANSFORM_NAME:
+                id = ++ctx->includeId;
+
+                s.data = (char *)tdata->name;
+                s.len = (size_t)xmlStrlen(tdata->name);
+
+                if (!xrltNeedHeaderListPush(&ctx->needHeader, id,
+                                            hcomp->cookie, &s))
+                {
+                    RAISE_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+                    return FALSE;
+                }
+
+                ctx->cur |= XRLT_STATUS_NEED_HEADER;
+
+                xrltInputSubscribe(ctx, XRLT_PROCESS_HEADER, id,
+                                   xrltNeedHeaderCallback, tdata);
+
+                return TRUE;
+
+            case XRLT_HEADER_ELEMENT_TRANSFORM_VALUE:
+                if (tdata->val != NULL) {
+                    node = xmlNewText(tdata->val);
+
+                    xmlAddNextSibling(tdata->node, node);
+                }
+
+                break;
+        }
+
+        COUNTER_DECREASE(ctx, tdata->node);
+
+        REMOVE_RESPONSE_NODE(ctx, tdata->node);
     }
 
     return TRUE;
