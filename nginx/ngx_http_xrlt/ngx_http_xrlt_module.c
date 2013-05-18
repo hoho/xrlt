@@ -239,6 +239,10 @@ ngx_http_xrlt_wev_handler(ngx_http_request_t *r)
 {
     dd("XRLT end (main: %p)", r);
 
+    if (r == r->connection->data && r->postponed) {
+        ngx_http_output_filter(r, NULL);
+    }
+
     ngx_http_finalize_request(r, NGX_OK);
 }
 
@@ -283,10 +287,11 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
 
     if (t & XRLT_STATUS_HEADER) {
         ngx_table_elt_t  *h;
+        xrltBool          cookie;
         xrltString        name;
         xrltString        val;
 
-        while (xrltHeaderListShift(&ctx->xctx->header, &name, &val)) {
+        while (xrltHeaderListShift(&ctx->xctx->header, &cookie, &name, &val)) {
             if (ctx->headers_sent) {
                 dd("Response headers are already sent");
                 xrltStringClear(&name);
@@ -321,6 +326,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         xrltSubrequestDataType       type;
         xrltHeaderList               header;
         xrltString                   url, querystring, body, name, val;
+        xrltBool                     cookie;
         ngx_http_xrlt_ctx_t         *sr_ctx;
         ngx_str_t                    sr_uri, sr_querystring, sr_body;
         ngx_http_request_t          *sr;
@@ -420,7 +426,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
             }
 
             if (header.first != NULL) {
-                while (xrltHeaderListShift(&header, &name, &val)) {
+                while (xrltHeaderListShift(&header, &cookie, &name, &val)) {
                     h = ngx_list_push(&sr->headers_in.headers);
                     if (h == NULL) {
                         xrltStringClear(&name);
@@ -550,14 +556,15 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
 
     if (t & XRLT_STATUS_LOG) {
         xrltLogType   ltype;
-        ngx_int_t     l;
+        ngx_uint_t    l;
 
         while (xrltLogListShift(&ctx->xctx->log, &ltype, &s)) {
             switch (ltype) {
                 case XRLT_ERROR:   l = NGX_LOG_ERR; break;
                 case XRLT_WARNING: l = NGX_LOG_WARN; break;
-                case XRLT_INFO:    l = NGX_LOG_INFO; break;
                 case XRLT_DEBUG:   l = NGX_LOG_DEBUG; break;
+                case XRLT_INFO:
+                default:           l = NGX_LOG_INFO; break;
             }
 
             ngx_log_error(l, r->connection->log, 0, s.data);
@@ -628,6 +635,32 @@ ngx_http_xrlt_header_filter(ngx_http_request_t *r)
     if (ctx == NULL) {
         return NGX_ERROR;
     }
+
+    ngx_list_part_t              *part;
+    ngx_table_elt_t              *header;
+    ngx_uint_t                    i;
+
+
+    part = &r->headers_out.headers.part;
+    header = part->elts;
+
+
+    for (i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        dd("HEHE: %s %d, %s %d", (char *) header[i].key.data, header[i].key.len, (char *) header[i].value.data, header[i].value.len);
+    }
+
+    dd("HESTAHE: %d", r->headers_out.status);
 
     return NGX_OK;
 }
@@ -705,8 +738,6 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
 
     r->headers_out.status = NGX_HTTP_OK;
 
-    r->main->count++;
-
     rc = ngx_http_xrlt_transform(r, ctx, NULL, 0);
     if (rc == NGX_ERROR) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -714,7 +745,11 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
 
     if (rc == NGX_DONE) {
         ngx_http_finalize_request(r, NGX_OK);
+
+        return NGX_OK;
     }
+
+    r->main->count++;
 
     return rc == NGX_DONE ? NGX_OK : NGX_DONE;
 }
