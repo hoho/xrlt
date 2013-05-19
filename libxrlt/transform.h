@@ -39,6 +39,9 @@ extern "C" {
 #define XRLT_ELEMENT_TYPE           (const xmlChar *)"type"
 #define XRLT_ELEMENT_NAME           (const xmlChar *)"name"
 #define XRLT_ELEMENT_VALUE          (const xmlChar *)"value"
+#define XRLT_ELEMENT_PATH           (const xmlChar *)"path"
+#define XRLT_ELEMENT_EXPIRES        (const xmlChar *)"expires"
+#define XRLT_ELEMENT_DOMAIN         (const xmlChar *)"domain"
 
 
 #define XRLT_TESTNAMEVALUE_TEST_ATTR                2
@@ -357,6 +360,199 @@ xrltNotReadyCounterDecrease(xrltContextPtr ctx, xmlNodePtr node)
     }
 
     return TRUE;
+}
+
+
+static inline xrltBool
+xrltCompileCheckSubnodes(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                         const xmlChar *name1, const xmlChar *name2,
+                         const xmlChar *name3, const xmlChar *name4,
+                         const xmlChar *name5)
+{
+    xmlNodePtr   tmp;
+    xrltBool     xrlt = FALSE;
+    xrltBool     other = FALSE;
+
+    tmp = node->children;
+
+    while (tmp != NULL) {
+        if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS) &&
+            ((name1 != NULL && xmlStrEqual(name1, tmp->name)) ||
+             (name2 != NULL && xmlStrEqual(name2, tmp->name)) ||
+             (name3 != NULL && xmlStrEqual(name3, tmp->name)) ||
+             (name4 != NULL && xmlStrEqual(name4, tmp->name)) ||
+             (name5 != NULL && xmlStrEqual(name5, tmp->name))))
+        {
+            xrlt = TRUE;
+        } else {
+            other = TRUE;
+        }
+
+        if (xrlt && other) {
+            xrltTransformError(NULL, sheet, tmp, "Unexpected element");
+            return FALSE;
+        }
+
+        tmp = tmp->next;
+    }
+
+    return TRUE;
+}
+
+
+static inline xrltBool
+xrltCompileTransformValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
+                          xmlNodePtr nodeVal, const xmlChar *xpathAttrName,
+                          const xmlChar *valAttrName,
+                          const xmlChar *valNodeName, xrltBool tostr,
+                          xmlChar **val, xmlNodePtr *nval, xrltXPathExpr *xval)
+{
+    xmlChar          *sel, *vsel, *v;
+    xmlNodePtr        tmp, tmp2, vNode = NULL;
+    xrltNodeDataPtr   n;
+    xrltBool          ret = FALSE;
+
+    if (valNodeName != NULL) {
+        tmp = node->children;
+
+        while (tmp != NULL) {
+            if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS) &&
+                xmlStrEqual(tmp->name, valNodeName))
+            {
+                if (vNode == NULL) {
+                    vNode = tmp;
+                } else {
+                    xrltTransformError(NULL, sheet, tmp, "Unexpected element");
+                    return FALSE;
+                }
+            }
+
+            tmp = tmp->next;
+        }
+    }
+
+    sel = xpathAttrName == NULL ? NULL : xmlGetProp(node, xpathAttrName);
+    vsel = vNode == NULL ? NULL : xmlGetProp(vNode, XRLT_ELEMENT_ATTR_SELECT);
+    v = valAttrName == NULL ? NULL : xmlGetProp(node, valAttrName);
+    tmp = vNode == NULL ? nodeVal : vNode->children;
+
+    if (sel != NULL && vNode != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Either '%s' attribute or '%s' element is allowed",
+                           xpathAttrName, valNodeName);
+        goto error;
+    }
+
+    if (v != NULL && vNode != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Either '%s' attribute or '%s' element is allowed",
+                           valAttrName, valNodeName);
+        goto error;
+    }
+
+    if (sel != NULL && v != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Either '%s' attribute or '%s' attribute is "
+                           "allowed", valAttrName, xpathAttrName);
+        goto error;
+    }
+
+    if (sel != NULL && tmp != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Either '%s' attribute or content is allowed",
+                            xpathAttrName);
+        goto error;
+    }
+
+    if (v != NULL && tmp != NULL) {
+        xrltTransformError(NULL, sheet, node,
+                           "Either '%s' attribute or content is allowed",
+                           valAttrName);
+        goto error;
+    }
+
+    if (vsel != NULL && tmp != NULL) {
+        xrltTransformError(NULL, sheet, vNode,
+                           "Either '%s' attribute or content is allowed",
+                           XRLT_ELEMENT_ATTR_SELECT);
+        goto error;
+    }
+
+    if (sel != NULL) {
+        if (val != NULL) { *val = NULL; }
+        if (nval != NULL) { *nval = NULL; }
+
+        xval->expr = xmlXPathCompile(sel);
+        if (xval->expr == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to compile '%s' expression",
+                               xpathAttrName);
+            goto error;
+        }
+
+        xval->src = node;
+        xval->scope = node->parent;
+    } else if (vsel != NULL) {
+        if (val != NULL) { *val = NULL; }
+        if (nval != NULL) { *nval = NULL; }
+
+        xval->expr = xmlXPathCompile(vsel);
+        if (xval->expr == NULL) {
+            xrltTransformError(NULL, sheet, vNode,
+                               "Failed to compile '%s' expression",
+                               XRLT_ELEMENT_ATTR_SELECT);
+            goto error;
+        }
+
+        xval->src = vNode;
+        xval->scope = node->parent;
+    } else if (v != NULL) {
+        if (nval != NULL) { *nval = NULL; }
+        if (xval != NULL) { memset(xval, 0, sizeof(xrltXPathExpr)); }
+
+        *val = v;
+        v = NULL;
+    } else if (tmp != NULL) {
+        if (xval != NULL) { memset(xval, 0, sizeof(xrltXPathExpr)); }
+
+        tmp2 = tmp;
+
+        while (tmp2 != NULL) {
+            if (tmp2->type == XML_TEXT_NODE ||
+                tmp2->type == XML_CDATA_SECTION_NODE)
+            {
+                tmp2 = tmp2->next;
+            } else {
+                break;
+            }
+        }
+
+        if (tmp2 == NULL || (tostr && !xrltHasXRLTElement(tmp))) {
+            if (nval != NULL) { *nval = NULL; }
+            *val = xmlXPathCastNodeToString(tmp->parent);
+        } else {
+            if (val != NULL) { *val = NULL; }
+            *nval = tmp;
+        }
+    } else {
+        if (val != NULL) { *val = NULL; }
+        if (nval != NULL) { *nval = NULL; }
+        if (xval != NULL) { memset(xval, 0, sizeof(xrltXPathExpr)); }
+    }
+
+    if (vNode != NULL) {
+        ASSERT_NODE_DATA_GOTO(vNode, n);
+        n->xrlt = TRUE;
+    }
+
+    ret = TRUE;
+
+  error:
+    if (sel != NULL) { xmlFree(sel); }
+    if (vsel != NULL) { xmlFree(vsel); }
+    if (v != NULL) { xmlFree(v); }
+
+    return ret;
 }
 
 

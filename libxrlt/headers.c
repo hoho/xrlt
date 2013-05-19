@@ -16,30 +16,74 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     XRLT_MALLOC(NULL, sheet, node, ret, xrltResponseHeaderData*,
                 sizeof(xrltResponseHeaderData), NULL);
 
-    if (!xrltCompileTestNameValueNode(sheet, node,
-                                      XRLT_TESTNAMEVALUE_TEST_ATTR |
-                                      XRLT_TESTNAMEVALUE_TEST_NODE |
-                                      XRLT_TESTNAMEVALUE_NAME_ATTR |
-                                      XRLT_TESTNAMEVALUE_NAME_NODE |
-                                      XRLT_TESTNAMEVALUE_VALUE_ATTR |
-                                      XRLT_TESTNAMEVALUE_VALUE_NODE,
-                                      &_test, &ret->ntest, &ret->xtest,
-                                      NULL, NULL, NULL,
-                                      &ret->name, &ret->nname, &ret->xname,
-                                      &ret->val, &ret->nval, &ret->xval))
-    {
-        goto error;
-    }
-
     if (xmlStrEqual(node->name, (const xmlChar *)"response-cookie")) {
         ret->cookie = TRUE;
     }
 
-    if (_test > 0) {
+    if (ret->cookie) {
+        if (!xrltCompileCheckSubnodes(sheet, node,
+                                      XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
+                                      XRLT_ELEMENT_PATH, XRLT_ELEMENT_EXPIRES,
+                                      XRLT_ELEMENT_DOMAIN))
+        {
+            goto error;
+        }
+    } else {
+        if (!xrltCompileCheckSubnodes(sheet, node,
+                                      XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
+                                      NULL, NULL, NULL))
+        {
+            goto error;
+        }
+    }
+
+    if (!xrltCompileTransformValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
+                                   XRLT_ELEMENT_NAME, TRUE,
+                                   &ret->name, &ret->nname, &ret->xname))
+    {
+        goto error;
+    }
+
+    if (!xrltCompileTransformValue(sheet, node, node->children,
+                                   XRLT_ELEMENT_ATTR_SELECT, NULL,
+                                   XRLT_ELEMENT_VALUE,
+                                   TRUE, &ret->val, &ret->nval, &ret->xval))
+    {
+        goto error;
+    }
+
+    if (ret->cookie) {
+        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
+                                       XRLT_ELEMENT_PATH, XRLT_ELEMENT_PATH,
+                                       TRUE,
+                                       &ret->path, &ret->npath, &ret->xpath))
+        {
+            goto error;
+        }
+
+        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
+                                       XRLT_ELEMENT_DOMAIN,
+                                       XRLT_ELEMENT_DOMAIN, TRUE, &ret->domain,
+                                       &ret->ndomain, &ret->xdomain))
+        {
+            goto error;
+        }
+
+        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
+                                       XRLT_ELEMENT_EXPIRES,
+                                       XRLT_ELEMENT_EXPIRES, TRUE,
+                                       &ret->expires, &ret->nexpires,
+                                       &ret->xexpires))
+        {
+            goto error;
+        }
+    }
+
+/*  if (_test > 0) {
         ret->test = _test == 1 ? TRUE : FALSE;
     } else if (ret->ntest == NULL && ret->xtest.expr == NULL) {
         ret->test = TRUE;
-    }
+    }*/
 
     ret->node = node;
 
@@ -57,13 +101,44 @@ xrltResponseHeaderFree(void *comp)
 {
     xrltResponseHeaderData  *ret = (xrltResponseHeaderData *)comp;
     if (ret != NULL) {
-        if (ret->xtest.expr) { xmlXPathFreeCompExpr(ret->xtest.expr); }
+        if (ret->xtest.expr) {
+            xmlXPathFreeCompExpr(ret->xtest.expr);
+        }
 
-        if (ret->name != NULL) { xmlFree(ret->name); }
-        if (ret->xname.expr != NULL) { xmlXPathFreeCompExpr(ret->xname.expr); }
+        if (ret->name != NULL) {
+            xmlFree(ret->name);
+        }
+        if (ret->xname.expr != NULL) {
+            xmlXPathFreeCompExpr(ret->xname.expr);
+        }
 
-        if (ret->val != NULL) { xmlFree(ret->val); }
-        if (ret->xval.expr != NULL) { xmlXPathFreeCompExpr(ret->xval.expr); }
+        if (ret->val != NULL) {
+            xmlFree(ret->val);
+        }
+        if (ret->xval.expr != NULL) {
+            xmlXPathFreeCompExpr(ret->xval.expr);
+        }
+
+        if (ret->path != NULL) {
+            xmlFree(ret->path);
+        }
+        if (ret->xpath.expr != NULL) {
+            xmlXPathFreeCompExpr(ret->xpath.expr);
+        }
+
+        if (ret->domain != NULL) {
+            xmlFree(ret->domain);
+        }
+        if (ret->xdomain.expr != NULL) {
+            xmlXPathFreeCompExpr(ret->xdomain.expr);
+        }
+
+        if (ret->expires != NULL) {
+            xmlFree(ret->expires);
+        }
+        if (ret->xexpires.expr != NULL) {
+            xmlXPathFreeCompExpr(ret->xexpires.expr);
+        }
 
         xmlFree(ret);
     }

@@ -33,6 +33,17 @@ typedef struct {
     xmlNodePtr      nval;
     xrltXPathExpr   xval;
 
+    xmlChar        *path;
+    xmlNodePtr      npath;
+    xrltXPathExpr   xpath;
+
+    xmlChar        *domain;
+    xmlNodePtr      ndomain;
+    xrltXPathExpr   xdomain;
+
+    xmlChar        *expires;
+    xmlNodePtr      nexpires;
+    xrltXPathExpr   xexpires;
 } xrltResponseHeaderData;
 
 
