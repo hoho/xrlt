@@ -33,7 +33,19 @@ compile:
 
 .PHONY: transform
 transform:
-	g++ -o .build/transform_test   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../js.cc ../xrlterror.c transform/test.c -lxml2 -lyajl -lv8
+	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../xrlterror.c transform/test.c -lxml2 -lyajl
+	@$(VALGRIND) .build/transform_test transform/test1.xrl transform/test1.in transform/test1.out \
+                                       transform/test2.xrl transform/test2.in transform/test2.out \
+                                       transform/test3.xrl transform/test3.in transform/test3.out \
+                                       transform/test4.xrl transform/test4.in transform/test4.out \
+                                       transform/test5.xrl transform/test5.in transform/test5.out \
+                                       transform/test6.xrl transform/test6.in transform/test6.out \
+                                       transform/test7.xrl transform/test7.in transform/test7.out \
+                                       transform/test8.xrl transform/test8.in transform/test8.out
+
+.PHONY: transformjs
+transformjs:
+	@g++ -o .build/transform_testjs   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../js.cc ../xrlterror.c transform/test.c -lxml2 -lyajl -lv8
 
 .PHONY: querystring
 querystring:

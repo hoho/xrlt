@@ -10,7 +10,9 @@
 #include <libxml/xpath.h>
 #include <xrlt.h>
 #include "variable.h"
-#include "js.h"
+#ifndef __XRLT_NO_JAVASCRIPT__
+    #include "js.h"
+#endif
 
 
 #ifdef __cplusplus
@@ -40,9 +42,11 @@ typedef struct {
     xrltBool              hasSyncParam;
 
     xrltVariableDataPtr  *param;
-    xrltVariableDataPtr  *merged;
     size_t                paramLen;
     size_t                paramSize;
+
+    xrltVariableDataPtr  *merged;
+    size_t                mergedLen;
 } xrltApplyData;
 
 

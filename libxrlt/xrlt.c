@@ -7,7 +7,10 @@
 
 #include "xrlt.h"
 #include "transform.h"
-#include "js.h"
+
+#ifndef __XRLT_NO_JAVASCRIPT__
+    #include "js.h"
+#endif
 
 
 static inline void
@@ -122,9 +125,11 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
         xmlFreeDoc(sheet->doc);
     }
 
+#ifndef __XRLT_NO_JAVASCRIPT__
     if (sheet->js != NULL) {
         xrltJSContextFree((xrltJSContextPtr)sheet->js);
     }
+#endif
 
     xmlFree(sheet);
 }
@@ -405,7 +410,9 @@ xrltInit(void)
 {
     xmlRegisterNodeDefault(xrltRegisterNodeFunc);
     xmlDeregisterNodeDefault(xrltDeregisterNodeFunc);
+#ifndef __XRLT_NO_JAVASCRIPT__
     xrltJSInit();
+#endif
 }
 
 
@@ -413,7 +420,9 @@ void
 xrltCleanup(void)
 {
     xrltUnregisterBuiltinElements();
+#ifndef __XRLT_NO_JAVASCRIPT__
     xrltJSFree();
+#endif
 }
 
 

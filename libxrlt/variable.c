@@ -86,21 +86,21 @@ void
 xrltVariableFree(void *comp)
 {
     if (comp != NULL) {
-        xrltVariableData *data = (xrltVariableData *)comp;
+        xrltVariableData  *vcomp = (xrltVariableData *)comp;
 
-        if (data->name != NULL && data->ownName) {
-            xmlFree(data->name);
+        if (vcomp->name != NULL && vcomp->ownName) {
+            xmlFree(vcomp->name);
         }
 
-        if (data->jsname != NULL && data->ownJsname) {
-            xmlFree(data->jsname);
+        if (vcomp->jsname != NULL && vcomp->ownJsname) {
+            xmlFree(vcomp->jsname);
         }
 
-        if (data->xval.expr != NULL && data->ownXval) {
-            xmlXPathFreeCompExpr(data->xval.expr);
+        if (vcomp->xval.expr != NULL && vcomp->ownXval) {
+            xmlXPathFreeCompExpr(vcomp->xval.expr);
         }
 
-        xmlFree(data);
+        xmlFree(vcomp);
     }
 }
 

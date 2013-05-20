@@ -339,19 +339,20 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
 }
 
 
-int main()
+int main(int argc, char *argv[])
 {
     xmlInitParser();
     xrltInit();
 
-    test_xrltTransform("transform/test1.xrl", "transform/test1.in", "transform/test1.out");
-    test_xrltTransform("transform/test2.xrl", "transform/test2.in", "transform/test2.out");
-    test_xrltTransform("transform/test3.xrl", "transform/test3.in", "transform/test3.out");
-    test_xrltTransform("transform/test4.xrl", "transform/test4.in", "transform/test4.out");
-    test_xrltTransform("transform/test5.xrl", "transform/test5.in", "transform/test5.out");
-    test_xrltTransform("transform/test6.xrl", "transform/test6.in", "transform/test6.out");
-    test_xrltTransform("transform/test7.xrl", "transform/test7.in", "transform/test7.out");
-    test_xrltTransform("transform/test8.xrl", "transform/test8.in", "transform/test8.out");
+    if (argc % 3 != 1) {
+        fprintf(stderr, "Incorrect number of arguments\n");
+        return 1;
+    }
+
+    int i;
+    for (i = 1; i < argc; i += 3) {
+        test_xrltTransform(argv[i], argv[i + 1], argv[i + 2]);
+    }
 
     xrltCleanup();
     xmlCleanupParser();

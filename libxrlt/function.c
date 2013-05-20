@@ -30,12 +30,15 @@ void *
 xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltFunctionData     *ret = NULL;
-    xmlNodePtr            tmp, tmp2;
+    xmlNodePtr            tmp;
     xmlChar              *t;
     xrltVariableDataPtr   p;
     xrltVariableDataPtr  *newp;
     size_t                i;
+#ifndef __XRLT_NO_JAVASCRIPT__
+    xmlNodePtr            tmp2;
     xmlBufferPtr          buf = NULL;
+#endif
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltFunctionData*,
                 sizeof(xrltFunctionData), NULL);
@@ -57,6 +60,8 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
+
+#ifndef __XRLT_NO_JAVASCRIPT__
     t = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
     if (t != NULL) {
         if (xmlStrcasecmp(t, (xmlChar *)"javascript") == 0) {
@@ -64,6 +69,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
         xmlFree(t);
     }
+#endif
 
     // We keep the last function declaration as a function.
     xmlHashRemoveEntry3(sheet->funcs, ret->name, NULL, NULL,
@@ -130,6 +136,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     }
 
     if (ret->js) {
+#ifndef __XRLT_NO_JAVASCRIPT__
         tmp2 = tmp;
 
         while (tmp2 != NULL) {
@@ -167,6 +174,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         xmlBufferFree(buf);
+#endif
     } else {
         ret->children = tmp;
     }
@@ -308,6 +316,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                         NULL);
 
             ret->merged = newp;
+            ret->mergedLen = ret->func->paramLen;
 
             for (i = 0; i < ret->func->paramLen; i++) {
                 XRLT_MALLOC(NULL, sheet, node, p, xrltVariableDataPtr,
@@ -337,10 +346,6 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
                     newp[i]->sync = ret->func->param[i]->sync;
 
-                    if (newp[i]->sync) {
-                        ret->hasSyncParam = TRUE;
-                    }
-
                     memset(ret->param[j], 0, sizeof(xrltVariableData));
 
                     i++;
@@ -349,6 +354,12 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                     i++;
                 } else {
                     j++;
+                }
+            }
+
+            for (i = 0; i < ret->func->paramLen; i++) {
+                if (newp[i]->sync) {
+                    ret->hasSyncParam = TRUE;
                 }
             }
         } else {
@@ -396,7 +407,7 @@ xrltApplyFree(void *comp)
         }
 
         if (a->merged != NULL) {
-            for (i = 0; i < a->paramLen; i++) {
+            for (i = 0; i < a->mergedLen; i++) {
                 xrltVariableFree(a->merged[i]);
             }
 
@@ -538,6 +549,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ASSERT_NODE_DATA(tdata->retNode, n);
 
             if (acomp->func->js) {
+#ifndef __XRLT_NO_JAVASCRIPT__
                 ctx->varContext = acomp->func->node;
 
                 if (!xrltJSApply(ctx, acomp->func->node, acomp->func->name,
@@ -545,6 +557,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 {
                     return FALSE;
                 }
+#endif
             } else {
                 if (n->count > 0) {
                     SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
