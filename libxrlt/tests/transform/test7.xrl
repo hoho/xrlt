@@ -31,7 +31,7 @@
         </xrl:response-header>
 
         <xrl:response-header>
-            <xrl:test />
+            <xrl:test select="false()" />
             <xrl:name select="'He2'" />
             <xrl:value select="'Va2'" />
         </xrl:response-header>

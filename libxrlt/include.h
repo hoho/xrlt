@@ -20,21 +20,10 @@ extern "C" {
 typedef struct _xrltCompiledIncludeParam xrltCompiledIncludeParam;
 typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
-    xrltBool                      test;
-    xmlNodePtr                    ntest;
-    xrltXPathExpr                 xtest;
-
-    xrltBool                      body;
-    xmlNodePtr                    nbody;
-    xrltXPathExpr                 xbody;
-
-    xmlChar                      *name;
-    xmlNodePtr                    nname;
-    xrltXPathExpr                 xname;
-
-    xmlChar                      *val;
-    xmlNodePtr                    nval;
-    xrltXPathExpr                 xval;
+    xrltValue                     test;
+    xrltValue                     body;
+    xrltValue                     name;
+    xrltValue                     val;
 
     xrltCompiledIncludeParamPtr   next;
 };
@@ -43,17 +32,9 @@ struct _xrltCompiledIncludeParam {
 typedef struct {
     xmlNodePtr                    node;
 
-    xmlChar                      *href;
-    xmlNodePtr                    nhref;
-    xrltXPathExpr                 xhref;
-
-    xrltHTTPMethod                method;
-    xmlNodePtr                    nmethod;
-    xrltXPathExpr                 xmethod;
-
-    xrltSubrequestDataType        type;
-    xmlNodePtr                    ntype;
-    xrltXPathExpr                 xtype;
+    xrltValue                     href;
+    xrltValue                     method;
+    xrltValue                     type;
 
     xrltCompiledIncludeParamPtr   fheader;
     xrltCompiledIncludeParamPtr   lheader;
@@ -63,23 +44,18 @@ typedef struct {
     xrltCompiledIncludeParamPtr   lparam;
     size_t                        paramCount;
 
-    xrltBool                      tbody;
-    xmlNodePtr                    tnbody;
-    xrltXPathExpr                 txbody;
-    xmlChar                      *body;
-    xmlNodePtr                    nbody;
-    xrltXPathExpr                 xbody;
+    xrltValue                     bodyTest;
+    xrltValue                     body;
 
-    xmlNodePtr                    nsuccess;
-    xrltXPathExpr                 xsuccess;
-
-    xmlNodePtr                    nfailure;
+    xrltValue                     success;
+    xrltValue                     failure;
 } xrltCompiledIncludeData;
 
 
 typedef struct {
     xrltBool   cookie;
     xrltBool   body;
+    xmlChar   *cbody;
     xrltBool   test;
     xmlChar   *name;
     xmlChar   *val;
@@ -129,7 +105,7 @@ typedef struct {
     xrltTransformingParam      *param;
     size_t                      paramCount;
 
-    xrltBool                    tbody;
+    xrltBool                    bodyTest;
     xmlChar                    *body;
 } xrltIncludeTransformingData;
 

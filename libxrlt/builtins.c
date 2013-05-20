@@ -318,11 +318,12 @@ xrltValueOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
-    ret->select.src = node;
-    ret->select.scope = node->parent;
-    ret->select.expr = xmlXPathCompile(select);
+    ret->select.type = XRLT_VALUE_XPATH;
+    ret->select.xpathval.src = node;
+    ret->select.xpathval.scope = node->parent;
+    ret->select.xpathval.expr = xmlXPathCompile(select);
 
-    if (ret->select.expr == NULL) {
+    if (ret->select.xpathval.expr == NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Failed to compile expression\n");
         goto error;
@@ -346,7 +347,7 @@ void
 xrltValueOfFree(void *comp)
 {
     if (comp != NULL) {
-        xmlXPathFreeCompExpr(((xrltValueOfData *)comp)->select.expr);
+        CLEAR_XRLT_VALUE(((xrltValueOfData *)comp)->select);
         xmlFree(comp);
     }
 }
@@ -397,7 +398,7 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->dataNode = node;
 
-        TRANSFORM_TO_STRING(ctx, node, NULL, NULL, &vcomp->select, &tdata->val);
+        TRANSFORM_TO_STRING(ctx, node, &vcomp->select, &tdata->val);
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltValueOfTransform, comp, insert,
                           tdata);

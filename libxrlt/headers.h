@@ -17,48 +17,26 @@ extern "C" {
 
 
 typedef struct {
-    xmlNodePtr      node;
+    xmlNodePtr   node;
 
-    xrltBool        cookie;
+    xrltBool     cookie;
 
-    xrltBool        test;
-    xmlNodePtr      ntest;
-    xrltXPathExpr   xtest;
-
-    xmlChar        *name;
-    xmlNodePtr      nname;
-    xrltXPathExpr   xname;
-
-    xmlChar        *val;
-    xmlNodePtr      nval;
-    xrltXPathExpr   xval;
-
-    xmlChar        *path;
-    xmlNodePtr      npath;
-    xrltXPathExpr   xpath;
-
-    xmlChar        *domain;
-    xmlNodePtr      ndomain;
-    xrltXPathExpr   xdomain;
-
-    xmlChar        *expires;
-    xmlNodePtr      nexpires;
-    xrltXPathExpr   xexpires;
+    xrltValue    test;
+    xrltValue    name;
+    xrltValue    val;
+    xrltValue    path;
+    xrltValue    domain;
+    xrltValue    expires;
 } xrltResponseHeaderData;
 
 
 typedef struct {
-    xmlNodePtr      node;
+    xmlNodePtr   node;
 
-    xrltBool        cookie;
+    xrltBool     cookie;
 
-    xmlChar        *name;
-    xmlNodePtr      nname;
-    xrltXPathExpr   xname;
-
-    xmlChar        *val;
-    xmlNodePtr      nval;
-    xrltXPathExpr   xval;
+    xrltValue    name;
+    xrltValue    val;
 
 } xrltHeaderElementData;
 
@@ -78,6 +56,9 @@ typedef struct {
     xrltBool                           test;
     xmlChar                           *name;
     xmlChar                           *val;
+    xmlChar                           *path;
+    xmlChar                           *domain;
+    xmlChar                           *expires;
 } xrltResponseHeaderTransformingData;
 
 

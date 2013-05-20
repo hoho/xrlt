@@ -53,6 +53,15 @@ typedef enum {
 } xrltSubrequestDataType;
 
 
+typedef enum {
+    XRLT_VALUE_EMPTY = 0,
+    XRLT_VALUE_TEXT,
+    XRLT_VALUE_NODELIST,
+    XRLT_VALUE_XPATH,
+    XRLT_VALUE_INT
+} xrltValueType;
+
+
 typedef struct {
     char    *data;
     size_t   len;
@@ -145,6 +154,27 @@ typedef struct {
     xmlNodePtr            scope;
     xmlXPathCompExprPtr   expr;
 } xrltXPathExpr;
+
+
+typedef struct _xrltValue xrltValue;
+typedef xrltValue* xrltValuePtr;
+struct _xrltValue {
+    xrltValueType   type;
+    xmlChar        *textval;
+    xmlNodePtr      nodeval;
+    xrltXPathExpr   xpathval;
+    int             intval;
+};
+
+
+#define CLEAR_XRLT_VALUE(val) {                                               \
+    if (val.textval != NULL) {                                                \
+        xmlFree(val.textval);                                                 \
+    }                                                                         \
+    if (val.xpathval.expr != NULL) {                                          \
+        xmlXPathFreeCompExpr(val.xpathval.expr);                              \
+    }                                                                         \
+}
 
 
 static inline xrltBool

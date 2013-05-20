@@ -16,33 +16,30 @@ XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
 sr type: TEXT
-sr url: /some-name
+sr url: /yeah1
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_SUBREQUEST
 sr id: 2
 sr method: GET
 sr type: TEXT
-sr url: /yeah1
+sr url: /yeah2
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_SUBREQUEST
 sr id: 3
 sr method: GET
 sr type: TEXT
-sr url: /yeah2
+sr url: /yeah3
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_SUBREQUEST
 sr id: 4
 sr method: GET
 sr type: TEXT
-sr url: /yeah3
+sr url: /some-name
 sr query: (null)
 sr body: (null)
-XRLT_STATUS_HEADER
-header: He1 AWESOME
-XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
@@ -50,4 +47,7 @@ XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_HEADER
 header: AMAZINGLY unbelievable
+XRLT_STATUS_WAITING
+XRLT_STATUS_HEADER
+header: He1 AWESOME
 XRLT_STATUS_DONE

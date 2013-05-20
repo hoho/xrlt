@@ -11,7 +11,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                           void *prevcomp)
 {
     xrltResponseHeaderData  *ret = NULL;
-    int                      _test;
+    xrltBool                 hasxrlt;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltResponseHeaderData*,
                 sizeof(xrltResponseHeaderData), NULL);
@@ -24,66 +24,59 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         if (!xrltCompileCheckSubnodes(sheet, node,
                                       XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
                                       XRLT_ELEMENT_PATH, XRLT_ELEMENT_EXPIRES,
-                                      XRLT_ELEMENT_DOMAIN))
+                                      XRLT_ELEMENT_DOMAIN, XRLT_ELEMENT_TEST,
+                                      &hasxrlt))
         {
             goto error;
         }
     } else {
         if (!xrltCompileCheckSubnodes(sheet, node,
                                       XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
-                                      NULL, NULL, NULL))
+                                      XRLT_ELEMENT_TEST, NULL, NULL, NULL,
+                                      &hasxrlt))
         {
             goto error;
         }
     }
 
-    if (!xrltCompileTransformValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
-                                   XRLT_ELEMENT_NAME, TRUE,
-                                   &ret->name, &ret->nname, &ret->xname))
+    if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
+                          XRLT_ELEMENT_NAME, TRUE, &ret->name))
     {
         goto error;
     }
 
-    if (!xrltCompileTransformValue(sheet, node, node->children,
-                                   XRLT_ELEMENT_ATTR_SELECT, NULL,
-                                   XRLT_ELEMENT_VALUE,
-                                   TRUE, &ret->val, &ret->nval, &ret->xval))
+    if (!xrltCompileValue(sheet, node, hasxrlt ? NULL : node->children,
+                          XRLT_ELEMENT_ATTR_SELECT, NULL, XRLT_ELEMENT_VALUE,
+                          TRUE, &ret->val))
+    {
+        goto error;
+    }
+
+    if (!xrltCompileValue(sheet, node, NULL, XRLT_ELEMENT_ATTR_TEST, NULL,
+                          XRLT_ELEMENT_TEST, FALSE, &ret->test))
     {
         goto error;
     }
 
     if (ret->cookie) {
-        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
-                                       XRLT_ELEMENT_PATH, XRLT_ELEMENT_PATH,
-                                       TRUE,
-                                       &ret->path, &ret->npath, &ret->xpath))
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_PATH,
+                              XRLT_ELEMENT_PATH, TRUE, &ret->path))
         {
             goto error;
         }
 
-        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
-                                       XRLT_ELEMENT_DOMAIN,
-                                       XRLT_ELEMENT_DOMAIN, TRUE, &ret->domain,
-                                       &ret->ndomain, &ret->xdomain))
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_DOMAIN,
+                              XRLT_ELEMENT_DOMAIN, TRUE, &ret->domain))
         {
             goto error;
         }
 
-        if (!xrltCompileTransformValue(sheet, node, NULL, NULL,
-                                       XRLT_ELEMENT_EXPIRES,
-                                       XRLT_ELEMENT_EXPIRES, TRUE,
-                                       &ret->expires, &ret->nexpires,
-                                       &ret->xexpires))
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_EXPIRES,
+                              XRLT_ELEMENT_EXPIRES, TRUE, &ret->expires))
         {
             goto error;
         }
     }
-
-/*  if (_test > 0) {
-        ret->test = _test == 1 ? TRUE : FALSE;
-    } else if (ret->ntest == NULL && ret->xtest.expr == NULL) {
-        ret->test = TRUE;
-    }*/
 
     ret->node = node;
 
@@ -101,44 +94,12 @@ xrltResponseHeaderFree(void *comp)
 {
     xrltResponseHeaderData  *ret = (xrltResponseHeaderData *)comp;
     if (ret != NULL) {
-        if (ret->xtest.expr) {
-            xmlXPathFreeCompExpr(ret->xtest.expr);
-        }
-
-        if (ret->name != NULL) {
-            xmlFree(ret->name);
-        }
-        if (ret->xname.expr != NULL) {
-            xmlXPathFreeCompExpr(ret->xname.expr);
-        }
-
-        if (ret->val != NULL) {
-            xmlFree(ret->val);
-        }
-        if (ret->xval.expr != NULL) {
-            xmlXPathFreeCompExpr(ret->xval.expr);
-        }
-
-        if (ret->path != NULL) {
-            xmlFree(ret->path);
-        }
-        if (ret->xpath.expr != NULL) {
-            xmlXPathFreeCompExpr(ret->xpath.expr);
-        }
-
-        if (ret->domain != NULL) {
-            xmlFree(ret->domain);
-        }
-        if (ret->xdomain.expr != NULL) {
-            xmlXPathFreeCompExpr(ret->xdomain.expr);
-        }
-
-        if (ret->expires != NULL) {
-            xmlFree(ret->expires);
-        }
-        if (ret->xexpires.expr != NULL) {
-            xmlXPathFreeCompExpr(ret->xexpires.expr);
-        }
+        CLEAR_XRLT_VALUE(ret->test);
+        CLEAR_XRLT_VALUE(ret->name);
+        CLEAR_XRLT_VALUE(ret->val);
+        CLEAR_XRLT_VALUE(ret->path);
+        CLEAR_XRLT_VALUE(ret->domain);
+        CLEAR_XRLT_VALUE(ret->expires);
 
         xmlFree(ret);
     }
@@ -155,6 +116,9 @@ xrltResponseHeaderTransformingFree(void *data)
 
         if (tdata->name != NULL) { xmlFree(tdata->name); }
         if (tdata->val != NULL) { xmlFree(tdata->val); }
+        if (tdata->path != NULL) { xmlFree(tdata->path); }
+        if (tdata->domain != NULL) { xmlFree(tdata->domain); }
+        if (tdata->expires != NULL) { xmlFree(tdata->expires); }
 
         xmlFree(data);
     }
@@ -192,19 +156,22 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->dataNode = node;
 
-        if (hcomp->test) {
+        if (hcomp->test.type == XRLT_VALUE_EMPTY) {
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
-            TRANSFORM_TO_STRING(ctx, node, hcomp->name, hcomp->nname,
-                                &hcomp->xname, &tdata->name);
+            TRANSFORM_TO_STRING(ctx, node, &hcomp->name, &tdata->name);
 
-            TRANSFORM_TO_STRING(ctx, node, hcomp->val, hcomp->nval,
-                                &hcomp->xval, &tdata->val);
+            TRANSFORM_TO_STRING(ctx, node, &hcomp->val, &tdata->val);
+
+            TRANSFORM_TO_STRING(ctx, node, &hcomp->path, &tdata->path);
+
+            TRANSFORM_TO_STRING(ctx, node, &hcomp->domain, &tdata->domain);
+
+            TRANSFORM_TO_STRING(ctx, node, &hcomp->expires, &tdata->expires);
         } else {
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_TEST;
 
-            TRANSFORM_TO_BOOLEAN(ctx, node, hcomp->test, hcomp->ntest,
-                                 &hcomp->xtest, &tdata->test);
+            TRANSFORM_TO_BOOLEAN(ctx, node, &hcomp->test, &tdata->test);
         }
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform, comp,
@@ -227,11 +194,17 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             if (tdata->test) {
                 tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
-                TRANSFORM_TO_STRING(ctx, insert, hcomp->name, hcomp->nname,
-                                    &hcomp->xname, &tdata->name);
+                TRANSFORM_TO_STRING(ctx, insert, &hcomp->name, &tdata->name);
 
-                TRANSFORM_TO_STRING(ctx, insert, hcomp->val, hcomp->nval,
-                                    &hcomp->xval, &tdata->val);
+                TRANSFORM_TO_STRING(ctx, insert, &hcomp->val, &tdata->val);
+
+                TRANSFORM_TO_STRING(ctx, insert, &hcomp->path, &tdata->path);
+
+                TRANSFORM_TO_STRING(ctx, insert, &hcomp->domain,
+                                    &tdata->domain);
+
+                TRANSFORM_TO_STRING(ctx, insert, &hcomp->expires,
+                                    &tdata->expires);
 
                 SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform,
                                   comp, insert, data);
@@ -284,25 +257,33 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                          void *prevcomp)
 {
     xrltHeaderElementData  *ret = NULL;
+    xrltBool                hasxrlt;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltHeaderElementData*,
                 sizeof(xrltHeaderElementData), NULL);
 
-    if (!xrltCompileTestNameValueNode(sheet, node,
-                                      XRLT_TESTNAMEVALUE_NAME_ATTR |
-                                      XRLT_TESTNAMEVALUE_NAME_NODE |
-                                      XRLT_TESTNAMEVALUE_VALUE_ATTR |
-                                      XRLT_TESTNAMEVALUE_VALUE_NODE,
-                                      NULL, NULL, NULL,
-                                      NULL, NULL, NULL,
-                                      &ret->name, &ret->nname, &ret->xname,
-                                      &ret->val, &ret->nval, &ret->xval))
+    if (xmlStrEqual(node->name, (const xmlChar *)"cookie")) {
+        ret->cookie = TRUE;
+    }
+
+    if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
+                                  XRLT_ELEMENT_VALUE, NULL, NULL, NULL, NULL,
+                                  &hasxrlt))
     {
         goto error;
     }
 
-    if (xmlStrEqual(node->name, (const xmlChar *)"cookie")) {
-        ret->cookie = TRUE;
+    if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
+                          XRLT_ELEMENT_NAME, TRUE, &ret->name))
+    {
+        goto error;
+    }
+
+    if (!xrltCompileValue(sheet, node, hasxrlt ? NULL : node->children,
+                          XRLT_ELEMENT_ATTR_SELECT, NULL, XRLT_ELEMENT_VALUE,
+                          TRUE, &ret->val))
+    {
+        goto error;
     }
 
     ret->node = node;
@@ -321,11 +302,8 @@ xrltHeaderElementFree(void *comp)
 {
     xrltHeaderElementData  *ret = (xrltHeaderElementData *)comp;
     if (ret != NULL) {
-        if (ret->name != NULL) { xmlFree(ret->name); }
-        if (ret->xname.expr != NULL) { xmlXPathFreeCompExpr(ret->xname.expr); }
-
-        if (ret->val != NULL) { xmlFree(ret->val); }
-        if (ret->xval.expr != NULL) { xmlXPathFreeCompExpr(ret->xval.expr); }
+        CLEAR_XRLT_VALUE(ret->name);
+        CLEAR_XRLT_VALUE(ret->val);
 
         xmlFree(ret);
     }
@@ -360,8 +338,7 @@ xrltNeedHeaderCallback(xrltContextPtr ctx, size_t id, xrltTransformValue *val,
     if (val->data.data != NULL) {
         tdata->val = xmlStrndup((xmlChar *)val->data.data, val->data.len);
     } else {
-        TRANSFORM_TO_STRING(ctx, tdata->dataNode, tdata->comp->val,
-                            tdata->comp->nval, &tdata->comp->xval,
+        TRANSFORM_TO_STRING(ctx, tdata->dataNode, &tdata->comp->val,
                             &tdata->val);
     }
 
@@ -404,8 +381,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->dataNode = node;
 
-        TRANSFORM_TO_STRING(ctx, node, hcomp->name, hcomp->nname,
-                            &hcomp->xname, &tdata->name);
+        TRANSFORM_TO_STRING(ctx, node, &hcomp->name, &tdata->name);
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform, comp,
                           insert, tdata);

@@ -69,12 +69,12 @@
                         <xrl:type>text</xrl:type>
                     </xrl:include>
                 </xrl:test>
-                <xrl:type>
+                <xrl:body>
                     <xrl:include>
                         <xrl:href>/test/href/10</xrl:href>
                         <xrl:type>text</xrl:type>
                     </xrl:include>
-                </xrl:type>
+                </xrl:body>
                 <xrl:name>
                     <xrl:include>
                         <xrl:href>/test/href/11</xrl:href>

@@ -35,6 +35,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
     xrltString               url, q, b, n, v;
     xrltHeaderList           header;
     size_t                   id;
+    xrltBool                 c;
     char                     buf[TEST_BUFFER_SIZE];
 
     memset(buf, 0, TEST_BUFFER_SIZE);
@@ -99,7 +100,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    while (xrltHeaderListShift(&ctx->header, &n, &v)) {
+    while (xrltHeaderListShift(&ctx->header, &c, &n, &v)) {
         sprintf(buf, "header: %s %s\n", n.data, v.data);
 
         xrltStringClear(&n);
@@ -109,7 +110,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    while (xrltNeedHeaderListShift(&ctx->needHeader, &id, &n)) {
+    while (xrltNeedHeaderListShift(&ctx->needHeader, &id, &c, &n)) {
         sprintf(buf, "need header: %d %s\n", (int)id, n.data);
         xrltStringClear(&n);
 
@@ -183,7 +184,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         sprintf(out, "%s", buf);
         out += strlen(buf);
 
-        while (xrltHeaderListShift(&header, &n, &v)) {
+        while (xrltHeaderListShift(&header, &c, &n, &v)) {
             sprintf(buf, "sr header: %s: %s\n", n.data, v.data);
             xrltStringClear(&n);
             xrltStringClear(&v);

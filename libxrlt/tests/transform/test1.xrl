@@ -30,8 +30,8 @@
             <xrl:href select="'/test/href/3'" />
             <xrl:method>POST</xrl:method>
             <xrl:type>json</xrl:type>
-            <xrl:with-param type="body" name="test">aa</xrl:with-param>
-            <xrl:with-param type="body" name="test2" select="'\bb/'" />
+            <xrl:with-param body="yes" name="test">aa</xrl:with-param>
+            <xrl:with-param body="yes" name="test2" select="'\bb/'" />
         </xrl:include>
     </xrl:response>
 </xrl:requestsheet>
