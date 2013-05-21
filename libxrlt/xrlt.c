@@ -311,9 +311,9 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
                     return ctx->cur;
                 }
 
-                if (val->type == XRLT_PROCESS_HEADER || val->last == TRUE) {
-                    // If it's a header callback or it's a last body callback,
-                    // then remove it from the queue.
+                if (val->last == TRUE) {
+                    // If it's the last header or the last body chunk,
+                    // remove it from the queue.
                     if (prevcb == NULL) {
                         q->first = cb->next;
                         if (q->first == NULL) { q->last = NULL; }

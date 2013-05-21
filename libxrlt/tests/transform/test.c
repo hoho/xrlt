@@ -309,11 +309,11 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
 
             if (i > 1) {
                 data[i - 1] = '\0';
-                val.data.len = (size_t)(i - 1);
-                val.data.data = data;
+                val.val.len = (size_t)(i - 1);
+                val.val.data = data;
             } else {
-                val.data.len = 0;
-                val.data.data = NULL;
+                val.val.len = 0;
+                val.val.data = NULL;
             }
 
             val.error = l == 0 ? FALSE : TRUE;

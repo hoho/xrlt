@@ -46,7 +46,9 @@ typedef enum {
 
 typedef struct {
     xrltTransformValueType   type;
-    xrltString               data;
+    size_t                   status;
+    xrltString               name;
+    xrltString               val;
     xrltBool                 last;
     xrltBool                 error;
 } xrltTransformValue;

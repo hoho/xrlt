@@ -335,8 +335,8 @@ xrltNeedHeaderCallback(xrltContextPtr ctx, size_t id, xrltTransformValue *val,
 
     tdata->stage = XRLT_HEADER_ELEMENT_TRANSFORM_VALUE;
 
-    if (val->data.data != NULL) {
-        tdata->val = xmlStrndup((xmlChar *)val->data.data, val->data.len);
+    if (val->val.data != NULL) {
+        tdata->val = xmlStrndup((xmlChar *)val->val.data, val->val.len);
     } else {
         TRANSFORM_TO_STRING(ctx, tdata->dataNode, &tdata->comp->val,
                             &tdata->val);

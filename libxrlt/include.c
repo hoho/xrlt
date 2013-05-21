@@ -452,6 +452,11 @@ static xrltBool
 xrltIncludeSubrequestHeader(xrltContextPtr ctx, size_t id,
                             xrltTransformValue *val, void *data)
 {
+    if (val != NULL) {
+        fprintf(stderr, "HEADER: %zd, %s: %s\n",
+                val->status, val->name.data, val->val.data);
+    }
+
     return TRUE;
 }
 
@@ -509,7 +514,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
         switch (tdata->type) {
             case XRLT_SUBREQUEST_DATA_XML:
                 tdata->xmlparser = xmlCreatePushParserCtxt(
-                    NULL, NULL, val->data.data, val->data.len,
+                    NULL, NULL, val->val.data, val->val.len,
                     (const char *)tdata->href
                 );
 
@@ -521,7 +526,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
 
                 if (val->last) {
                     if (xmlParseChunk(tdata->xmlparser,
-                                      val->data.data, 0, 1) != 0)
+                                      val->val.data, 0, 1) != 0)
                     {
                         XRLT_INCLUDE_PARSING_FAILED;
                     }
@@ -539,8 +544,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     return FALSE;
                 }
 
-                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
-                                      val->data.len))
+                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->val.data,
+                                      val->val.len))
                 {
                     XRLT_INCLUDE_PARSING_FAILED;
                 }
@@ -558,7 +563,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 }
 
                 if (!xrltQueryStringParserFeed(tdata->qsparser,
-                                               val->data.data, val->data.len,
+                                               val->val.data, val->val.len,
                                                val->last))
                 {
                     XRLT_INCLUDE_PARSING_FAILED;
@@ -567,8 +572,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 break;
 
             case XRLT_SUBREQUEST_DATA_TEXT:
-                tmp = xmlNewTextLen((const xmlChar *)val->data.data,
-                                    val->data.len);
+                tmp = xmlNewTextLen((const xmlChar *)val->val.data,
+                                    val->val.len);
 
                 if (tmp == NULL ||
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
@@ -584,8 +589,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
         switch (tdata->type) {
             case XRLT_SUBREQUEST_DATA_XML:
                 if (xmlParseChunk(tdata->xmlparser,
-                                  val->data.data, val->data.len,
-                                  val->last) != 0)
+                                  val->val.data, val->val.len, val->last) != 0)
                 {
                     XRLT_INCLUDE_PARSING_FAILED;
                 }
@@ -593,8 +597,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 break;
 
             case XRLT_SUBREQUEST_DATA_JSON:
-                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->data.data,
-                                      val->data.len))
+                if (!xrltJSON2XMLFeed(tdata->jsonparser, val->val.data,
+                                      val->val.len))
                 {
                     XRLT_INCLUDE_PARSING_FAILED;
                 }
@@ -603,7 +607,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
 
             case XRLT_SUBREQUEST_DATA_QUERYSTRING:
                 if (!xrltQueryStringParserFeed(tdata->qsparser,
-                                               val->data.data, val->data.len,
+                                               val->val.data, val->val.len,
                                                val->last))
                 {
                     XRLT_INCLUDE_PARSING_FAILED;
@@ -612,8 +616,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                 break;
 
             case XRLT_SUBREQUEST_DATA_TEXT:
-                tmp = xmlNewTextLen((const xmlChar *)val->data.data,
-                                    val->data.len);
+                tmp = xmlNewTextLen((const xmlChar *)val->val.data,
+                                    val->val.len);
 
                 if (tmp == NULL ||
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
