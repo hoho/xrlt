@@ -154,7 +154,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
     while (tmp != NULL) {
         if (tmp->ns == NULL || !xmlStrEqual(tmp->ns->href, XRLT_NS)) {
-            xrltTransformError(NULL, sheet, tmp, "Unexpected element\n");
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             goto error;
         }
 
@@ -315,7 +315,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 goto error;
             }
         } else {
-            xrltTransformError(NULL, sheet, tmp, "Unexpected element\n");
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             goto error;
         }
 
@@ -452,9 +452,48 @@ static xrltBool
 xrltIncludeSubrequestHeader(xrltContextPtr ctx, size_t id,
                             xrltTransformValue *val, void *data)
 {
+    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+    xmlChar                      *n, *c;
+
+    if (tdata == NULL) { return FALSE; }
+
+    if (tdata->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
+        xrltTransformError(ctx, NULL, tdata->srcNode,
+                           "Wrong transformation stage\n");
+        return FALSE;
+    }
+
     if (val != NULL) {
-        fprintf(stderr, "HEADER: %zd, %s: %s\n",
-                val->status, val->name.data, val->val.data);
+        if (val->error) {
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+            SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+                              tdata->comp, tdata->insert, tdata);
+
+            ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+            return TRUE;
+        }
+
+        if (val->status > 0) {
+            tdata->status = val->status;
+        } else {
+            if (tdata->hnode == NULL) {
+                NEW_CHILD(ctx, tdata->hnode, tdata->node, "h");
+            }
+
+            n = xmlStrndup((const xmlChar *)val->name.data, val->name.len);
+            c = xmlStrndup((const xmlChar *)val->val.data, val->val.len);
+
+            // TODO: Check xmlNewDocNodeEatName, it might fit better here.
+            if (xmlNewChild(tdata->hnode, NULL, n, c) == NULL) {
+                ERROR_CREATE_NODE(ctx, NULL, tdata->srcNode);
+                return FALSE;
+            }
+
+            xmlFree(n);
+            xmlFree(c);
+        }
     }
 
     return TRUE;
@@ -505,8 +544,8 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
             tdata->doc = xmlNewDoc(NULL);
 
             if (tdata->doc == NULL) {
-                xrltTransformError(ctx, NULL, tdata->srcNode,
-                                   "Failed to create include doc\n");
+                ERROR_CREATE_NODE(ctx, NULL, tdata->srcNode);
+
                 return FALSE;
             }
         }
@@ -579,7 +618,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
-                    RAISE_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
                     return FALSE;
                 }
 
@@ -623,7 +662,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
                     xmlAddChild((xmlNodePtr)tdata->doc, tmp) == NULL)
                 {
                     if (tmp != NULL) { xmlFreeNode(tmp); }
-                    RAISE_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, tdata->srcNode);
                     return FALSE;
                 }
 
@@ -646,7 +685,7 @@ xrltIncludeSubrequestBody(xrltContextPtr ctx, size_t id,
             tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
-        //xmlDocFormatDump(stdout, tdata->doc, 1);
+        //xmlDocFormatDump(stderr, tdata->doc, 1);
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform, tdata->comp,
                           tdata->insert, tdata);
@@ -682,7 +721,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
             xrltStringSet(&body, (char *)data->header[i].val);
 
             if (!xrltHeaderListPush(&header, cookie, &query, &body)) {
-                RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
+                ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
                 ret = FALSE;
                 goto error;
             }
@@ -739,7 +778,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
         }
 
         if ((blen > 0 && ebody == NULL) || (qlen > 0 && equery == NULL)) {
-            RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
+            ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
             ret = FALSE;
             goto error;
         }
@@ -789,7 +828,7 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
     if (!xrltSubrequestListPush(&ctx->sr, id, data->method, data->type,
                                 &header, &href, &query, &body))
     {
-        RAISE_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
+        ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
         ret = FALSE;
         goto error;
     }
@@ -831,7 +870,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
     if (data == NULL) {
         // First call.
-        NEW_CHILD(ctx, node, insert, "include");
+        NEW_CHILD(ctx, node, insert, "i");
 
         ASSERT_NODE_DATA(node, n);
 
@@ -1076,9 +1115,8 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                 node = xmlDocCopyNodeList(tdata->rnode->doc,
                                                           tdata->doc->children);
                                 if (node == NULL) {
-                                    xrltTransformError(
-                                        ctx, NULL, tdata->srcNode,
-                                        "Failed to copy response node\n"
+                                    ERROR_CREATE_NODE(
+                                        ctx, NULL, tdata->srcNode
                                     );
 
                                     return FALSE;
@@ -1086,10 +1124,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                                 if (xmlAddChildList(tdata->rnode, node) == NULL)
                                 {
-                                    xrltTransformError(
-                                        ctx, NULL, tdata->srcNode,
-                                        "Failed to add response node\n"
-                                    );
+                                    ERROR_ADD_NODE(ctx, NULL, tdata->srcNode);
 
                                     xmlFreeNodeList(node);
 
@@ -1124,11 +1159,11 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             case XRLT_INCLUDE_TRANSFORM_END:
                 COUNTER_DECREASE(ctx, tdata->node);
 
+                //xmlDocFormatDump(stderr, (xmlDocPtr)tdata->node, 1);
+
                 REPLACE_RESPONSE_NODE(
                     ctx, tdata->node, tdata->rnode->children, tdata->srcNode
                 );
-
-                //xmlDocFormatDump(stdout, ctx->responseDoc, 1);
 
                 break;
 

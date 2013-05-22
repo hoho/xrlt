@@ -168,13 +168,7 @@ xrltLogTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
             return TRUE;
         }
 
-        log = xmlNewChild(insert, NULL, (const xmlChar *)"log", NULL);
-
-        if (log == NULL) {
-            xrltTransformError(ctx, NULL, logcomp->node,
-                               "Failed to create log element\n");
-            return FALSE;
-        }
+        NEW_CHILD(ctx, log, insert, "log");
 
         // Schedule log content transforms.
         TRANSFORM_SUBTREE(ctx, logcomp->node->children, log);
@@ -417,14 +411,12 @@ xrltValueOfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         node = xmlNewText(tdata->val);
 
         if (node == NULL) {
-            xrltTransformError(ctx, NULL, vcomp->node,
-                               "Failed to create response node\n");
+            ERROR_CREATE_NODE(ctx, NULL, vcomp->node);
             return FALSE;
         }
 
         if (xmlAddNextSibling(tdata->node, node) == NULL) {
-            xrltTransformError(ctx, NULL, vcomp->node,
-                               "Failed to append response node\n");
+            ERROR_ADD_NODE(ctx, NULL, vcomp->node);
             xmlFreeNode(node);
             return FALSE;
         }
@@ -454,7 +446,7 @@ xrltTextCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     while (tmp != NULL) {
         if (tmp->type != XML_TEXT_NODE && tmp->type != XML_CDATA_SECTION_NODE)
         {
-            xrltTransformError(NULL, sheet, node, "Unexpected element\n");
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, node);
             goto error;
         }
         tmp = tmp->next;
@@ -516,14 +508,12 @@ xrltTextTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         node = xmlNewText(tcomp->text);
 
         if (node == NULL) {
-            xrltTransformError(ctx, NULL, tcomp->node,
-                               "Failed to create response node\n");
+            ERROR_CREATE_NODE(ctx, NULL, tcomp->node);
             return FALSE;
         }
 
         if (xmlAddChild(insert, node) == NULL) {
-            xrltTransformError(ctx, NULL, tcomp->node,
-                               "Failed to append response node\n");
+            ERROR_ADD_NODE(ctx, NULL, tcomp->node);
             xmlFreeNode(node);
             return FALSE;
         }

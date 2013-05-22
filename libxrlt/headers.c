@@ -232,7 +232,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         val.data = val.len > 0 ? (char *)tdata->val : NULL;
 
         if (!xrltHeaderListPush(&ctx->header, hcomp->cookie, &name, &val)) {
-            RAISE_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+            ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
             return FALSE;
         }
 
@@ -407,7 +407,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 if (!xrltNeedHeaderListPush(&ctx->needHeader, id,
                                             hcomp->cookie, &s))
                 {
-                    RAISE_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
                     return FALSE;
                 }
 

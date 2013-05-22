@@ -99,7 +99,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
             if (newp == NULL) {
                 xrltVariableFree(p);
-                RAISE_OUT_OF_MEMORY(NULL, sheet, node);
+                ERROR_OUT_OF_MEMORY(NULL, sheet, node);
                 goto error;
             }
 
@@ -143,7 +143,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             if (tmp2->type != XML_TEXT_NODE &&
                 tmp2->type != XML_CDATA_SECTION_NODE)
             {
-                xrltTransformError(NULL, sheet, node, "Unexpected element\n");
+                ERROR_UNEXPECTED_ELEMENT(NULL, sheet, node);
                 goto error;
             }
             tmp2 = tmp2->next;
@@ -254,7 +254,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
                 if (newp == NULL) {
                     xrltVariableFree(p);
-                    RAISE_OUT_OF_MEMORY(NULL, sheet, node);
+                    ERROR_OUT_OF_MEMORY(NULL, sheet, node);
                     goto error;
                 }
 
@@ -285,7 +285,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         if (tmp != NULL) {
-            xrltTransformError(NULL, sheet, tmp, "Unexpected element\n");
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             goto error;
         }
     } else {
@@ -524,7 +524,7 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     xmlUnlinkNode(node);
 
                     if (!xmlAddChild(ctx->var, node)) {
-                        RAISE_ADD_CHILD_ERROR(ctx, NULL, acomp->node);
+                        ERROR_ADD_NODE(ctx, NULL, acomp->node);
 
                         xmlFreeDoc((xmlDocPtr)node);
 

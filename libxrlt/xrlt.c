@@ -83,7 +83,8 @@ xrltRequestsheetCreate(xmlDocPtr doc)
         root->ns == NULL ||
         !xmlStrEqual(root->ns->href, XRLT_NS))
     {
-        xrltTransformError(NULL, NULL, root, "Unexpected element\n");
+        ERROR_UNEXPECTED_ELEMENT(NULL, NULL, root);
+
         goto error;
     }
 
@@ -151,7 +152,8 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
     ret->responseDoc = xmlNewDoc(NULL);
 
     if (ret->responseDoc == NULL) {
-        xrltTransformError(NULL, NULL, NULL, "Response doc creation failed\n");
+        ERROR_CREATE_NODE(NULL, NULL, NULL);
+
         goto error;
     }
 
@@ -159,8 +161,8 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
                              (const xmlChar *)"response", NULL);
 
     if (response == NULL) {
-        xrltTransformError(ret, NULL, NULL,
-                           "Failed to create response element\n");
+        ERROR_CREATE_NODE(ret, NULL, NULL);
+
         goto error;
     }
 
@@ -168,6 +170,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     NEW_CHILD_GOTO(ret, ret->response, response, "response");
     NEW_CHILD_GOTO(ret, ret->var, response, "var");
+    NEW_CHILD_GOTO(ret, ret->requestHeaders, response, "h");
 
     ret->xpathDefault = xmlNewDoc(NULL);
 
@@ -274,7 +277,8 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
     xrltTransformFunction     func;
     void                     *comp;
-    xmlNodePtr                insert;
+    xmlNodePtr                insert, node;
+    xmlChar                  *n, *c;
     size_t                    varScope;
     void                     *data;
     size_t                    len;
@@ -285,54 +289,75 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
     ctx->cur = XRLT_STATUS_UNKNOWN;
 
     if (val != NULL) {
-        if (val->type == XRLT_PROCESS_HEADER) {
-            len = ctx->icb.headerSize;
+        if (id == 0) {
+            if (val->type == XRLT_PROCESS_HEADER && val->name.data != NULL) {
+                n = xmlStrndup((const xmlChar *)val->name.data, val->name.len);
+                c = xmlStrndup((const xmlChar *)val->val.data, val->val.len);
 
-            if (id < len) {
-                q = &ctx->icb.header[id];
-            }
-        } else {
-            len = ctx->icb.bodySize;
+                // TODO: Check xmlNewDocNodeEatName, it might fit better here.
+                node = xmlNewChild(ctx->requestHeaders, NULL, n, c);
 
-            if (id < len) {
-                q = &ctx->icb.body[id];
-            }
-        }
+                xmlFree(n);
+                xmlFree(c);
 
-        if (q != NULL) {
-            prevcb = NULL;
-            cb = q->first;
+                if (node == NULL) {
+                    ERROR_CREATE_NODE(ctx, NULL, NULL);
 
-            while (cb != NULL) {
-                ctx->varScope = cb->varScope;
-
-                if (!cb->func(ctx, id, val, cb->data)) {
                     ctx->cur |= XRLT_STATUS_ERROR;
+
                     return ctx->cur;
                 }
+            }
+        } else {
+            if (val->type == XRLT_PROCESS_HEADER) {
+                len = ctx->icb.headerSize;
 
-                if (val->last == TRUE) {
-                    // If it's the last header or the last body chunk,
-                    // remove it from the queue.
-                    if (prevcb == NULL) {
-                        q->first = cb->next;
-                        if (q->first == NULL) { q->last = NULL; }
-                    } else {
-                        prevcb->next = cb->next;
-                        if (prevcb->next == NULL) { q->last = prevcb; }
-                    }
+                if (id < len) {
+                    q = &ctx->icb.header[id];
+                }
+            } else {
+                len = ctx->icb.bodySize;
 
-                    xmlFree(cb);
-                    cb = prevcb == NULL ? NULL : prevcb->next;
-                } else {
-                    prevcb = cb;
-                    cb = cb->next;
+                if (id < len) {
+                    q = &ctx->icb.body[id];
                 }
             }
-        }
 
-        if (ctx->cur != XRLT_STATUS_UNKNOWN) {
-            return ctx->cur;
+            if (q != NULL) {
+                prevcb = NULL;
+                cb = q->first;
+
+                while (cb != NULL) {
+                    ctx->varScope = cb->varScope;
+
+                    if (!cb->func(ctx, id, val, cb->data)) {
+                        ctx->cur |= XRLT_STATUS_ERROR;
+                        return ctx->cur;
+                    }
+
+                    if (val->last == TRUE) {
+                        // If it's the last header or the last body chunk,
+                        // remove it from the queue.
+                        if (prevcb == NULL) {
+                            q->first = cb->next;
+                            if (q->first == NULL) { q->last = NULL; }
+                        } else {
+                            prevcb->next = cb->next;
+                            if (prevcb->next == NULL) { q->last = prevcb; }
+                        }
+
+                        xmlFree(cb);
+                        cb = prevcb == NULL ? NULL : prevcb->next;
+                    } else {
+                        prevcb = cb;
+                        cb = cb->next;
+                    }
+                }
+            }
+
+            if (ctx->cur != XRLT_STATUS_UNKNOWN) {
+                return ctx->cur;
+            }
         }
     }
 
@@ -354,6 +379,8 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
     if (((xrltNodeDataPtr)ctx->responseDoc->_private)->count == 0) {
         ctx->cur |= XRLT_STATUS_DONE;
+
+        //xmlDocFormatDump(stderr, ctx->responseDoc, 1);
     } else {
         ctx->cur |= XRLT_STATUS_WAITING;
     }
@@ -458,7 +485,7 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
         );
 
         if (newq == NULL) {
-            RAISE_OUT_OF_MEMORY(ctx, NULL, NULL);
+            ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
             goto error;
         }
 

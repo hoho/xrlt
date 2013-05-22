@@ -31,7 +31,7 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     ret->ownJsname = TRUE;
 
     if (ret->jsname == NULL) {
-        RAISE_OUT_OF_MEMORY(NULL, sheet, node);
+        ERROR_OUT_OF_MEMORY(NULL, sheet, node);
         goto error;
     }
 

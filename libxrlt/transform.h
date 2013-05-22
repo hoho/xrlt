@@ -48,18 +48,26 @@ extern "C" {
 #define XRLT_VALUE_NO               (const xmlChar *)"no"
 
 
-#define RAISE_OUT_OF_MEMORY(ctx, sheet, node)                                 \
+#define ERROR_OUT_OF_MEMORY(ctx, sheet, node)                                 \
     xrltTransformError(ctx, sheet, node, "%s: Out of memory\n", __func__);
 
-#define RAISE_ADD_CHILD_ERROR(ctx, sheet, node)                               \
+#define ERROR_CREATE_NODE(ctx, sheet, node)                                   \
     xrltTransformError(ctx, sheet, node,                                      \
-                       "%s: Failed to add response element\n", __func__);
+                       "%s: Failed to create element\n", __func__);
+
+#define ERROR_ADD_NODE(ctx, sheet, node)                                      \
+    xrltTransformError(ctx, sheet, node,                                      \
+                       "%s: Failed to add element\n", __func__);
+
+#define ERROR_UNEXPECTED_ELEMENT(ctx, sheet, node)                            \
+    xrltTransformError(ctx, sheet, node,                                      \
+                       "%s: Unexpected element\n", __func__);
 
 
 #define XRLT_MALLOC(ctx, sheet, node, ret, type, size, error) {               \
     ret = (type)xmlMalloc(size);                                              \
     if (ret == NULL) {                                                        \
-        RAISE_OUT_OF_MEMORY(ctx, sheet, node);                                \
+        ERROR_OUT_OF_MEMORY(ctx, sheet, node);                                \
         return error;                                                         \
     }                                                                         \
     memset(ret, 0, size);                                                     \
@@ -101,8 +109,7 @@ extern "C" {
         n3 = n2->next;                                                        \
         n1 = xmlAddNextSibling(n1, n2);                                       \
         if (n1 == NULL) {                                                     \
-            xrltTransformError(ctx, NULL, src,                                \
-                               "Failed to add response node\n");              \
+            ERROR_ADD_NODE(ctx, NULL, src);                                   \
             return FALSE;                                                     \
         }                                                                     \
         n2 = n3;                                                              \
@@ -134,8 +141,7 @@ extern "C" {
 #define NEW_CHILD(ctx, ret, parent, name) {                                   \
     ret = xmlNewChild(parent, NULL, (const xmlChar *)name, NULL);             \
     if (ret == NULL) {                                                        \
-        xrltTransformError(ctx, NULL, NULL,                                   \
-                           "Failed to create element\n");                     \
+        ERROR_CREATE_NODE(ctx, NULL, NULL);                                   \
         return FALSE;                                                         \
     }                                                                         \
 }
@@ -144,8 +150,7 @@ extern "C" {
 #define NEW_CHILD_GOTO(ctx, ret, parent, name) {                              \
     ret = xmlNewChild(parent, NULL, (const xmlChar *)name, NULL);             \
     if (ret == NULL) {                                                        \
-        xrltTransformError(ctx, NULL, NULL,                                   \
-                           "Failed to create element\n");                     \
+        ERROR_CREATE_NODE(ctx, NULL, NULL);                            \
         goto error;                                                           \
     }                                                                         \
 }
@@ -383,7 +388,7 @@ xrltCompileCheckSubnodes(xrltRequestsheetPtr sheet, xmlNodePtr node,
         }
 
         if (xrlt && other) {
-            xrltTransformError(NULL, sheet, tmp, "Unexpected element");
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             return FALSE;
         }
 
@@ -417,7 +422,7 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
                 if (vNode == NULL) {
                     vNode = tmp;
                 } else {
-                    xrltTransformError(NULL, sheet, tmp, "Unexpected element");
+                    ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
                     return FALSE;
                 }
             }
@@ -700,17 +705,13 @@ xrltTransformByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         node = xmlDocCopyNode(ns->nodeTab[i], insert->doc, 1);
 
                         if (node == NULL) {
-                            xrltTransformError(
-                                ctx, NULL, expr->src,
-                                "Failed to copy response node\n"
-                            );
+                            ERROR_CREATE_NODE(ctx, NULL, expr->src);
                             ret = FALSE;
                             goto error;
                         }
 
                         if (xmlAddChild(insert, node) == NULL) {
-                            xrltTransformError(ctx, NULL, expr->src,
-                                               "Failed to add response node\n");
+                            ERROR_ADD_NODE(ctx, NULL, expr->src);
                             xmlFreeNode(node);
                             ret = FALSE;
                             goto error;
@@ -735,15 +736,13 @@ xrltTransformByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 node = xmlNewText(s);
 
                 if (node == NULL) {
-                    xrltTransformError(ctx, NULL, expr->src,
-                                       "Failed to create response node\n");
+                    ERROR_CREATE_NODE(ctx, NULL, expr->src);
                     ret = FALSE;
                     goto error;
                 }
 
                 if (xmlAddChild(insert, node) == NULL) {
-                    xrltTransformError(ctx, NULL, expr->src,
-                                       "Failed to add response node\n");
+                    ERROR_ADD_NODE(ctx, NULL, expr->src);
                     xmlFreeNode(node);
                     ret = FALSE;
                     goto error;

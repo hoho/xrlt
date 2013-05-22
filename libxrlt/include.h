@@ -81,6 +81,8 @@ typedef struct {
                                             // to.
     xmlNodePtr                  rnode;      // Parent node to transform the
                                             // result to.
+    xmlNodePtr                  hnode;      // Parent node for headers.
+
     xmlParserCtxtPtr            xmlparser;  // Push parser for XML includes.
     xrltJSON2XMLPtr             jsonparser;
     xrltQueryStringParserPtr    qsparser;
@@ -107,6 +109,8 @@ typedef struct {
 
     xrltBool                    bodyTest;
     xmlChar                    *body;
+
+    size_t                      status;
 } xrltIncludeTransformingData;
 
 

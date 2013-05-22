@@ -264,7 +264,7 @@ xrltElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr first)
                 xmlStrEqual(first->ns->href, XRLT_NS))
             {
                 // Don't allow unknown elements from XRLT namespace.
-                xrltTransformError(NULL, sheet, first, "Unexpected element\n");
+                ERROR_UNEXPECTED_ELEMENT(NULL, sheet, first);
                 return FALSE;
             }
         } else {
@@ -352,16 +352,16 @@ xrltCopyNonXRLT(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
         newinsert = xmlDocCopyNode(node, insert->doc, 2);
 
         if (newinsert == NULL) {
-            xrltTransformError(ctx, NULL, node,
-                               "Failed to copy element to response doc\n");
+            ERROR_CREATE_NODE(ctx, NULL, node);
+
             return FALSE;
         }
 
         if (xmlAddChild(insert, newinsert) == NULL) {
             xmlFreeNode(newinsert);
 
-            xrltTransformError(ctx, NULL, node,
-                               "Failed to add element to response doc\n");
+            ERROR_ADD_NODE(ctx, NULL, node);
+
             return FALSE;
         }
 

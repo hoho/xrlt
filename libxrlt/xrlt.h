@@ -141,6 +141,7 @@ struct _xrltContext {
     xmlDocPtr                    responseDoc;
     xmlNodePtr                   response;
     xmlNodePtr                   responseCur;
+    xmlNodePtr                   requestHeaders;
     xmlNodePtr                   var;
     xmlNodePtr                   varContext;
     size_t                       varScope;
