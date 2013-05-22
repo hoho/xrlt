@@ -191,7 +191,6 @@ extern "C" {
 }
 
 
-
 typedef struct _xrltElement xrltElement;
 typedef xrltElement* xrltElementPtr;
 struct _xrltElement {
@@ -216,6 +215,8 @@ struct _xrltNodeData {
                                              // count == 0, only for response
                                              // doc nodes.
     xmlDocPtr                    root;       // Root for XPath requests.
+    void                        *sr;         // Subrequest data, to get headers
+                                             // from.
 };
 
 

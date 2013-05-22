@@ -1078,6 +1078,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     ASSERT_NODE_DATA(tdata->rnode, n);
 
                     n->root = tdata->doc;
+                    n->sr = tdata;
 
                     switch (r->type) {
                         case XRLT_VALUE_TEXT:

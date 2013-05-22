@@ -10,7 +10,8 @@ build: clean init xrltstruct json2xml querystring js compile transform
 
 .PHONY: xrltstruct
 xrltstruct:
-	gcc -o .build/xrltstruct_test1   -Wall -I../ xrltstruct/test1.c
+	@gcc -o .build/xrltstruct_test1   -Wall -I../ -I/usr/include/libxml2 xrltstruct/test1.c -lxml2
+	@.build/xrltstruct_test1
 
 .PHONY: json2xml
 json2xml:

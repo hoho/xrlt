@@ -217,8 +217,6 @@ xrltContextFree(xrltContextPtr ctx)
     xrltInputCallbackPtr     cb, tmp;
     size_t                   i;
 
-    xrltNeedHeaderListClear(&ctx->needHeader);
-
     xrltSubrequestListClear(&ctx->sr);
 
     for (i = 0; i < ctx->icb.headerSize; i++) {

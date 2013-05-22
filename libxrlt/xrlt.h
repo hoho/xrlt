@@ -132,7 +132,6 @@ struct _xrltContext {
     xrltSubrequestList           sr;           // Subrequests to make.
     xrltChunkList                chunk;        // Response chunk.
     xrltLogList                  log;
-    xrltNeedHeaderList           needHeader;
 
     size_t                       includeId;
     size_t                       maxVarScope;

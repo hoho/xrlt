@@ -7,6 +7,8 @@
 
 
 #include <string.h>
+#include <libxml/tree.h>
+#include <libxml/xpath.h>
 
 
 #ifdef __cplusplus
@@ -82,22 +84,6 @@ typedef struct {
     xrltHeaderPtr   first;
     xrltHeaderPtr   last;
 } xrltHeaderList;
-
-
-typedef struct _xrltNeedHeader xrltNeedHeader;
-typedef xrltNeedHeader* xrltNeedHeaderPtr;
-struct _xrltNeedHeader {
-    size_t              id;
-    xrltBool            cookie;
-    xrltString          name;
-    xrltNeedHeaderPtr   next;
-};
-
-
-typedef struct {
-    xrltNeedHeaderPtr   first;
-    xrltNeedHeaderPtr   last;
-} xrltNeedHeaderList;
 
 
 typedef struct _xrltSubrequest xrltSubrequest;
@@ -201,18 +187,6 @@ static inline xrltBool
                                    xrltString *name, xrltString *val);
 static inline void
         xrltHeaderListClear       (xrltHeaderList *list);
-
-
-static inline void
-        xrltNeedHeaderListInit    (xrltNeedHeaderList *list);
-static inline xrltBool
-        xrltNeedHeaderListPush    (xrltNeedHeaderList *list, size_t id,
-                                   xrltBool cookie, xrltString *name);
-static inline xrltBool
-        xrltNeedHeaderListShift   (xrltNeedHeaderList *list, size_t *id,
-                                   xrltBool *cookie, xrltString *name);
-static inline void
-        xrltNeedHeaderListClear   (xrltNeedHeaderList *list);
 
 
 static inline void
@@ -384,92 +358,6 @@ xrltHeaderListClear(xrltHeaderList *list)
     while (xrltHeaderListShift(list, &cookie, &name, &val)) {
         xrltStringClear(&name);
         xrltStringClear(&val);
-    }
-}
-
-
-static inline void
-xrltNeedHeaderListInit(xrltNeedHeaderList *list)
-{
-    memset(list, 0, sizeof(xrltNeedHeaderList));
-}
-
-
-static inline xrltBool
-xrltNeedHeaderListPush(xrltNeedHeaderList *list, size_t id, xrltBool cookie,
-                       xrltString *name)
-{
-    if (list == NULL || name == NULL) { return FALSE; }
-
-    xrltNeedHeaderPtr h;
-
-    h = (xrltNeedHeaderPtr)xmlMalloc(sizeof(xrltNeedHeader));
-
-    if (h == NULL) { return FALSE; }
-
-    memset(h, 0, sizeof(xrltNeedHeader));
-
-    h->id = id;
-    h->cookie = cookie;
-
-    if (!xrltStringCopy(&h->name, name)) { goto error; }
-
-    if (list->last == NULL) {
-        list->first = h;
-    } else {
-        list->last->next = h;
-    }
-    list->last = h;
-
-    return TRUE;
-
-  error:
-    xrltStringClear(&h->name);
-    xmlFree(h);
-
-    return FALSE;
-}
-
-
-static inline xrltBool
-xrltNeedHeaderListShift(xrltNeedHeaderList *list, size_t *id, xrltBool *cookie,
-                        xrltString *name)
-{
-    if (list == NULL || id == NULL || cookie == NULL || name == NULL) {
-        return FALSE;
-    }
-
-    xrltNeedHeaderPtr h = list->first;
-
-    if (h == NULL) { return FALSE; }
-
-    *id = h->id;
-    *cookie = h->cookie;
-
-    xrltStringMove(name, &h->name);
-
-    if (h->next == NULL) {
-        list->first = NULL;
-        list->last = NULL;
-    } else {
-        list->first = h->next;
-    }
-
-    xmlFree(h);
-
-    return TRUE;
-}
-
-
-static inline void
-xrltNeedHeaderListClear(xrltNeedHeaderList *list)
-{
-    size_t       id;
-    xrltBool     cookie;
-    xrltString   name;
-
-    while (xrltNeedHeaderListShift(list, &id, &cookie, &name)) {
-        xrltStringClear(&name);
     }
 }
 

@@ -7,6 +7,7 @@ void test_xrltHeaderList(void)
 {
     xrltHeaderList   h;
     xrltString       name1, name2, val1, val2, name, val;
+    xrltBool         c;
 
     xrltHeaderListInit(&h);
     ASSERT_NULL(h.first);
@@ -19,118 +20,59 @@ void test_xrltHeaderList(void)
 
     ASSERT_STR(name1, "name1");
 
-    xrltHeaderListPush(&h, &name1, &val1);
+    xrltHeaderListPush(&h, FALSE, &name1, &val1);
     ASSERT_NOT_NULL(h.first);
     ASSERT_TRUE(h.first == h.last);
     ASSERT_STR(h.first->name, "name1");
     ASSERT_STR(h.first->val, "value1");
 
-    xrltHeaderListPush(&h, &name2, &val2);
+    xrltHeaderListPush(&h, TRUE, &name2, &val2);
     ASSERT_TRUE(h.first != h.last);
 
     xrltHeaderListClear(&h);
     ASSERT_NULL(h.first);
     ASSERT_NULL(h.last);
 
-    xrltHeaderListPush(&h, &name1, &val1);
-    xrltHeaderListPush(&h, &name2, &val2);
-    xrltHeaderListPush(&h, &name1, &val1);
+    xrltHeaderListPush(&h, FALSE, &name1, &val1);
+    xrltHeaderListPush(&h, TRUE, &name2, &val2);
+    xrltHeaderListPush(&h, FALSE, &name1, &val1);
 
-    ASSERT_FALSE(xrltHeaderListPush(NULL, &name1, &val1));
-    ASSERT_FALSE(xrltHeaderListPush(&h, NULL, &val1));
-    ASSERT_FALSE(xrltHeaderListPush(&h, &name1, NULL));
+    ASSERT_FALSE(xrltHeaderListPush(NULL, FALSE, &name1, &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, FALSE, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, FALSE, &name1, NULL));
 
-    ASSERT_FALSE(xrltHeaderListShift(NULL, &name1, &val1));
-    ASSERT_FALSE(xrltHeaderListShift(&h, NULL, &val1));
-    ASSERT_FALSE(xrltHeaderListShift(&h, &name1, NULL));
+    ASSERT_FALSE(xrltHeaderListShift(NULL, &c, &name1, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &c, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &name1, NULL));
+    ASSERT_FALSE(xrltHeaderListShift(&h, NULL, &name1, &val1));
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
+    ASSERT_INT(c, FALSE);
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
+    ASSERT_INT(c, TRUE);
     ASSERT_STR(name, "name2");
     ASSERT_STR(val, "value2");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
+    ASSERT_INT(c, FALSE);
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_FALSE(xrltHeaderListShift(&h, &name, &val));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &name, &val));
 
     xrltStringClear(&name1);
     xrltStringClear(&name2);
     xrltStringClear(&val1);
     xrltStringClear(&val2);
-
-    TEST_PASSED;
-}
-
-
-void test_xrltNeedHeaderList(void)
-{
-    xrltNeedHeaderList   h;
-    size_t               id;
-    xrltString           name1, name2, name;
-
-    xrltNeedHeaderListInit(&h);
-    ASSERT_NULL(h.first);
-    ASSERT_NULL(h.last);
-
-    xrltStringInit(&name1, "name1");
-    xrltStringInit(&name2, "name2");
-
-    ASSERT_STR(name1, "name1");
-
-    xrltNeedHeaderListPush(&h, 1, &name1);
-    ASSERT_NOT_NULL(h.first);
-    ASSERT_TRUE(h.first == h.last);
-    ASSERT_INT(h.first->id, 1);
-    ASSERT_STR(h.first->name, "name1");
-
-    xrltNeedHeaderListPush(&h, 20, &name2);
-    ASSERT_TRUE(h.first != h.last);
-
-    xrltNeedHeaderListClear(&h);
-    ASSERT_NULL(h.first);
-    ASSERT_NULL(h.last);
-
-    xrltNeedHeaderListPush(&h, 1, &name1);
-    xrltNeedHeaderListPush(&h, 2, &name2);
-    xrltNeedHeaderListPush(&h, 0, &name1);
-
-    ASSERT_FALSE(xrltNeedHeaderListPush(NULL, 1, &name1));
-    ASSERT_FALSE(xrltNeedHeaderListPush(&h, 2, NULL));
-
-    ASSERT_FALSE(xrltNeedHeaderListShift(NULL, &id, &name1));
-    ASSERT_FALSE(xrltNeedHeaderListShift(&h, NULL, &name1));
-    ASSERT_FALSE(xrltNeedHeaderListShift(&h, &id, NULL));
-
-    ASSERT_TRUE(xrltNeedHeaderListShift(&h, &id, &name));
-    ASSERT_INT(id, 1);
-    ASSERT_STR(name, "name1");
-    xrltStringClear(&name);
-
-    ASSERT_TRUE(xrltNeedHeaderListShift(&h, &id, &name));
-    ASSERT_INT(id, 2);
-    ASSERT_STR(name, "name2");
-    xrltStringClear(&name);
-
-    ASSERT_TRUE(xrltNeedHeaderListShift(&h, &id, &name));
-    ASSERT_INT(id, 0);
-    ASSERT_STR(name, "name1");
-    xrltStringClear(&name);
-
-    ASSERT_FALSE(xrltNeedHeaderListShift(&h, &id, &name));
-
-    xrltStringClear(&name1);
-    xrltStringClear(&name2);
 
     TEST_PASSED;
 }
@@ -147,14 +89,15 @@ void test_xrltSubrequestList(void)
     xrltString               url1, url2, url3, url;
     xrltString               q1, q2, q;
     xrltString               b1, b2, b;
+    xrltBool                 c;
 
     xrltSubrequestListInit(&sr);
 
     xrltHeaderListInit(&h);
     xrltStringInit(&n, "hname");
     xrltStringInit(&v, "hvalue");
-    xrltHeaderListPush(&h, &n, &v);
-    xrltHeaderListPush(&h, &n, &v);
+    xrltHeaderListPush(&h, FALSE, &n, &v);
+    xrltHeaderListPush(&h, TRUE, &n, &v);
     xrltStringClear(&n);
     xrltStringClear(&v);
 
@@ -185,19 +128,21 @@ void test_xrltSubrequestList(void)
     ASSERT_INT(id, 123);
     ASSERT_INT(m, XRLT_METHOD_POST);
     ASSERT_INT(type, XRLT_SUBREQUEST_DATA_JSON);
-    ASSERT_TRUE(xrltHeaderListShift(&h, &n, &v));
+    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &n, &v));
+    ASSERT_INT(c, FALSE);
     ASSERT_STR(n, "hname");
     ASSERT_STR(v, "hvalue");
     xrltStringClear(&n);
     xrltStringClear(&v);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &n, &v));
+    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &n, &v));
+    ASSERT_INT(c, TRUE);
     ASSERT_STR(n, "hname");
     ASSERT_STR(v, "hvalue");
     xrltStringClear(&n);
     xrltStringClear(&v);
 
-    ASSERT_FALSE(xrltHeaderListShift(&h, &n, &v));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &n, &v));
 
     ASSERT_STR(url, "url1");
     ASSERT_STR(q, "querystring1");
@@ -234,8 +179,8 @@ void test_xrltSubrequestList(void)
 
     xrltStringInit(&n, "hname");
     xrltStringInit(&v, "hvalue");
-    xrltHeaderListPush(&h, &n, &v);
-    xrltHeaderListPush(&h, &n, &v);
+    xrltHeaderListPush(&h, FALSE, &n, &v);
+    xrltHeaderListPush(&h, FALSE, &n, &v);
     xrltStringClear(&n);
     xrltStringClear(&v);
     ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, XRLT_METHOD_HEAD,
@@ -409,7 +354,6 @@ void test_xrltLogList(void)
 int main()
 {
     test_xrltHeaderList();
-    test_xrltNeedHeaderList();
     test_xrltSubrequestList();
     test_xrltChunkList();
     test_xrltLogList();

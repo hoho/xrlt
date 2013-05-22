@@ -101,18 +101,14 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
     }
 
     while (xrltHeaderListShift(&ctx->header, &c, &n, &v)) {
-        sprintf(buf, "header: %s %s\n", n.data, v.data);
+        if (c) {
+            sprintf(buf, "cookie: %s %s\n", n.data, v.data);
+        } else {
+            sprintf(buf, "header: %s %s\n", n.data, v.data);
+        }
 
         xrltStringClear(&n);
         xrltStringClear(&v);
-
-        sprintf(out, "%s", buf);
-        out += strlen(buf);
-    }
-
-    while (xrltNeedHeaderListShift(&ctx->needHeader, &id, &c, &n)) {
-        sprintf(buf, "need header: %d %s\n", (int)id, n.data);
-        xrltStringClear(&n);
 
         sprintf(out, "%s", buf);
         out += strlen(buf);

@@ -326,29 +326,6 @@ xrltHeaderElementTransformingFree(void *data)
 }
 
 
-static xrltBool
-xrltNeedHeaderCallback(xrltContextPtr ctx, size_t id, xrltTransformValue *val,
-                       void *data)
-{
-    xrltHeaderElementTransformingData  *tdata;
-    tdata = (xrltHeaderElementTransformingData *)data;
-
-    tdata->stage = XRLT_HEADER_ELEMENT_TRANSFORM_VALUE;
-
-    if (val->val.data != NULL) {
-        tdata->val = xmlStrndup((xmlChar *)val->val.data, val->val.len);
-    } else {
-        TRANSFORM_TO_STRING(ctx, tdata->dataNode, &tdata->comp->val,
-                            &tdata->val);
-    }
-
-    SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltHeaderElementTransform, tdata->comp,
-                      NULL, tdata);
-
-    return TRUE;
-}
-
-
 xrltBool
 xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                            void *data)
@@ -357,8 +334,34 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltHeaderElementTransformingData  *tdata;
     xmlNodePtr                          node;
     xrltNodeDataPtr                     n;
-    size_t                              id;
-    xrltString                          s;
+
+
+/*
+    xrltHeaderElementData        *hcomp = (xrltHeaderElementData *)comp;
+    xrltIncludeTransformingData  *sr;
+    xmlNodePtr                    node = insert;
+    xrltNodeDataPtr               n;
+
+    do {
+        ASSERT_NODE_DATA(node, n);
+        node = node->parent;
+    } while (node != NULL && n->sr == NULL);
+
+    if (n->sr == NULL) {
+        node = ctx->requestHeaders;
+    } else {
+        sr = (xrltIncludeTransformingData *)n->sr;
+        node = sr->hnode;
+    }
+
+    if (node != NULL) {
+        node = node->children;
+
+        while (node != NULL) {
+//            if (xmlStrncasecmp(hcomp->name.))
+            node = node->next;
+        }
+    }*/
 
     if (data == NULL) {
         NEW_CHILD(ctx, node, insert, "h");
@@ -399,22 +402,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         switch (tdata->stage) {
             case XRLT_HEADER_ELEMENT_TRANSFORM_NAME:
-                id = ++ctx->includeId;
-
-                s.data = (char *)tdata->name;
-                s.len = (size_t)xmlStrlen(tdata->name);
-
-                if (!xrltNeedHeaderListPush(&ctx->needHeader, id,
-                                            hcomp->cookie, &s))
-                {
-                    ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
-                    return FALSE;
-                }
-
-                ctx->cur |= XRLT_STATUS_NEED_HEADER;
-
-                xrltInputSubscribe(ctx, XRLT_PROCESS_HEADER, id,
-                                   xrltNeedHeaderCallback, tdata);
+                //tdata->name;
 
                 return TRUE;
 
