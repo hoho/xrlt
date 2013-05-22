@@ -419,7 +419,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         tdata->stage = XRLT_HEADER_ELEMENT_TRANSFORM_VALUE;
 
                         TRANSFORM_TO_STRING(
-                            ctx, node, &hcomp->val, &tdata->val
+                            ctx, tdata->dataNode, &hcomp->val, &tdata->val
                         );
 
                         SCHEDULE_CALLBACK(ctx, &ctx->tcb,
