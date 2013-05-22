@@ -25,12 +25,11 @@ extern "C" {
 #define XRLT_STATUS_ERROR               2
 #define XRLT_STATUS_WAITING             4
 #define XRLT_STATUS_DONE                8
-#define XRLT_STATUS_NEED_HEADER         16
-#define XRLT_STATUS_HEADER              32
-#define XRLT_STATUS_SUBREQUEST          64
-#define XRLT_STATUS_CHUNK               128
-#define XRLT_STATUS_LOG                 256
-#define XRLT_STATUS_REFUSE_SUBREQUEST   512
+#define XRLT_STATUS_HEADER              16
+#define XRLT_STATUS_SUBREQUEST          32
+#define XRLT_STATUS_CHUNK               64
+#define XRLT_STATUS_LOG                 128
+#define XRLT_STATUS_REFUSE_SUBREQUEST   256
 
 
 #define XRLT_REGISTER_TOPLEVEL   2

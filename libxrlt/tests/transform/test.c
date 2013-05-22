@@ -64,12 +64,6 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    if (ret & XRLT_STATUS_NEED_HEADER) {
-        sprintf(buf, "XRLT_STATUS_NEED_HEADER\n");
-        sprintf(out, "%s", buf);
-        out += strlen(buf);
-    }
-
     if (ret & XRLT_STATUS_HEADER) {
         sprintf(buf, "XRLT_STATUS_HEADER\n");
         sprintf(out, "%s", buf);
