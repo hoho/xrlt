@@ -4,6 +4,7 @@
 
 #include "transform.h"
 #include "headers.h"
+#include "include.h"
 
 
 void *
@@ -334,34 +335,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltHeaderElementTransformingData  *tdata;
     xmlNodePtr                          node;
     xrltNodeDataPtr                     n;
-
-
-/*
-    xrltHeaderElementData        *hcomp = (xrltHeaderElementData *)comp;
-    xrltIncludeTransformingData  *sr;
-    xmlNodePtr                    node = insert;
-    xrltNodeDataPtr               n;
-
-    do {
-        ASSERT_NODE_DATA(node, n);
-        node = node->parent;
-    } while (node != NULL && n->sr == NULL);
-
-    if (n->sr == NULL) {
-        node = ctx->requestHeaders;
-    } else {
-        sr = (xrltIncludeTransformingData *)n->sr;
-        node = sr->hnode;
-    }
-
-    if (node != NULL) {
-        node = node->children;
-
-        while (node != NULL) {
-//            if (xmlStrncasecmp(hcomp->name.))
-            node = node->next;
-        }
-    }*/
+    xrltIncludeTransformingData        *sr;
 
     if (data == NULL) {
         NEW_CHILD(ctx, node, insert, "h");
@@ -402,15 +376,78 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         switch (tdata->stage) {
             case XRLT_HEADER_ELEMENT_TRANSFORM_NAME:
-                //tdata->name;
+                node = insert;
 
-                return TRUE;
+                do {
+                    ASSERT_NODE_DATA(node, n);
+                    node = node->parent;
+                } while (node != NULL && n->sr == NULL);
+
+                if (n->sr == NULL) {
+                    node = ctx->requestHeaders;
+                } else {
+                    sr = (xrltIncludeTransformingData *)n->sr;
+                    node = sr->hnode;
+                }
+
+                if (node != NULL) {
+                    // XXX: This header search is completely not optimal and
+                    //      should be redone.
+                    node = node->children;
+
+                    while (node != NULL) {
+                        if (xmlStrcasecmp(tdata->name, node->name) == 0) {
+                            tdata->val = xmlNodeGetContent(node);
+
+                            if (tdata->val == NULL) {
+                                COUNTER_DECREASE(ctx, tdata->node);
+
+                                REMOVE_RESPONSE_NODE(ctx, tdata->node);
+
+                                return TRUE;
+                            }
+
+                            break;
+                        }
+
+                        node = node->next;
+                    }
+                }
+
+                if (tdata->val == NULL) {
+                    if (hcomp->val.type != XRLT_VALUE_EMPTY) {
+                        tdata->stage = XRLT_HEADER_ELEMENT_TRANSFORM_VALUE;
+
+                        TRANSFORM_TO_STRING(
+                            ctx, node, &hcomp->val, &tdata->val
+                        );
+
+                        SCHEDULE_CALLBACK(ctx, &ctx->tcb,
+                                          xrltHeaderElementTransform, comp,
+                                          insert, tdata);
+                    }
+
+                    return TRUE;
+                }
+
+                // Header is found, move on to the next stage
+                // (XRLT_HEADER_ELEMENT_TRANSFORM_VALUE).
 
             case XRLT_HEADER_ELEMENT_TRANSFORM_VALUE:
                 if (tdata->val != NULL) {
                     node = xmlNewText(tdata->val);
 
-                    xmlAddNextSibling(tdata->node, node);
+                    if (node == NULL) {
+                        ERROR_CREATE_NODE(ctx, NULL, hcomp->node);
+
+                        return FALSE;
+                    }
+
+                    if (xmlAddNextSibling(tdata->node, node) == NULL) {
+                        ERROR_ADD_NODE(ctx, NULL, hcomp->node);
+
+                        return FALSE;
+                    }
                 }
 
                 break;
