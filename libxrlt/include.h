@@ -53,12 +53,12 @@ typedef struct {
 
 
 typedef struct {
-    xrltBool   cookie;
-    xrltBool   body;
-    xmlChar   *cbody;
-    xrltBool   test;
-    xmlChar   *name;
-    xmlChar   *val;
+    xrltHeaderType   headerType;
+    xrltBool         body;
+    xmlChar         *cbody;
+    xrltBool         test;
+    xmlChar         *name;
+    xmlChar         *val;
 } xrltTransformingParam;
 
 

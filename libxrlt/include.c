@@ -699,7 +699,7 @@ static inline xrltBool
 xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 {
     size_t           id;
-    xrltBool         cookie;
+    xrltHeaderType   htype;
     size_t           i, blen, qlen;
     xrltHeaderList   header;
     xrltString       href;
@@ -714,13 +714,13 @@ xrltIncludeAddSubrequest(xrltContextPtr ctx, xrltIncludeTransformingData *data)
 
     for (i = 0; i < data->headerCount; i++) {
         if (data->header[i].test) {
-            cookie = data->header[i].cookie;
+            htype = data->header[i].headerType;
             // Use query and body variables as name and value to reduce
             // declared variables count.
             xrltStringSet(&query, (char *)data->header[i].name);
             xrltStringSet(&body, (char *)data->header[i].val);
 
-            if (!xrltHeaderListPush(&header, cookie, &query, &body)) {
+            if (!xrltHeaderListPush(&header, htype, &query, &body)) {
                 ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
                 ret = FALSE;
                 goto error;

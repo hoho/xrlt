@@ -64,6 +64,13 @@ typedef enum {
 } xrltValueType;
 
 
+typedef enum {
+    XRLT_HEADER_TYPE_HEADER = 0,
+    XRLT_HEADER_TYPE_COOKIE,
+    XRLT_HEADER_TYPE_STATUS
+} xrltHeaderType;
+
+
 typedef struct {
     char    *data;
     size_t   len;
@@ -73,10 +80,10 @@ typedef struct {
 typedef struct _xrltHeader xrltHeader;
 typedef xrltHeader* xrltHeaderPtr;
 struct _xrltHeader {
-    xrltBool        cookie;
-    xrltString      name;
-    xrltString      val;
-    xrltHeaderPtr   next;
+    xrltHeaderType   type;
+    xrltString       name;
+    xrltString       val;
+    xrltHeaderPtr    next;
 };
 
 
@@ -180,10 +187,10 @@ static inline void
 static inline void
         xrltHeaderListInit        (xrltHeaderList *list);
 static inline xrltBool
-        xrltHeaderListPush        (xrltHeaderList *list, xrltBool cookie,
+        xrltHeaderListPush        (xrltHeaderList *list, xrltHeaderType type,
                                    xrltString *name, xrltString *val);
 static inline xrltBool
-        xrltHeaderListShift       (xrltHeaderList *list, xrltBool *cookie,
+        xrltHeaderListShift       (xrltHeaderList *list, xrltHeaderType *type,
                                    xrltString *name, xrltString *val);
 static inline void
         xrltHeaderListClear       (xrltHeaderList *list);
@@ -284,10 +291,10 @@ xrltHeaderListInit(xrltHeaderList *list)
 
 
 static inline xrltBool
-xrltHeaderListPush(xrltHeaderList *list, xrltBool cookie, xrltString *name,
+xrltHeaderListPush(xrltHeaderList *list, xrltHeaderType type, xrltString *name,
                    xrltString *val)
 {
-    if (list == NULL || name == NULL || val == NULL) { return FALSE; }
+    if (list == NULL || val == NULL) { return FALSE; }
 
     xrltHeaderPtr h;
 
@@ -297,8 +304,10 @@ xrltHeaderListPush(xrltHeaderList *list, xrltBool cookie, xrltString *name,
 
     memset(h, 0, sizeof(xrltHeader));
 
-    h->cookie = cookie;
-    if (!xrltStringCopy(&h->name, name)) { goto error; }
+    h->type = type;
+    if (type != XRLT_HEADER_TYPE_STATUS) {
+        if (!xrltStringCopy(&h->name, name)) { goto error; }
+    }
     if (!xrltStringCopy(&h->val, val)) { goto error; }
 
     if (list->last == NULL) {
@@ -320,10 +329,10 @@ xrltHeaderListPush(xrltHeaderList *list, xrltBool cookie, xrltString *name,
 
 
 static inline xrltBool
-xrltHeaderListShift(xrltHeaderList *list, xrltBool *cookie, xrltString *name,
-                    xrltString *val)
+xrltHeaderListShift(xrltHeaderList *list, xrltHeaderType *type,
+                    xrltString *name, xrltString *val)
 {
-    if (list == NULL || cookie == NULL || name == NULL || val == NULL) {
+    if (list == NULL || type == NULL || name == NULL || val == NULL) {
         return FALSE;
     }
 
@@ -331,7 +340,7 @@ xrltHeaderListShift(xrltHeaderList *list, xrltBool *cookie, xrltString *name,
 
     if (h == NULL) { return FALSE; }
 
-    *cookie = h->cookie;
+    *type = h->type;
     xrltStringMove(name, &h->name);
     xrltStringMove(val, &h->val);
 
@@ -351,11 +360,11 @@ xrltHeaderListShift(xrltHeaderList *list, xrltBool *cookie, xrltString *name,
 static inline void
 xrltHeaderListClear(xrltHeaderList *list)
 {
-    xrltBool     cookie;
-    xrltString   name;
-    xrltString   val;
+    xrltHeaderType   type;
+    xrltString       name;
+    xrltString       val;
 
-    while (xrltHeaderListShift(list, &cookie, &name, &val)) {
+    while (xrltHeaderListShift(list, &type, &name, &val)) {
         xrltStringClear(&name);
         xrltStringClear(&val);
     }

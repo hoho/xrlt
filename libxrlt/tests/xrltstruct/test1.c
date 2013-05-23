@@ -7,7 +7,7 @@ void test_xrltHeaderList(void)
 {
     xrltHeaderList   h;
     xrltString       name1, name2, val1, val2, name, val;
-    xrltBool         c;
+    xrltHeaderType   ht;
 
     xrltHeaderListInit(&h);
     ASSERT_NULL(h.first);
@@ -20,54 +20,55 @@ void test_xrltHeaderList(void)
 
     ASSERT_STR(name1, "name1");
 
-    xrltHeaderListPush(&h, FALSE, &name1, &val1);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &name1, &val1);
     ASSERT_NOT_NULL(h.first);
     ASSERT_TRUE(h.first == h.last);
     ASSERT_STR(h.first->name, "name1");
     ASSERT_STR(h.first->val, "value1");
 
-    xrltHeaderListPush(&h, TRUE, &name2, &val2);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_COOKIE, &name2, &val2);
     ASSERT_TRUE(h.first != h.last);
 
     xrltHeaderListClear(&h);
     ASSERT_NULL(h.first);
     ASSERT_NULL(h.last);
 
-    xrltHeaderListPush(&h, FALSE, &name1, &val1);
-    xrltHeaderListPush(&h, TRUE, &name2, &val2);
-    xrltHeaderListPush(&h, FALSE, &name1, &val1);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &name1, &val1);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_COOKIE, &name2, &val2);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &name1, &val1);
 
-    ASSERT_FALSE(xrltHeaderListPush(NULL, FALSE, &name1, &val1));
-    ASSERT_FALSE(xrltHeaderListPush(&h, FALSE, NULL, &val1));
-    ASSERT_FALSE(xrltHeaderListPush(&h, FALSE, &name1, NULL));
+    ASSERT_FALSE(xrltHeaderListPush(NULL, XRLT_HEADER_TYPE_HEADER, &name1,
+                                    &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &name1, NULL));
 
-    ASSERT_FALSE(xrltHeaderListShift(NULL, &c, &name1, &val1));
-    ASSERT_FALSE(xrltHeaderListShift(&h, &c, NULL, &val1));
-    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &name1, NULL));
+    ASSERT_FALSE(xrltHeaderListShift(NULL, &ht, &name1, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &ht, NULL, &val1));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &ht, &name1, NULL));
     ASSERT_FALSE(xrltHeaderListShift(&h, NULL, &name1, &val1));
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
-    ASSERT_INT(c, FALSE);
+    ASSERT_TRUE(xrltHeaderListShift(&h, &ht, &name, &val));
+    ASSERT_INT(ht, XRLT_HEADER_TYPE_HEADER);
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
-    ASSERT_INT(c, TRUE);
+    ASSERT_TRUE(xrltHeaderListShift(&h, &ht, &name, &val));
+    ASSERT_INT(ht, XRLT_HEADER_TYPE_COOKIE);
     ASSERT_STR(name, "name2");
     ASSERT_STR(val, "value2");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &name, &val));
-    ASSERT_INT(c, FALSE);
+    ASSERT_TRUE(xrltHeaderListShift(&h, &ht, &name, &val));
+    ASSERT_INT(ht, XRLT_HEADER_TYPE_HEADER);
     ASSERT_STR(name, "name1");
     ASSERT_STR(val, "value1");
     xrltStringClear(&name);
     xrltStringClear(&val);
 
-    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &name, &val));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &ht, &name, &val));
 
     xrltStringClear(&name1);
     xrltStringClear(&name2);
@@ -89,7 +90,7 @@ void test_xrltSubrequestList(void)
     xrltString               url1, url2, url3, url;
     xrltString               q1, q2, q;
     xrltString               b1, b2, b;
-    xrltBool                 c;
+    xrltHeaderType           ht;
 
     xrltSubrequestListInit(&sr);
 
@@ -128,21 +129,21 @@ void test_xrltSubrequestList(void)
     ASSERT_INT(id, 123);
     ASSERT_INT(m, XRLT_METHOD_POST);
     ASSERT_INT(type, XRLT_SUBREQUEST_DATA_JSON);
-    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &n, &v));
-    ASSERT_INT(c, FALSE);
+    ASSERT_TRUE(xrltHeaderListShift(&h, &ht, &n, &v));
+    ASSERT_INT(ht, XRLT_HEADER_TYPE_HEADER);
     ASSERT_STR(n, "hname");
     ASSERT_STR(v, "hvalue");
     xrltStringClear(&n);
     xrltStringClear(&v);
 
-    ASSERT_TRUE(xrltHeaderListShift(&h, &c, &n, &v));
-    ASSERT_INT(c, TRUE);
+    ASSERT_TRUE(xrltHeaderListShift(&h, &ht, &n, &v));
+    ASSERT_INT(ht, XRLT_HEADER_TYPE_COOKIE);
     ASSERT_STR(n, "hname");
     ASSERT_STR(v, "hvalue");
     xrltStringClear(&n);
     xrltStringClear(&v);
 
-    ASSERT_FALSE(xrltHeaderListShift(&h, &c, &n, &v));
+    ASSERT_FALSE(xrltHeaderListShift(&h, &ht, &n, &v));
 
     ASSERT_STR(url, "url1");
     ASSERT_STR(q, "querystring1");
@@ -179,8 +180,8 @@ void test_xrltSubrequestList(void)
 
     xrltStringInit(&n, "hname");
     xrltStringInit(&v, "hvalue");
-    xrltHeaderListPush(&h, FALSE, &n, &v);
-    xrltHeaderListPush(&h, FALSE, &n, &v);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &n, &v);
+    xrltHeaderListPush(&h, XRLT_HEADER_TYPE_HEADER, &n, &v);
     xrltStringClear(&n);
     xrltStringClear(&v);
     ASSERT_TRUE(xrltSubrequestListPush(&sr, 123, XRLT_METHOD_HEAD,

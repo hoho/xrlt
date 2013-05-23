@@ -35,7 +35,7 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
     xrltString               url, q, b, n, v;
     xrltHeaderList           header;
     size_t                   id;
-    xrltBool                 c;
+    xrltHeaderType           ht;
     char                     buf[TEST_BUFFER_SIZE];
 
     memset(buf, 0, TEST_BUFFER_SIZE);
@@ -94,11 +94,17 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    while (xrltHeaderListShift(&ctx->header, &c, &n, &v)) {
-        if (c) {
-            sprintf(buf, "cookie: %s %s\n", n.data, v.data);
-        } else {
-            sprintf(buf, "header: %s %s\n", n.data, v.data);
+    while (xrltHeaderListShift(&ctx->header, &ht, &n, &v)) {
+        switch (ht) {
+            case XRLT_HEADER_TYPE_COOKIE:
+                sprintf(buf, "cookie: %s %s\n", n.data, v.data);
+                break;
+            case XRLT_HEADER_TYPE_STATUS:
+                sprintf(buf, "status: %s\n", v.data);
+                break;
+            case XRLT_HEADER_TYPE_HEADER:
+                sprintf(buf, "header: %s %s\n", n.data, v.data);
+                break;
         }
 
         xrltStringClear(&n);
@@ -174,8 +180,18 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         sprintf(out, "%s", buf);
         out += strlen(buf);
 
-        while (xrltHeaderListShift(&header, &c, &n, &v)) {
-            sprintf(buf, "sr header: %s: %s\n", n.data, v.data);
+        while (xrltHeaderListShift(&header, &ht, &n, &v)) {
+            switch (ht) {
+                case XRLT_HEADER_TYPE_COOKIE:
+                    sprintf(buf, "sr cookie: %s: %s\n", n.data, v.data);
+                    break;
+                case XRLT_HEADER_TYPE_STATUS:
+                    sprintf(buf, "sr status: %s\n", v.data);
+                    break;
+                case XRLT_HEADER_TYPE_HEADER:
+                    sprintf(buf, "sr header: %s: %s\n", n.data, v.data);
+                    break;
+            }
             xrltStringClear(&n);
             xrltStringClear(&v);
 
