@@ -296,33 +296,45 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
 
     if (t & XRLT_STATUS_HEADER) {
         ngx_table_elt_t  *h;
-        xrltBool          cookie;
+        xrltHeaderType    htype;
         xrltString        hname;
         xrltString        hval;
+        ngx_int_t         hst;
 
-        while (xrltHeaderListShift(&ctx->xctx->header, &cookie, &hname, &hval))
+        while (xrltHeaderListShift(&ctx->xctx->header, &htype, &hname, &hval))
         {
             if (ctx->headers_sent) {
                 dd("Response headers are already sent");
-                xrltStringClear(&hname);
-                xrltStringClear(&hval);
             } else {
-                h = ngx_list_push(&r->main->headers_out.headers);
-                if (h == NULL) {
-                    xrltStringClear(&hname);
-                    xrltStringClear(&hval);
-                    return NGX_ERROR;
+                if (htype == XRLT_HEADER_TYPE_STATUS) {
+                    hst = ngx_atoi((u_char *)hval.data, hval.len);
+
+                    if (hst < 0) {
+                        xrltStringClear(&hname);
+                        xrltStringClear(&hval);
+                        return NGX_ERROR;
+                    }
+
+                    r->main->headers_out.status = (ngx_uint_t)hst;
+                } else {
+                    h = ngx_list_push(&r->main->headers_out.headers);
+                    if (h == NULL) {
+                        xrltStringClear(&hname);
+                        xrltStringClear(&hval);
+                        return NGX_ERROR;
+                    }
+
+                    h->hash = 1;
+                    XRLT_STR_2_NGX_STR(h->key, hname);
+                    XRLT_STR_2_NGX_STR(h->value, hval);
+
+                    dd("Pushing response header (name: %s, value: %s)",
+                       h->key.data, h->value.data);
                 }
-
-                h->hash = 1;
-                XRLT_STR_2_NGX_STR(h->key, hname);
-                XRLT_STR_2_NGX_STR(h->value, hval);
-                xrltStringClear(&hname);
-                xrltStringClear(&hval);
-
-                dd("Pushing response header (name: %s, value: %s)",
-                   h->key.data, h->value.data);
             }
+
+            xrltStringClear(&hname);
+            xrltStringClear(&hval);
         }
     }
 
@@ -336,7 +348,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         xrltSubrequestDataType       type;
         xrltHeaderList               sr_header;
         xrltString                   url, querystring, body, hname, hval;
-        xrltBool                     cookie;
+        xrltHeaderType               htype;
         ngx_http_xrlt_ctx_t         *sr_ctx;
         ngx_str_t                    sr_uri, sr_querystring, sr_body;
         ngx_http_request_t          *sr;
@@ -436,7 +448,7 @@ ngx_http_xrlt_transform(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
             }
 
             if (sr_header.first != NULL) {
-                while (xrltHeaderListShift(&sr_header, &cookie, &hname, &hval))
+                while (xrltHeaderListShift(&sr_header, &htype, &hname, &hval))
                 {
                     h = ngx_list_push(&sr->headers_in.headers);
                     if (h == NULL) {

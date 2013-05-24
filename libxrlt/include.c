@@ -1086,6 +1086,12 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                             xmlAddChild(tdata->rnode, node);
 
+                            tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
+
+                            SCHEDULE_CALLBACK(ctx, &ctx->tcb,
+                                              xrltIncludeTransform, comp,
+                                              insert, data);
+
                             break;
 
                         case XRLT_VALUE_NODELIST:

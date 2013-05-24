@@ -51,6 +51,11 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         {
             goto error;
         }
+
+        if (ret->name.type == XRLT_VALUE_EMPTY) {
+            xrltTransformError(NULL, sheet, node, "No name\n");
+            goto error;
+        }
     }
 
 
@@ -258,11 +263,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             return FALSE;
         }
 
-        if (hcomp->type == XRLT_HEADER_TYPE_STATUS) {
-            ctx->cur |= XRLT_STATUS_STATUS;
-        } else {
-            ctx->cur |= XRLT_STATUS_HEADER;
-        }
+        ctx->cur |= XRLT_STATUS_HEADER;
 
         ctx->headerCount--;
         if (ctx->headerCount == 0 && ctx->chunk.first != NULL) {
@@ -296,24 +297,31 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         ret->type = XRLT_HEADER_TYPE_HEADER;
     }
 
-    if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
-                                  XRLT_ELEMENT_VALUE, NULL, NULL, NULL, NULL,
-                                  &hasxrlt))
-    {
-        goto error;
-    }
+    if (ret->type != XRLT_HEADER_TYPE_STATUS) {
+        if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
+                                      XRLT_ELEMENT_VALUE, NULL, NULL, NULL,
+                                      NULL, &hasxrlt))
+        {
+            goto error;
+        }
 
-    if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
-                          XRLT_ELEMENT_NAME, TRUE, &ret->name))
-    {
-        goto error;
-    }
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
+                              XRLT_ELEMENT_NAME, TRUE, &ret->name))
+        {
+            goto error;
+        }
 
-    if (!xrltCompileValue(sheet, node, hasxrlt ? NULL : node->children,
-                          XRLT_ELEMENT_ATTR_SELECT, NULL, XRLT_ELEMENT_VALUE,
-                          TRUE, &ret->val))
-    {
-        goto error;
+        if (ret->name.type == XRLT_VALUE_EMPTY) {
+            xrltTransformError(NULL, sheet, node, "No name");
+            goto error;
+        }
+
+        if (!xrltCompileValue(sheet, node, hasxrlt ? NULL : node->children,
+                              XRLT_ELEMENT_ATTR_SELECT, NULL,
+                              XRLT_ELEMENT_VALUE, TRUE, &ret->val))
+        {
+            goto error;
+        }
     }
 
     ret->node = node;
@@ -417,7 +425,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 } else {
                     sr = (xrltIncludeTransformingData *)n->sr;
 
-                    if (hcomp->type == XRLT_HEADER_TYPE_COOKIE) {
+                    if (hcomp->type == XRLT_HEADER_TYPE_STATUS) {
                         // TODO: Calc max size.
                         tdata->val = (xmlChar *)xmlMalloc(20);
 
