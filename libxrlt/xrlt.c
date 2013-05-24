@@ -306,6 +306,12 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
                     return ctx->cur;
                 }
             }
+
+            if (!val->last) {
+                ctx->cur |= XRLT_STATUS_WAITING;
+
+                return ctx->cur;
+            }
         } else {
             if (val->type == XRLT_PROCESS_HEADER) {
                 len = ctx->icb.headerSize;

@@ -678,6 +678,7 @@ ngx_http_xrlt_transform_headers(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx)
 
         name.data = (char *)header[i].key.data;
         name.len = header[i].key.len;
+
         val.data = (char *)header[i].value.data;
         val.len = header[i].value.len;
 

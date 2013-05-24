@@ -478,9 +478,8 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         SCHEDULE_CALLBACK(ctx, &ctx->tcb,
                                           xrltHeaderElementTransform, comp,
                                           insert, tdata);
+                        return TRUE;
                     }
-
-                    return TRUE;
                 }
 
                 // Header is found, move on to the next stage

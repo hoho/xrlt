@@ -65,6 +65,7 @@ xrltResponseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             }
 
             // Send response chunk out.
+            // TODO: Gather as many response chunks as possible into one buffer.
             chunk.data = (char *)xmlXPathCastNodeToString(ctx->responseCur);
 
             if (chunk.data != NULL) {
