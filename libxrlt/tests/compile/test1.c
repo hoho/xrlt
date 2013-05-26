@@ -13,7 +13,7 @@ printData(xrltContextPtr ctx)
     xrltString               url, q, b, n, v;
     xrltSubrequestDataType   type;
     xrltHTTPMethod           m;
-    xrltHeaderList           header;
+    xrltHeaderOutList        header;
     size_t                   id;
 
     while (xrltLogListShift(&ctx->log, &t, &s)) {
@@ -30,7 +30,7 @@ printData(xrltContextPtr ctx)
                                    &url, &q, &b))
     {
         printf("sr id: %d\n", (int)id);
-        while (xrltHeaderListShift(&header, &n, &v)) {
+        while (xrltHeaderOutListShift(&header, &n, &v)) {
             printf("sr header: %s: %s\n", n.data, v.data);
             xrltStringClear(&n);
             xrltStringClear(&v);

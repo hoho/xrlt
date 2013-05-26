@@ -1,6 +1,6 @@
 id:0, type:0, last:0, error: 0, data:
 id:0, type:0, last:0, error: 0, data:
-id:1, type:2, last:0, error: 0, data:hello=wo%20r
-id:1, type:2, last:0, error: 0, data:ld&this=is&this
-id:1, type:2, last:1, error: 0, data:=IS;very=co%20ol&blah;=he;=ha
+id:1, type:600, last:0, error: 0, data:hello=wo%20r
+id:1, type:600, last:0, error: 0, data:ld&this=is&this
+id:1, type:600, last:1, error: 0, data:=IS;very=co%20ol&blah;=he;=ha
 id:0, type:0, last:0, error: 0, data:

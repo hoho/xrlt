@@ -20,10 +20,10 @@ extern "C" {
 typedef struct _xrltCompiledIncludeParam xrltCompiledIncludeParam;
 typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
-    xrltValue                     test;
-    xrltValue                     body;
-    xrltValue                     name;
-    xrltValue                     val;
+    xrltCompiledValue   test;
+    xrltCompiledValue   body;
+    xrltCompiledValue   name;
+    xrltCompiledValue   val;
 
     xrltCompiledIncludeParamPtr   next;
 };
@@ -32,9 +32,9 @@ struct _xrltCompiledIncludeParam {
 typedef struct {
     xmlNodePtr                    node;
 
-    xrltValue                     href;
-    xrltValue                     method;
-    xrltValue                     type;
+    xrltCompiledValue             href;
+    xrltCompiledValue             method;
+    xrltCompiledValue             type;
 
     xrltCompiledIncludeParamPtr   fheader;
     xrltCompiledIncludeParamPtr   lheader;
@@ -44,16 +44,16 @@ typedef struct {
     xrltCompiledIncludeParamPtr   lparam;
     size_t                        paramCount;
 
-    xrltValue                     bodyTest;
-    xrltValue                     body;
+    xrltCompiledValue bodyTest;
+    xrltCompiledValue body;
 
-    xrltValue                     success;
-    xrltValue                     failure;
+    xrltCompiledValue success;
+    xrltCompiledValue failure;
 } xrltCompiledIncludeData;
 
 
 typedef struct {
-    xrltHeaderType   headerType;
+    xrltHeaderOutType headerType;
     xrltBool         body;
     xmlChar         *cbody;
     xrltBool         test;
@@ -72,16 +72,25 @@ typedef enum {
 } xrltIncludeTransformStage;
 
 
+typedef enum {
+    XRLT_PROCESS_INPUT_ERROR = 0,
+    XRLT_PROCESS_INPUT_AGAIN,
+    XRLT_PROCESS_INPUT_REFUSE,
+    XRLT_PROCESS_INPUT_DONE
+} xrltProcessInputResult;
+
+
 typedef struct {
     xmlNodePtr                  srcNode;    // Include node in source document.
 
     xmlNodePtr                  node;       // Include node in response
                                             // document.
-    xmlNodePtr                  pnode;      // Parent node to transform params
-                                            // to.
-    xmlNodePtr                  rnode;      // Parent node to transform the
-                                            // result to.
+    xmlNodePtr                  pnode;      // Parent node for params.
+    xmlNodePtr                  rnode;      // Parent node for the result.
     xmlNodePtr                  hnode;      // Parent node for headers.
+    xmlNodePtr                  cnode;      // Parent node for cookies.
+
+    size_t                      status;
 
     xmlParserCtxtPtr            xmlparser;  // Push parser for XML includes.
     xrltJSON2XMLPtr             jsonparser;
@@ -109,8 +118,6 @@ typedef struct {
 
     xrltBool                    bodyTest;
     xmlChar                    *body;
-
-    size_t                      status;
 } xrltIncludeTransformingData;
 
 
@@ -122,6 +129,9 @@ void
 xrltBool
         xrltIncludeTransform   (xrltContextPtr ctx, void *comp,
                                 xmlNodePtr insert, void *data);
+xrltProcessInputResult
+        xrltProcessInput       (xrltContextPtr ctx, xrltTransformValue *val,
+                                xrltIncludeTransformingData *data);
 
 
 #ifdef __cplusplus

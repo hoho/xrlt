@@ -33,9 +33,9 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
     xrltHTTPMethod           m;
     xrltSubrequestDataType   type;
     xrltString               url, q, b, n, v;
-    xrltHeaderList           header;
+    xrltHeaderOutList        header;
     size_t                   id;
-    xrltHeaderType           ht;
+    xrltHeaderOutType        ht;
     char                     buf[TEST_BUFFER_SIZE];
 
     memset(buf, 0, TEST_BUFFER_SIZE);
@@ -94,15 +94,15 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         out += strlen(buf);
     }
 
-    while (xrltHeaderListShift(&ctx->header, &ht, &n, &v)) {
+    while (xrltHeaderOutListShift(&ctx->header, &ht, &n, &v)) {
         switch (ht) {
-            case XRLT_HEADER_TYPE_COOKIE:
+            case XRLT_HEADER_OUT_COOKIE:
                 sprintf(buf, "cookie: %s %s\n", n.data, v.data);
                 break;
-            case XRLT_HEADER_TYPE_STATUS:
+            case XRLT_HEADER_OUT_STATUS:
                 sprintf(buf, "status: %s\n", v.data);
                 break;
-            case XRLT_HEADER_TYPE_HEADER:
+            case XRLT_HEADER_OUT_HEADER:
                 sprintf(buf, "header: %s %s\n", n.data, v.data);
                 break;
         }
@@ -180,15 +180,15 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
         sprintf(out, "%s", buf);
         out += strlen(buf);
 
-        while (xrltHeaderListShift(&header, &ht, &n, &v)) {
+        while (xrltHeaderOutListShift(&header, &ht, &n, &v)) {
             switch (ht) {
-                case XRLT_HEADER_TYPE_COOKIE:
+                case XRLT_HEADER_OUT_COOKIE:
                     sprintf(buf, "sr cookie: %s: %s\n", n.data, v.data);
                     break;
-                case XRLT_HEADER_TYPE_STATUS:
+                case XRLT_HEADER_OUT_STATUS:
                     sprintf(buf, "sr status: %s\n", v.data);
                     break;
-                case XRLT_HEADER_TYPE_HEADER:
+                case XRLT_HEADER_OUT_HEADER:
                     sprintf(buf, "sr header: %s: %s\n", n.data, v.data);
                     break;
             }
@@ -293,41 +293,41 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
     {
         fgets(data, TEST_BUFFER_SIZE - 1, infile);
 
-        if (j > 0) {
-            i = strlen(data);
-            if (j == XRLT_PROCESS_HEADER) {
-                val.type = XRLT_PROCESS_HEADER;
-            } else if (j == XRLT_PROCESS_BODY) {
-                val.type = XRLT_PROCESS_BODY;
-            } else {
-                xrltTestFailurePush((char *)"Unexpected 'type' value");
-                TEST_FAILED;
-            }
-
-            if (k == 0) {
-                val.last = FALSE;
-            } else if (k == 1) {
-                val.last = TRUE;
-            } else {
-                xrltTestFailurePush((char *)"Unexpected 'last' value");
-                TEST_FAILED;
-            }
-
-            if (i > 1) {
-                data[i - 1] = '\0';
-                val.val.len = (size_t)(i - 1);
-                val.val.data = data;
-            } else {
-                val.val.len = 0;
-                val.val.data = NULL;
-            }
-
-            val.error = l == 0 ? FALSE : TRUE;
-
-            i = xrltTransform(ctx, id, &val);
+        i = strlen(data);
+        if (j == XRLT_TRANSFORM_VALUE_HEADER) {
+            val.type = XRLT_TRANSFORM_VALUE_HEADER;
+        } else if (j == XRLT_TRANSFORM_VALUE_BODY) {
+            val.type = XRLT_TRANSFORM_VALUE_BODY;
+        } else if (j == 0) {
+            val.type = XRLT_TRANSFORM_VALUE_EMPTY;
         } else {
-            i = xrltTransform(ctx, 0, NULL);
+            xrltTestFailurePush((char *)"Unexpected 'type' value");
+            TEST_FAILED;
         }
+
+        if (k == 0) {
+            val.bodyval.last = FALSE;
+        } else if (k == 1) {
+            val.bodyval.last = TRUE;
+        } else {
+            xrltTestFailurePush((char *)"Unexpected 'last' value");
+            TEST_FAILED;
+        }
+
+        if (i > 1) {
+            data[i - 1] = '\0';
+            val.bodyval.val.len = (size_t)(i - 1);
+            val.bodyval.val.data = data;
+        } else {
+            val.bodyval.val.len = 0;
+            val.bodyval.val.data = NULL;
+        }
+
+        if (l) {
+            val.type = XRLT_TRANSFORM_VALUE_ERROR;
+        }
+
+        i = xrltTransform(ctx, id, &val);
 
         pos = dumpResult(ctx, i, pos);
     }

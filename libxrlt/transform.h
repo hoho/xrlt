@@ -150,7 +150,7 @@ extern "C" {
 #define NEW_CHILD_GOTO(ctx, ret, parent, name) {                              \
     ret = xmlNewChild(parent, NULL, (const xmlChar *)name, NULL);             \
     if (ret == NULL) {                                                        \
-        ERROR_CREATE_NODE(ctx, NULL, NULL);                            \
+        ERROR_CREATE_NODE(ctx, NULL, NULL);                                   \
         goto error;                                                           \
     }                                                                         \
 }
@@ -406,7 +406,7 @@ static inline xrltBool
 xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
                  xmlNodePtr nodeVal, const xmlChar *xpathAttrName,
                  const xmlChar *valAttrName, const xmlChar *valNodeName,
-                 xrltBool tostr, xrltValue *val)
+                 xrltBool tostr, xrltCompiledValue *val)
 {
     xmlChar          *sel, *vsel, *v;
     xmlNodePtr        tmp, tmp2, vNode = NULL;
@@ -479,7 +479,7 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
         goto error;
     }
 
-    memset(val, 0, sizeof(xrltValue));
+    memset(val, 0, sizeof(xrltCompiledValue));
 
     if (sel != NULL) {
         val->xpathval.expr = xmlXPathCompile(sel);
@@ -562,8 +562,8 @@ xrltBool
 
 
 static inline xrltBool
-xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert, xrltValue *val,
-                      xmlChar **ret)
+xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert,
+                      xrltCompiledValue *val, xmlChar **ret)
 {
     switch (val->type) {
         case XRLT_VALUE_TEXT:
@@ -603,8 +603,8 @@ xrltTransformToString(xrltContextPtr ctx, xmlNodePtr insert, xrltValue *val,
 
 
 static inline xrltBool
-xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert, xrltValue *val,
-                       xrltBool *ret)
+xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
+                       xrltCompiledValue *val, xrltBool *ret)
 {
     switch (val->type) {
         case XRLT_VALUE_TEXT:

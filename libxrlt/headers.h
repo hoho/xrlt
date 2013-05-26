@@ -17,22 +17,22 @@ extern "C" {
 
 
 typedef struct {
-    xmlNodePtr       node;
-    xrltHeaderType   type;
-    xrltValue        test;
-    xrltValue        name;
-    xrltValue        val;
-    xrltValue        path;
-    xrltValue        domain;
-    xrltValue        expires;
+    xmlNodePtr          node;
+    xrltHeaderOutType   type;
+    xrltCompiledValue   test;
+    xrltCompiledValue   name;
+    xrltCompiledValue   val;
+    xrltCompiledValue   path;
+    xrltCompiledValue   domain;
+    xrltCompiledValue   expires;
 } xrltResponseHeaderData;
 
 
 typedef struct {
-    xmlNodePtr       node;
-    xrltHeaderType   type;
-    xrltValue        name;
-    xrltValue        val;
+    xmlNodePtr          node;
+    xrltHeaderOutType   type;
+    xrltCompiledValue   name;
+    xrltCompiledValue   val;
 
 } xrltHeaderElementData;
 

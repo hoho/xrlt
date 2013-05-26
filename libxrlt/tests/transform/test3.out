@@ -7,6 +7,7 @@ sr type: JSON
 sr url: /test/href/1
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 2
 sr method: GET
@@ -21,7 +22,6 @@ sr type: TEXT
 sr url: /test/href/3
 sr query: (null)
 sr body: (null)
-XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 4

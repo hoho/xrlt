@@ -7,6 +7,7 @@
 
 #include "xrlt.h"
 #include "transform.h"
+#include "include.h"
 
 #ifndef __XRLT_NO_JAVASCRIPT__
     #include "js.h"
@@ -219,25 +220,15 @@ xrltContextFree(xrltContextPtr ctx)
 
     xrltSubrequestListClear(&ctx->sr);
 
-    for (i = 0; i < ctx->icb.headerSize; i++) {
-        cb = ctx->icb.header[i].first;
+    for (i = 0; i < ctx->icb.size; i++) {
+        cb = ctx->icb.q[i].first;
         while (cb != NULL) {
             tmp = cb->next;
             xmlFree(cb);
             cb = tmp;
         }
     }
-    if (ctx->icb.header != NULL) { xmlFree(ctx->icb.header); }
-
-    for (i = 0; i < ctx->icb.bodySize; i++) {
-        cb = ctx->icb.body[i].first;
-        while (cb != NULL) {
-            tmp = cb->next;
-            xmlFree(cb);
-            cb = tmp;
-        }
-    }
-    if (ctx->icb.body != NULL) { xmlFree(ctx->icb.body); }
+    if (ctx->icb.q != NULL) { xmlFree(ctx->icb.q); }
 
     if (ctx->xpath != NULL) { xmlXPathFreeContext(ctx->xpath); }
 
@@ -268,15 +259,55 @@ xrltContextFree(xrltContextPtr ctx)
 }
 
 
+/*static xrltBool
+xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
+{
+    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+
+    if (data == NULL) { return FALSE; }
+
+    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
+        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+//                          tdata->comp, tdata->insert, tdata);
+//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+        return TRUE;
+    }
+
+    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
+        case XRLT_PROCESS_INPUT_ERROR:
+            return FALSE;
+
+        case XRLT_PROCESS_INPUT_AGAIN:
+            ctx->cur |= XRLT_STATUS_WAITING;
+
+            return TRUE;
+
+        case XRLT_PROCESS_INPUT_REFUSE:
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
+
+        case XRLT_PROCESS_INPUT_DONE:
+            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+            //tdata->comp, tdata->insert, tdata);
+            return TRUE;
+    }
+}*/
+
+
 int
 xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 {
-    if (ctx == NULL) { return XRLT_STATUS_ERROR; }
+    if (ctx == NULL || val == NULL) { return XRLT_STATUS_ERROR; }
 
     xrltTransformFunction     func;
     void                     *comp;
-    xmlNodePtr                insert, node;
-    xmlChar                  *n, *c;
+    xmlNodePtr                insert;
     size_t                    varScope;
     void                     *data;
     size_t                    len;
@@ -286,82 +317,49 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
     ctx->cur = XRLT_STATUS_UNKNOWN;
 
-    if (val != NULL) {
-        if (id == 0) {
-            if (val->type == XRLT_PROCESS_HEADER && val->name.data != NULL) {
-                n = xmlStrndup((const xmlChar *)val->name.data, val->name.len);
-                c = xmlStrndup((const xmlChar *)val->val.data, val->val.len);
+    if (val->type != XRLT_TRANSFORM_VALUE_EMPTY) {
+        len = ctx->icb.size;
 
-                // TODO: Check xmlNewDocNodeEatName, it might fit better here.
-                node = xmlNewChild(ctx->requestHeaders, NULL, n, c);
+        if (id < len) {
+            q = &ctx->icb.q[id];
+        }
 
-                xmlFree(n);
-                xmlFree(c);
+        if (q != NULL) {
+            prevcb = NULL;
+            cb = q->first;
 
-                if (node == NULL) {
-                    ERROR_CREATE_NODE(ctx, NULL, NULL);
+            while (cb != NULL) {
+                ctx->varScope = cb->varScope;
 
+                if (!cb->func(ctx, val, cb->data)) {
                     ctx->cur |= XRLT_STATUS_ERROR;
-
                     return ctx->cur;
                 }
-            }
 
-            if (!val->last) {
-                ctx->cur |= XRLT_STATUS_WAITING;
-
-                return ctx->cur;
-            }
-        } else {
-            if (val->type == XRLT_PROCESS_HEADER) {
-                len = ctx->icb.headerSize;
-
-                if (id < len) {
-                    q = &ctx->icb.header[id];
-                }
-            } else {
-                len = ctx->icb.bodySize;
-
-                if (id < len) {
-                    q = &ctx->icb.body[id];
-                }
-            }
-
-            if (q != NULL) {
-                prevcb = NULL;
-                cb = q->first;
-
-                while (cb != NULL) {
-                    ctx->varScope = cb->varScope;
-
-                    if (!cb->func(ctx, id, val, cb->data)) {
-                        ctx->cur |= XRLT_STATUS_ERROR;
-                        return ctx->cur;
-                    }
-
-                    if (val->last == TRUE) {
-                        // If it's the last header or the last body chunk,
-                        // remove it from the queue.
-                        if (prevcb == NULL) {
-                            q->first = cb->next;
-                            if (q->first == NULL) { q->last = NULL; }
-                        } else {
-                            prevcb->next = cb->next;
-                            if (prevcb->next == NULL) { q->last = prevcb; }
-                        }
-
-                        xmlFree(cb);
-                        cb = prevcb == NULL ? NULL : prevcb->next;
+                if (val->type == XRLT_TRANSFORM_VALUE_BODY &&
+                    val->bodyval.last == TRUE)
+                {
+                    // If it's the last header or the last body chunk,
+                    // remove it from the queue.
+                    if (prevcb == NULL) {
+                        q->first = cb->next;
+                        if (q->first == NULL) { q->last = NULL; }
                     } else {
-                        prevcb = cb;
-                        cb = cb->next;
+                        prevcb->next = cb->next;
+                        if (prevcb->next == NULL) { q->last = prevcb; }
                     }
+
+                    xmlFree(cb);
+                    cb = prevcb == NULL ? NULL : prevcb->next;
+                } else {
+                    prevcb = cb;
+                    cb = cb->next;
                 }
             }
+        }
 
-            if (ctx->cur != XRLT_STATUS_UNKNOWN) {
-                return ctx->cur;
-            }
+        if (ctx->cur != XRLT_STATUS_UNKNOWN) {
+            return ctx->cur;
         }
     }
 
@@ -457,35 +455,30 @@ xrltCleanup(void)
 }
 
 
-xrltBool
-xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
-                   size_t id, xrltInputFunction callback, void *data)
+size_t
+xrltInputSubscribe(xrltContextPtr ctx, xrltInputFunction callback,
+                   void *payload)
 {
     xrltInputCallbackPtr     cb = NULL;
     xrltInputCallbackQueue  *q, *newq;
     size_t                   len;
+    size_t                   id;
 
     XRLT_MALLOC(ctx, NULL, NULL, cb, xrltInputCallbackPtr,
                 sizeof(xrltInputCallback), FALSE);
 
-    //cb->type = type;
-    //cb->id = id;
     cb->func = callback;
     cb->varScope = ctx->varScope;
-    cb->data = data;
+    cb->data = payload;
 
-    if (type == XRLT_PROCESS_HEADER) {
-        q = ctx->icb.header;
-        len = ctx->icb.headerSize;
-    } else {
-        q = ctx->icb.body;
-        len = ctx->icb.bodySize;
-    }
+    q = ctx->icb.q;
+    len = ctx->icb.size;
+
+    id = ctx->includeId + 1;
 
     if (id >= len) {
         newq = (xrltInputCallbackQueue *)xmlRealloc(
-                q,
-                sizeof(xrltInputCallbackQueue) * (id + 10)
+            q, sizeof(xrltInputCallbackQueue) * (id + 10)
         );
 
         if (newq == NULL) {
@@ -496,16 +489,13 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
         memset(newq + len, 0,
                sizeof(xrltInputCallbackQueue) * (id - len + 10));
 
-        if (type == XRLT_PROCESS_HEADER) {
-            ctx->icb.headerSize = id + 10;
-            ctx->icb.header = newq;
-        } else {
-            ctx->icb.bodySize = id + 10;
-            ctx->icb.body = newq;
-        }
+        ctx->icb.size = id + 10;
+        ctx->icb.q = newq;
 
         q = newq;
     }
+
+    ctx->includeId = id;
 
     if (q[id].first == NULL) {
         q[id].first = cb;
@@ -514,9 +504,9 @@ xrltInputSubscribe(xrltContextPtr ctx, xrltTransformValueType type,
     }
     q[id].last = cb;
 
-    return TRUE;
+    return id;
 
   error:
     if (cb != NULL) { xmlFree(cb); }
-    return FALSE;
+    return 0;
 }

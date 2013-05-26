@@ -38,18 +38,44 @@ extern "C" {
 
 
 typedef enum {
-    XRLT_PROCESS_HEADER = 1,
-    XRLT_PROCESS_BODY = 2
+    XRLT_TRANSFORM_VALUE_ERROR           = 0,
+    XRLT_TRANSFORM_VALUE_EMPTY           = 100,
+    XRLT_TRANSFORM_VALUE_HEADER          = 200,
+    XRLT_TRANSFORM_VALUE_COOKIE          = 300,
+    XRLT_TRANSFORM_VALUE_STATUS          = 400,
+    XRLT_TRANSFORM_VALUE_QUERYSTRING     = 500,
+    XRLT_TRANSFORM_VALUE_BODY            = 600
 } xrltTransformValueType;
 
 
 typedef struct {
-    xrltTransformValueType   type;
-    size_t                   status;
-    xrltString               name;
-    xrltString               val;
-    xrltBool                 last;
-    xrltBool                 error;
+    xrltString   name;
+    xrltString   val;
+} xrltTransformValueHeader;
+
+
+typedef struct {
+    size_t   status;
+} xrltTransformValueStatus;
+
+
+typedef struct {
+    xrltString   val;
+} xrltTransformValueQuerystring;
+
+
+typedef struct {
+    xrltString   val;
+    xrltBool     last;
+} xrltTransformValueSubrequestBody;
+
+
+typedef struct {
+    xrltTransformValueType             type;
+    xrltTransformValueHeader           headerval; // The same is for cookie.
+    xrltTransformValueStatus           statusval;
+    xrltTransformValueQuerystring      querystringval;
+    xrltTransformValueSubrequestBody   bodyval;
 } xrltTransformValue;
 
 
@@ -86,11 +112,8 @@ typedef struct {
 
 
 typedef struct {
-    xrltInputCallbackQueue  *header;
-    size_t                   headerSize;
-
-    xrltInputCallbackQueue  *body;
-    size_t                   bodySize;
+    xrltInputCallbackQueue  *q;
+    size_t                   size;
 } xrltInputCallbackQueues;
 
 
@@ -100,9 +123,9 @@ typedef void     (*xrltFreeFunction)        (void *comp);
 typedef xrltBool (*xrltTransformFunction)   (xrltContextPtr ctx, void *comp,
                                              xmlNodePtr insert, void *data);
 
-typedef xrltBool (*xrltInputFunction)       (xrltContextPtr ctx, size_t id,
+typedef xrltBool (*xrltInputFunction)       (xrltContextPtr ctx,
                                              xrltTransformValue *val,
-                                             void *data);
+                                             void *payload);
 
 
 struct _xrltRequestsheet {
@@ -125,7 +148,7 @@ struct _xrltContext {
     xrltBool                     error;
     int                          cur;          // Current combination of
                                                // XRLT_STATUS_*
-    xrltHeaderList               header;       // Response headers.
+    xrltHeaderOutList            header;       // Response headers.
     int                          headerCount;  // Wait for headers before
                                                // sending response chunks.
     xrltSubrequestList           sr;           // Subrequests to make.
@@ -211,10 +234,9 @@ XRLTPUBFUN xrltBool XRLTCALL
         xrltXPathEval             (xrltContextPtr ctx, xmlNodePtr insert,
                                    xrltXPathExpr *expr, xmlXPathObjectPtr *ret);
 
-XRLTPUBFUN xrltBool XRLTCALL
+XRLTPUBFUN size_t XRLTCALL
         xrltInputSubscribe        (xrltContextPtr ctx,
-                                   xrltTransformValueType type, size_t id,
-                                   xrltInputFunction callback, void *data);
+                                   xrltInputFunction callback, void *payload);
 
 
 #ifdef __cplusplus

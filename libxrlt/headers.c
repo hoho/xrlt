@@ -18,14 +18,14 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                 sizeof(xrltResponseHeaderData), NULL);
 
     if (xmlStrEqual(node->name, (const xmlChar *)"response-cookie")) {
-        ret->type = XRLT_HEADER_TYPE_COOKIE;
+        ret->type = XRLT_HEADER_OUT_COOKIE;
     } else if (xmlStrEqual(node->name, (const xmlChar *)"response-status")) {
-        ret->type = XRLT_HEADER_TYPE_STATUS;
+        ret->type = XRLT_HEADER_OUT_STATUS;
     } else {
-        ret->type = XRLT_HEADER_TYPE_HEADER;
+        ret->type = XRLT_HEADER_OUT_HEADER;
     }
 
-    if (ret->type == XRLT_HEADER_TYPE_COOKIE) {
+    if (ret->type == XRLT_HEADER_OUT_COOKIE) {
         if (!xrltCompileCheckSubnodes(sheet, node,
                                       XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
                                       XRLT_ELEMENT_PATH, XRLT_ELEMENT_EXPIRES,
@@ -35,8 +35,8 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
             goto error;
         }
     } else {
-        if (!xrltCompileCheckSubnodes(sheet, node,
-                                      ret->type == XRLT_HEADER_TYPE_STATUS ? \
+        if (!xrltCompileCheckSubnodes(sheet, node, ret->type ==      \
+                                      XRLT_HEADER_OUT_STATUS ?  \
                                       NULL : XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, XRLT_ELEMENT_TEST,
                                       NULL, NULL, NULL, &hasxrlt))
@@ -45,7 +45,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         }
     }
 
-    if (ret->type != XRLT_HEADER_TYPE_STATUS) {
+    if (ret->type != XRLT_HEADER_OUT_STATUS) {
         if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
                               XRLT_ELEMENT_NAME, TRUE, &ret->name))
         {
@@ -73,7 +73,7 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         goto error;
     }
 
-    if (ret->type == XRLT_HEADER_TYPE_COOKIE) {
+    if (ret->type == XRLT_HEADER_OUT_COOKIE) {
         if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_PATH,
                               XRLT_ELEMENT_PATH, TRUE, &ret->path))
         {
@@ -174,13 +174,13 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         if (hcomp->test.type == XRLT_VALUE_EMPTY) {
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
-            if (hcomp->type != XRLT_HEADER_TYPE_STATUS) {
+            if (hcomp->type != XRLT_HEADER_OUT_STATUS) {
                 TRANSFORM_TO_STRING(ctx, node, &hcomp->name, &tdata->name);
             }
 
             TRANSFORM_TO_STRING(ctx, node, &hcomp->val, &tdata->val);
 
-            if (hcomp->type == XRLT_HEADER_TYPE_COOKIE) {
+            if (hcomp->type == XRLT_HEADER_OUT_COOKIE) {
                 TRANSFORM_TO_STRING(ctx, node, &hcomp->path, &tdata->path);
 
                 TRANSFORM_TO_STRING(ctx, node, &hcomp->domain, &tdata->domain);
@@ -214,14 +214,14 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             if (tdata->test) {
                 tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_NAMEVALUE;
 
-                if (hcomp->type != XRLT_HEADER_TYPE_STATUS) {
+                if (hcomp->type != XRLT_HEADER_OUT_STATUS) {
                     TRANSFORM_TO_STRING(ctx, insert, &hcomp->name,
                                         &tdata->name);
                 }
 
                 TRANSFORM_TO_STRING(ctx, insert, &hcomp->val, &tdata->val);
 
-                if (hcomp->type == XRLT_HEADER_TYPE_COOKIE) {
+                if (hcomp->type == XRLT_HEADER_OUT_COOKIE) {
                     TRANSFORM_TO_STRING(ctx, insert, &hcomp->path,
                                         &tdata->path);
 
@@ -257,7 +257,7 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         val.len = (size_t)xmlStrlen(tdata->val);
         val.data = val.len > 0 ? (char *)tdata->val : NULL;
 
-        if (!xrltHeaderListPush(&ctx->header, hcomp->type, &name, &val)) {
+        if (!xrltHeaderOutListPush(&ctx->header, hcomp->type, &name, &val)) {
             ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
 
             return FALSE;
@@ -290,14 +290,14 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                 sizeof(xrltHeaderElementData), NULL);
 
     if (xmlStrEqual(node->name, (const xmlChar *)"cookie")) {
-        ret->type = XRLT_HEADER_TYPE_COOKIE;
+        ret->type = XRLT_HEADER_OUT_COOKIE;
     } else if (xmlStrEqual(node->name, (const xmlChar *)"status")) {
-        ret->type = XRLT_HEADER_TYPE_STATUS;
+        ret->type = XRLT_HEADER_OUT_STATUS;
     } else {
-        ret->type = XRLT_HEADER_TYPE_HEADER;
+        ret->type = XRLT_HEADER_OUT_HEADER;
     }
 
-    if (ret->type != XRLT_HEADER_TYPE_STATUS) {
+    if (ret->type != XRLT_HEADER_OUT_STATUS) {
         if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, NULL, NULL, NULL,
                                       NULL, &hasxrlt))
@@ -425,7 +425,7 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 } else {
                     sr = (xrltIncludeTransformingData *)n->sr;
 
-                    if (hcomp->type == XRLT_HEADER_TYPE_STATUS) {
+                    if (hcomp->type == XRLT_HEADER_OUT_STATUS) {
                         // TODO: Calc max size.
                         tdata->val = (xmlChar *)xmlMalloc(20);
 

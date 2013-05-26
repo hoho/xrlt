@@ -29,8 +29,8 @@ typedef struct {
 
 
 typedef struct {
-    xmlNodePtr   node;
-    xrltValue    select;
+    xmlNodePtr          node;
+    xrltCompiledValue   select;
 } xrltValueOfData;
 
 

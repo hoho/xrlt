@@ -61,14 +61,14 @@ typedef enum {
     XRLT_VALUE_NODELIST,
     XRLT_VALUE_XPATH,
     XRLT_VALUE_INT
-} xrltValueType;
+} xrltCompiledValueType;
 
 
 typedef enum {
-    XRLT_HEADER_TYPE_HEADER = 0,
-    XRLT_HEADER_TYPE_COOKIE,
-    XRLT_HEADER_TYPE_STATUS
-} xrltHeaderType;
+    XRLT_HEADER_OUT_HEADER = 0,
+    XRLT_HEADER_OUT_COOKIE,
+    XRLT_HEADER_OUT_STATUS
+} xrltHeaderOutType;
 
 
 typedef struct {
@@ -77,20 +77,20 @@ typedef struct {
 } xrltString;
 
 
-typedef struct _xrltHeader xrltHeader;
-typedef xrltHeader* xrltHeaderPtr;
-struct _xrltHeader {
-    xrltHeaderType   type;
-    xrltString       name;
-    xrltString       val;
-    xrltHeaderPtr    next;
+typedef struct _xrltHeaderOut xrltHeaderOut;
+typedef xrltHeaderOut* xrltHeaderOutPtr;
+struct _xrltHeaderOut {
+    xrltHeaderOutType   type;
+    xrltString          name;
+    xrltString          val;
+    xrltHeaderOutPtr    next;
 };
 
 
 typedef struct {
-    xrltHeaderPtr   first;
-    xrltHeaderPtr   last;
-} xrltHeaderList;
+    xrltHeaderOutPtr   first;
+    xrltHeaderOutPtr   last;
+} xrltHeaderOutList;
 
 
 typedef struct _xrltSubrequest xrltSubrequest;
@@ -99,7 +99,7 @@ struct _xrltSubrequest {
     size_t                   id;
     xrltBool                 proxy;    // Indicates that parent request headers
                                        // should be sent with this subrequest.
-    xrltHeaderList           header;
+    xrltHeaderOutList        header;
     xrltHTTPMethod           method;
     xrltSubrequestDataType   type;
     xrltString               url;
@@ -149,15 +149,13 @@ typedef struct {
 } xrltXPathExpr;
 
 
-typedef struct _xrltValue xrltValue;
-typedef xrltValue* xrltValuePtr;
-struct _xrltValue {
-    xrltValueType   type;
-    xmlChar        *textval;
-    xmlNodePtr      nodeval;
-    xrltXPathExpr   xpathval;
-    int             intval;
-};
+typedef struct {
+    xrltCompiledValueType   type;
+    xmlChar                *textval;
+    xmlNodePtr              nodeval;
+    xrltXPathExpr           xpathval;
+    int                     intval;
+} xrltCompiledValue;
 
 
 #define CLEAR_XRLT_VALUE(val) {                                               \
@@ -185,15 +183,17 @@ static inline void
 
 
 static inline void
-        xrltHeaderListInit        (xrltHeaderList *list);
+        xrltHeaderOutListInit     (xrltHeaderOutList *list);
 static inline xrltBool
-        xrltHeaderListPush        (xrltHeaderList *list, xrltHeaderType type,
-                                   xrltString *name, xrltString *val);
+        xrltHeaderOutListPush     (xrltHeaderOutList *list,
+                                   xrltHeaderOutType type, xrltString *name,
+                                   xrltString *val);
 static inline xrltBool
-        xrltHeaderListShift       (xrltHeaderList *list, xrltHeaderType *type,
-                                   xrltString *name, xrltString *val);
+        xrltHeaderOutListShift    (xrltHeaderOutList *list,
+                                   xrltHeaderOutType *type, xrltString *name,
+                                   xrltString *val);
 static inline void
-        xrltHeaderListClear       (xrltHeaderList *list);
+        xrltHeaderOutListClear    (xrltHeaderOutList *list);
 
 
 static inline void
@@ -202,13 +202,13 @@ static inline xrltBool
         xrltSubrequestListPush    (xrltSubrequestList *list, size_t id,
                                    xrltHTTPMethod method,
                                    xrltSubrequestDataType type,
-                                   xrltHeaderList *header, xrltString *url,
+                                   xrltHeaderOutList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
 static inline xrltBool
         xrltSubrequestListShift   (xrltSubrequestList *list, size_t *id,
                                    xrltHTTPMethod *method,
                                    xrltSubrequestDataType *type,
-                                   xrltHeaderList *header, xrltString *url,
+                                   xrltHeaderOutList *header, xrltString *url,
                                    xrltString *query, xrltString *body);
 static inline void
         xrltSubrequestListClear   (xrltSubrequestList *list);
@@ -284,28 +284,28 @@ xrltStringSet(xrltString *str, char *val)
 
 
 static inline void
-xrltHeaderListInit(xrltHeaderList *list)
+xrltHeaderOutListInit(xrltHeaderOutList *list)
 {
-    memset(list, 0, sizeof(xrltHeaderList));
+    memset(list, 0, sizeof(xrltHeaderOutList));
 }
 
 
 static inline xrltBool
-xrltHeaderListPush(xrltHeaderList *list, xrltHeaderType type, xrltString *name,
-                   xrltString *val)
+xrltHeaderOutListPush(xrltHeaderOutList *list, xrltHeaderOutType type,
+                      xrltString *name, xrltString *val)
 {
     if (list == NULL || val == NULL) { return FALSE; }
 
-    xrltHeaderPtr h;
+    xrltHeaderOutPtr   h;
 
-    h = (xrltHeaderPtr)xmlMalloc(sizeof(xrltHeader));
+    h = (xrltHeaderOutPtr)xmlMalloc(sizeof(xrltHeaderOut));
 
     if (h == NULL) { return FALSE; }
 
-    memset(h, 0, sizeof(xrltHeader));
+    memset(h, 0, sizeof(xrltHeaderOut));
 
     h->type = type;
-    if (type != XRLT_HEADER_TYPE_STATUS) {
+    if (type != XRLT_HEADER_OUT_STATUS) {
         if (!xrltStringCopy(&h->name, name)) { goto error; }
     }
     if (!xrltStringCopy(&h->val, val)) { goto error; }
@@ -329,14 +329,14 @@ xrltHeaderListPush(xrltHeaderList *list, xrltHeaderType type, xrltString *name,
 
 
 static inline xrltBool
-xrltHeaderListShift(xrltHeaderList *list, xrltHeaderType *type,
-                    xrltString *name, xrltString *val)
+xrltHeaderOutListShift(xrltHeaderOutList *list, xrltHeaderOutType *type,
+                       xrltString *name, xrltString *val)
 {
     if (list == NULL || type == NULL || name == NULL || val == NULL) {
         return FALSE;
     }
 
-    xrltHeaderPtr h = list->first;
+    xrltHeaderOutPtr   h = list->first;
 
     if (h == NULL) { return FALSE; }
 
@@ -358,13 +358,13 @@ xrltHeaderListShift(xrltHeaderList *list, xrltHeaderType *type,
 
 
 static inline void
-xrltHeaderListClear(xrltHeaderList *list)
+xrltHeaderOutListClear(xrltHeaderOutList *list)
 {
-    xrltHeaderType   type;
-    xrltString       name;
-    xrltString       val;
+    xrltHeaderOutType   type;
+    xrltString          name;
+    xrltString          val;
 
-    while (xrltHeaderListShift(list, &type, &name, &val)) {
+    while (xrltHeaderOutListShift(list, &type, &name, &val)) {
         xrltStringClear(&name);
         xrltStringClear(&val);
     }
@@ -381,7 +381,7 @@ xrltSubrequestListInit(xrltSubrequestList *list)
 static inline xrltBool
 xrltSubrequestListPush(xrltSubrequestList *list, size_t id,
                        xrltHTTPMethod method, xrltSubrequestDataType type,
-                       xrltHeaderList *header, xrltString *url,
+                       xrltHeaderOutList *header, xrltString *url,
                        xrltString *query, xrltString *body)
 {
     if (list == NULL || id == 0 || url == NULL) { return FALSE; }
@@ -434,7 +434,7 @@ xrltSubrequestListPush(xrltSubrequestList *list, size_t id,
 static inline xrltBool
 xrltSubrequestListShift(xrltSubrequestList *list, size_t *id,
                         xrltHTTPMethod *method, xrltSubrequestDataType *type,
-                        xrltHeaderList *header, xrltString *url,
+                        xrltHeaderOutList *header, xrltString *url,
                         xrltString *query, xrltString *body)
 {
     if (list == NULL || id == NULL || method == NULL || type == NULL ||
@@ -477,7 +477,7 @@ xrltSubrequestListClear(xrltSubrequestList *list)
     size_t                   id;
     xrltHTTPMethod           method;
     xrltSubrequestDataType   type;
-    xrltHeaderList           header;
+    xrltHeaderOutList        header;
     xrltString               url;
     xrltString               query;
     xrltString               body;
@@ -485,7 +485,7 @@ xrltSubrequestListClear(xrltSubrequestList *list)
     while (xrltSubrequestListShift(list, &id, &method, &type, &header, &url,
                                    &query, &body))
     {
-        xrltHeaderListClear(&header);
+        xrltHeaderOutListClear(&header);
 
         xrltStringClear(&url);
         xrltStringClear(&query);
