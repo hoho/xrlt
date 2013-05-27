@@ -458,12 +458,20 @@ xrltProcessHeader(xrltContextPtr ctx, xrltTransformValue *val,
     xmlChar     *v = NULL;
 
     if (val->type != XRLT_TRANSFORM_VALUE_STATUS) {
-        NEW_CHILD_GOTO(ctx, tmp, data->node, "h");
-
         if (val->type == XRLT_TRANSFORM_VALUE_HEADER) {
-            data->hnode = tmp;
+            if (data->hnode == NULL) {
+                NEW_CHILD_GOTO(ctx, tmp, data->node, "h");
+                data->hnode = tmp;
+            } else {
+                tmp = data->hnode;
+            }
         } else { // val->type == XRLT_TRANSFORM_VALUE_COOKIE
-            data->cnode = tmp;
+            if (data->cnode == NULL) {
+                NEW_CHILD_GOTO(ctx, tmp, data->node, "c");
+                data->cnode = tmp;
+            } else {
+                tmp = data->cnode;
+            }
         }
 
         n = xmlStrndup((const xmlChar *)val->headerval.name.data,

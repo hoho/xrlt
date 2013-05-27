@@ -123,7 +123,8 @@ typedef struct {
 
 void *
         xrltIncludeCompile            (xrltRequestsheetPtr sheet,
-                                       xmlNodePtr node, void *prevcomp);
+                                       xmlNodePtr node,
+                                       void *prevcomp);
 void
         xrltIncludeFree               (void *comp);
 xrltBool
