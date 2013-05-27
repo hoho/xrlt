@@ -316,9 +316,9 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
         size_t                       sr_id;
         xrltHTTPMethod               m;
         xrltSubrequestDataType       type;
-        xrltHeaderOutList            sr_header;
+        xrltHeaderOutList sr_header;
         xrltString                   url, querystring, body, hname, hval;
-        xrltHeaderOutType            htype;
+        xrltHeaderOutType htype;
         ngx_http_xrlt_ctx_t         *sr_ctx;
         ngx_str_t                    sr_uri, sr_querystring, sr_body;
         ngx_http_request_t          *sr;
@@ -658,15 +658,39 @@ ngx_http_xrlt_post_sr(ngx_http_request_t *r, void *data, ngx_int_t rc)
 static ngx_int_t
 ngx_http_xrlt_transform_headers(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx)
 {
-    ngx_list_part_t              *part;
-    ngx_table_elt_t              *header;
-    ngx_uint_t                    i;
-    ngx_int_t                     rc;
-    xrltTransformValue            val;
-    int                           result;
+    ngx_list_part_t     *part;
+    ngx_table_elt_t     *header;
+    ngx_uint_t           i;
+    ngx_int_t            rc;
+    xrltTransformValue   val;
+    int                  result;
+    ngx_table_elt_t    **cookies;
+
+    dd("Transform headers (r: %p, id: %zd)", r, ctx->id);
 
     if (r == r->main) {
         part = &r->headers_in.headers.part;
+
+        cookies = r->headers_in.cookies.elts;
+
+        for (i = 0; i < r->headers_in.cookies.nelts; i++) {
+            //cookies[i]->key.data, cookies[i]->value.data
+        }
+
+        if (r->args.data != NULL) {
+            val.type = XRLT_TRANSFORM_VALUE_QUERYSTRING;
+
+            val.querystringval.val.data = (char *)r->args.data;
+            val.querystringval.val.len = r->args.len;
+
+            /*result = xrltTransform(ctx->xctx, 0, &val);
+
+            rc = ngx_http_xrlt_process_transform_result(r, ctx, result);
+
+            if (rc == NGX_ERROR || rc == NGX_DONE) {
+                return rc;
+            } */
+        }
     } else {
         part = &r->headers_out.headers.part;
     }
@@ -833,8 +857,6 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
     }
 
     if (rc == NGX_DONE) {
-        ngx_http_finalize_request(r, NGX_OK);
-
         return NGX_OK;
     }
 

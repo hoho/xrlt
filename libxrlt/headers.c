@@ -421,25 +421,33 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 } while (node != NULL && n->sr == NULL);
 
                 if (n->sr == NULL) {
-                    node = ctx->requestHeaders;
+                    xrltTransformError(ctx, NULL, hcomp->node,
+                                       "No request data\n");
+                    return FALSE;
                 } else {
                     sr = (xrltIncludeTransformingData *)n->sr;
 
-                    if (hcomp->type == XRLT_HEADER_OUT_STATUS) {
-                        // TODO: Calc max size.
-                        tdata->val = (xmlChar *)xmlMalloc(20);
+                    switch (hcomp->type) {
+                        case XRLT_HEADER_OUT_HEADER:
+                            node = sr->hnode;
 
-                        if (tdata->val == NULL) {
-                            ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+                            break;
 
-                            return FALSE;
-                        }
+                        case XRLT_HEADER_OUT_COOKIE:
+                            node = sr->cnode;
 
-                        sprintf((char *)tdata->val, "%zd", sr->status);
+                            break;
 
-                        node = NULL;
-                    } else {
-                        node = sr->hnode;
+                        case XRLT_HEADER_OUT_STATUS:
+                            // TODO: Calc max size.
+                            XRLT_MALLOC(ctx, NULL, hcomp->node, tdata->val,
+                                        xmlChar*, 20, FALSE);
+
+                            sprintf((char *)tdata->val, "%zd", sr->status);
+
+                            node = NULL;
+
+                            break;
                     }
                 }
 

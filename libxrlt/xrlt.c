@@ -137,11 +137,57 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 }
 
 
+static xrltBool
+xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
+{
+    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+
+    if (data == NULL) { return FALSE; }
+
+    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
+        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+//                          tdata->comp, tdata->insert, tdata);
+//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+        return TRUE;
+    }
+
+    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
+        case XRLT_PROCESS_INPUT_ERROR:
+            return FALSE;
+
+        case XRLT_PROCESS_INPUT_AGAIN:
+            ctx->cur |= XRLT_STATUS_WAITING;
+
+            return TRUE;
+
+        case XRLT_PROCESS_INPUT_REFUSE:
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
+
+        case XRLT_PROCESS_INPUT_DONE:
+            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+            //tdata->comp, tdata->insert, tdata);
+            break;
+    }
+
+    return TRUE;
+}
+
+
 xrltContextPtr
 xrltContextCreate(xrltRequestsheetPtr sheet)
 {
-    xrltContextPtr   ret;
-    xmlNodePtr       response;
+    xrltContextPtr                ret;
+    xmlNodePtr                    response;
+    xrltIncludeTransformingData  *data;
+    xrltNodeDataPtr               n;
+    size_t                        id;
 
     if (sheet == NULL) { return NULL; }
 
@@ -171,7 +217,6 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     NEW_CHILD_GOTO(ret, ret->response, response, "response");
     NEW_CHILD_GOTO(ret, ret->var, response, "var");
-    NEW_CHILD_GOTO(ret, ret->requestHeaders, response, "h");
 
     ret->xpathDefault = xmlNewDoc(NULL);
 
@@ -180,7 +225,8 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
     xmlXPathRegisterVariableLookup(ret->xpath, xrltVariableLookupFunc, ret);
 
     if (ret->xpath == NULL) {
-        xrltTransformError(ret, NULL, NULL, "Failed to create XPath context\n");
+        xrltTransformError(ret, NULL, NULL,
+                           "Failed to create XPath context\n");
         goto error;
     }
 
@@ -195,9 +241,46 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     ret->sheetNode = xmlDocGetRootElement(sheet->doc);
 
+    ASSERT_NODE_DATA_GOTO(response, n);
+
+    data = (xrltIncludeTransformingData*)xmlMalloc(
+        sizeof(xrltIncludeTransformingData)
+    );
+
+    if (data == NULL) {
+        ERROR_OUT_OF_MEMORY(ret, NULL, NULL);
+        goto error;
+    }
+
+    memset(data, 0, sizeof(xrltIncludeTransformingData));
+
+    n->data = data;
+    n->free = xrltIncludeTransformingFree;
+    n->sr = data;
+
+    NEW_CHILD_GOTO(ret, data->node, response, "req");
+
     TRANSFORM_SUBTREE_GOTO(
         ret, ret->sheetNode->children, NULL
     );
+
+    id = xrltInputSubscribe(ret, xrltRequestInputFunc, data);
+
+    if (id == 0) {
+        goto error;
+    }
+
+    if (id != 1) {
+        xrltTransformError(ret, NULL, NULL, "Strange id\n");
+        goto error;
+    }
+
+    memcpy(&ret->icb.q[0], &ret->icb.q[1], sizeof(xrltInputCallbackQueue));
+    memset(&ret->icb.q[1], 0, sizeof(xrltInputCallbackQueue));
+
+    data->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+
+    ret->includeId = 0;
 
     return ret;
 
@@ -259,47 +342,6 @@ xrltContextFree(xrltContextPtr ctx)
 }
 
 
-/*static xrltBool
-xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
-{
-    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
-
-    if (data == NULL) { return FALSE; }
-
-    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
-        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-//                          tdata->comp, tdata->insert, tdata);
-//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-        return TRUE;
-    }
-
-    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
-        case XRLT_PROCESS_INPUT_ERROR:
-            return FALSE;
-
-        case XRLT_PROCESS_INPUT_AGAIN:
-            ctx->cur |= XRLT_STATUS_WAITING;
-
-            return TRUE;
-
-        case XRLT_PROCESS_INPUT_REFUSE:
-            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
-
-        case XRLT_PROCESS_INPUT_DONE:
-            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-            //tdata->comp, tdata->insert, tdata);
-            return TRUE;
-    }
-}*/
-
-
 int
 xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 {
@@ -322,6 +364,12 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
         if (id < len) {
             q = &ctx->icb.q[id];
+        } else {
+            xrltTransformError(ctx, NULL, NULL,
+                               "Identifier is out of bounds (%zd)\n", id);
+            ctx->cur |= XRLT_STATUS_ERROR;
+
+            return ctx->cur;
         }
 
         if (q != NULL) {

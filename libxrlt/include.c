@@ -382,7 +382,7 @@ xrltIncludeFree(void *comp)
 }
 
 
-static void
+void
 xrltIncludeTransformingFree(void *data)
 {
     if (data != NULL) {

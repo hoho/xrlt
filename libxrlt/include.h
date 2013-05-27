@@ -122,16 +122,19 @@ typedef struct {
 
 
 void *
-        xrltIncludeCompile     (xrltRequestsheetPtr sheet, xmlNodePtr node,
-                                void *prevcomp);
+        xrltIncludeCompile            (xrltRequestsheetPtr sheet,
+                                       xmlNodePtr node, void *prevcomp);
 void
-        xrltIncludeFree        (void *comp);
+        xrltIncludeFree               (void *comp);
 xrltBool
-        xrltIncludeTransform   (xrltContextPtr ctx, void *comp,
-                                xmlNodePtr insert, void *data);
+        xrltIncludeTransform          (xrltContextPtr ctx, void *comp,
+                                       xmlNodePtr insert, void *data);
 xrltProcessInputResult
-        xrltProcessInput       (xrltContextPtr ctx, xrltTransformValue *val,
-                                xrltIncludeTransformingData *data);
+        xrltProcessInput              (xrltContextPtr ctx,
+                                       xrltTransformValue *val,
+                                       xrltIncludeTransformingData *data);
+void
+        xrltIncludeTransformingFree   (void *data);
 
 
 #ifdef __cplusplus
