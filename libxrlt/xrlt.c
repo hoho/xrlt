@@ -137,49 +137,6 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 }
 
 
-static xrltBool
-xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
-{
-    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
-
-    if (data == NULL) { return FALSE; }
-
-    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
-        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-//                          tdata->comp, tdata->insert, tdata);
-//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-        return TRUE;
-    }
-
-    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
-        case XRLT_PROCESS_INPUT_ERROR:
-            return FALSE;
-
-        case XRLT_PROCESS_INPUT_AGAIN:
-            ctx->cur |= XRLT_STATUS_WAITING;
-
-            return TRUE;
-
-        case XRLT_PROCESS_INPUT_REFUSE:
-            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
-
-        case XRLT_PROCESS_INPUT_DONE:
-            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-            //tdata->comp, tdata->insert, tdata);
-            break;
-    }
-
-    return TRUE;
-}
-
-
 xrltContextPtr
 xrltContextCreate(xrltRequestsheetPtr sheet)
 {
@@ -187,7 +144,6 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
     xmlNodePtr                    response;
     xrltIncludeTransformingData  *data;
     xrltNodeDataPtr               n;
-    size_t                        id;
 
     if (sheet == NULL) { return NULL; }
 
@@ -254,43 +210,44 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     memset(data, 0, sizeof(xrltIncludeTransformingData));
 
-    n->data = data;
-    n->free = xrltIncludeTransformingFree;
+    ret->headersData = data;
+
+    data->srcNode = sheet->querystringNode;
+    data->comp = (xrltCompiledIncludeData *)sheet->querystringComp;
+
     n->sr = data;
 
     NEW_CHILD_GOTO(ret, data->node, response, "req");
+    NEW_CHILD_GOTO(ret, data->hnode, response, "h");
+    NEW_CHILD_GOTO(ret, data->cnode, response, "c");
 
-    TRANSFORM_SUBTREE_GOTO(
-        ret, ret->sheetNode->children, NULL
-    );
-
-    id = xrltInputSubscribe(ret, xrltRequestInputFunc, data);
-
-    if (id == 0) {
+    if (!xrltRequestInputTransform(ret, NULL, NULL, data)) {
         goto error;
     }
 
-    if (id != 1) {
-        xrltTransformError(ret, NULL, NULL, "Strange id\n");
-        goto error;
-    }
+    if (sheet->bodyNode != NULL) {
+        data = (xrltIncludeTransformingData*)xmlMalloc(
+            sizeof(xrltIncludeTransformingData)
+        );
 
-    memcpy(&ret->icb.q[0], &ret->icb.q[1], sizeof(xrltInputCallbackQueue));
-    memset(&ret->icb.q[1], 0, sizeof(xrltInputCallbackQueue));
-
-    data->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
-
-    ret->includeId = 0;
-
-    if (sheet->querystringNode != NULL) {
-        if (!xrltIncludeTransform(ret, sheet->querystringData, ret->response,
-                                  NULL))
-        {
+        if (data == NULL) {
+            ERROR_OUT_OF_MEMORY(ret, NULL, NULL);
             goto error;
         }
 
-        ret->querystringId = ret->includeId;
+        memset(data, 0, sizeof(xrltIncludeTransformingData));
+
+        ret->bodyData = data;
+
+        data->srcNode = sheet->bodyNode;
+        data->comp = (xrltCompiledIncludeData *)sheet->bodyComp;
+
+        if (!xrltRequestInputTransform(ret, NULL, NULL, data)) {
+            goto error;
+        }
     }
+
+    TRANSFORM_SUBTREE_GOTO(ret, ret->sheetNode->children, NULL);
 
     return ret;
 
@@ -348,8 +305,20 @@ xrltContextFree(xrltContextPtr ctx)
         xrltTransformCallbackQueueClear(&ctx->tcb);
     }
 
-    if (ctx->querystring != NULL) {
-        xmlFree(ctx->querystring);
+    if (ctx->querystring.data != NULL) {
+        xmlFree(ctx->querystring.data);
+    }
+
+    if (ctx->headersData != NULL) {
+        xrltIncludeTransformingFree(ctx->headersData);
+    }
+
+    if (ctx->bodyData != NULL) {
+        xrltIncludeTransformingFree(ctx->bodyData);
+    }
+
+    if (ctx->bodyBuf != NULL) {
+        xmlBufferFree(ctx->bodyBuf);
     }
 
     xmlFree(ctx);
@@ -376,7 +345,38 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
     if (val->type != XRLT_TRANSFORM_VALUE_EMPTY) {
         len = ctx->icb.size;
 
-        if (id < len) {
+        if (id == 0) {
+            switch (val->type) {
+                case XRLT_TRANSFORM_VALUE_BODY:
+                    if (ctx->bodyData != NULL) {
+                        if (!xrltRequestInputTransform(ctx, val, NULL,
+                                                       ctx->bodyData))
+                        {
+                            ctx->cur |= XRLT_STATUS_ERROR;
+
+                            return ctx->cur;
+                        }
+                    }
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_HEADER:
+                case XRLT_TRANSFORM_VALUE_COOKIE:
+                case XRLT_TRANSFORM_VALUE_STATUS:
+                case XRLT_TRANSFORM_VALUE_QUERYSTRING:
+                    if (!xrltRequestInputTransform(ctx, val, NULL,
+                                                   ctx->headersData))
+                    {
+                        ctx->cur |= XRLT_STATUS_ERROR;
+
+                        return ctx->cur;
+                    }
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_ERROR:
+                case XRLT_TRANSFORM_VALUE_EMPTY:
+                    break;
+            }
+        } else if (id < len) {
             q = &ctx->icb.q[id];
         } else {
             xrltTransformError(ctx, NULL, NULL,

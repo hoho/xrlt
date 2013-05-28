@@ -30,17 +30,17 @@ struct _xrltCompiledIncludeParam {
 
 
 typedef enum {
-    XRLT_REQUEST_DATA_INCLUDE = 0,
-    XRLT_REQUEST_DATA_QUERYSTRING,
-    XRLT_REQUEST_DATA_BODY
-} xrltRequestDataType;
+    XRLT_INCLUDE_TYPE_INCLUDE = 0,
+    XRLT_INCLUDE_TYPE_QUERYSTRING,
+    XRLT_INCLUDE_TYPE_BODY
+} xrltIncludeType;
 
 
 typedef struct {
     xmlNodePtr                    node;
 
     xmlChar                      *name;
-    xrltRequestDataType           requestData;
+    xrltIncludeType               includeType;
     xmlNodePtr                    declScope;
 
     xrltCompiledValue             href;
@@ -109,7 +109,7 @@ typedef struct {
     xmlDocPtr                   doc;        // Document to parse include result
                                             // to.
     xmlNodePtr                  insert;
-    void                       *comp;
+    xrltCompiledIncludeData    *comp;
 
     xrltIncludeTransformStage   stage;
 
@@ -129,10 +129,6 @@ typedef struct {
 
     xrltBool                    bodyTest;
     xmlChar                    *body;
-
-    xrltRequestDataType         requestData;
-    xmlBufferPtr                buf;
-    xrltBool                    buflast;
 } xrltIncludeTransformingData;
 
 
@@ -145,12 +141,11 @@ void
 xrltBool
         xrltIncludeTransform          (xrltContextPtr ctx, void *comp,
                                        xmlNodePtr insert, void *data);
-xrltProcessInputResult
-        xrltProcessInput              (xrltContextPtr ctx,
-                                       xrltTransformValue *val,
-                                       xrltIncludeTransformingData *data);
 void
         xrltIncludeTransformingFree   (void *data);
+xrltBool
+        xrltRequestInputTransform     (xrltContextPtr ctx, void *val,
+                                       xmlNodePtr insert, void *data);
 
 
 #ifdef __cplusplus

@@ -4,6 +4,7 @@
 
 #include "transform.h"
 #include "include.h"
+#include "variable.h"
 
 
 static inline xrltHTTPMethod
@@ -158,7 +159,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     XRLT_MALLOC(NULL, sheet, node, ret, xrltCompiledIncludeData*,
                 sizeof(xrltCompiledIncludeData), NULL);
 
-    toplevel = node->parent->parent->parent == NULL;
+    toplevel = node->parent == NULL || node->parent->parent == NULL ||
+               node->parent->parent->parent == NULL;
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
 
@@ -185,8 +187,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         sheet->querystringNode = node;
-        sheet->querystringData = ret;
-        ret->requestData = XRLT_REQUEST_DATA_QUERYSTRING;
+        sheet->querystringComp = ret;
+        ret->includeType = XRLT_INCLUDE_TYPE_QUERYSTRING;
     } else if (xmlStrEqual(node->name, (const xmlChar *)"body")) {
         if (sheet->bodyNode != NULL) {
             xrltTransformError(NULL, sheet, node,
@@ -200,8 +202,10 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         sheet->bodyNode = node;
-        sheet->bodyData = ret;
-        ret->requestData = XRLT_REQUEST_DATA_BODY;
+        sheet->bodyComp = ret;
+        ret->includeType = XRLT_INCLUDE_TYPE_BODY;
+    } else {
+        ret->includeType = XRLT_INCLUDE_TYPE_INCLUDE;
     }
 
     type = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
@@ -252,7 +256,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             ok = TRUE;
         }
 
-        if (ret->requestData == XRLT_REQUEST_DATA_INCLUDE) {
+        if (ret->includeType == XRLT_INCLUDE_TYPE_INCLUDE) {
             // <xrl:querystring> and <xrl:body> don't have these.
             if (ret->href.type == XRLT_VALUE_EMPTY &&
                 xmlStrEqual(tmp->name, XRLT_ELEMENT_HREF))
@@ -531,10 +535,6 @@ xrltIncludeTransformingFree(void *data)
             }
         }
 
-        if (tdata->buf != NULL) {
-            xmlBufferFree(tdata->buf);
-        }
-
         xmlFree(tdata);
     }
 }
@@ -579,7 +579,6 @@ xrltProcessHeader(xrltContextPtr ctx, xrltTransformValue *val,
 
         xmlFree(n);
         xmlFree(v);
-
     } else { // val->type == XRLT_TRANSFORM_VALUE_STATUS
         data->status = val->statusval.status;
     }
@@ -768,31 +767,9 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
     if (val == NULL || data == NULL) { return XRLT_PROCESS_INPUT_ERROR; }
 
     if (data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
-        switch (data->requestData) {
-            case XRLT_REQUEST_DATA_INCLUDE:
-                xrltTransformError(ctx, NULL, data->srcNode,
-                                   "Wrong transformation stage\n");
-                return XRLT_PROCESS_INPUT_ERROR;
-
-            case XRLT_REQUEST_DATA_QUERYSTRING:
-                return XRLT_PROCESS_INPUT_AGAIN;
-
-            case XRLT_REQUEST_DATA_BODY:
-                if (data->buf == NULL) {
-                    data->buf = xmlBufferCreate();
-                    if (data->buf == NULL) {
-                        ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
-                        return XRLT_PROCESS_INPUT_ERROR;
-                    }
-                }
-
-                xmlBufferAdd(data->buf, (xmlChar *)val->bodyval.val.data,
-                             val->bodyval.val.len);
-
-                data->buflast = val->bodyval.last;
-
-                return XRLT_PROCESS_INPUT_AGAIN;
-        }
+        xrltTransformError(ctx, NULL, data->srcNode,
+                           "Wrong transformation stage\n");
+        return XRLT_PROCESS_INPUT_ERROR;
     }
 
     switch (val->type) {
@@ -802,32 +779,26 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
             return xrltProcessHeader(ctx, val, data);
 
         case XRLT_TRANSFORM_VALUE_QUERYSTRING:
+            if (ctx->querystring.data != NULL) {
+                xrltTransformError(ctx, NULL, data->srcNode,
+                                   "Querystring is already set\n");
+                return XRLT_PROCESS_INPUT_ERROR;
+            }
+
             if (val->querystringval.val.len > 0) {
-                ctx->querystring = xmlStrndup(
+                ctx->querystring.data = (char *)xmlStrndup(
                     (xmlChar *)val->querystringval.val.data,
                     val->querystringval.val.len
                 );
 
-                if (ctx->querystring == NULL) {
+                if (ctx->querystring.data == NULL) {
                     ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
 
                     return XRLT_PROCESS_INPUT_ERROR;
                 }
+
+                ctx->querystring.len = val->querystringval.val.len;
             }
-
-            if (ctx->querystringId > 0) {
-                val->type = XRLT_TRANSFORM_VALUE_BODY;
-                memcpy(&val->bodyval.val, &val->querystringval.val,
-                       sizeof(xrltString));
-                val->bodyval.last = TRUE;
-
-                if (xrltTransform(ctx, ctx->querystringId, val) &
-                    XRLT_STATUS_ERROR)
-                {
-                    return XRLT_PROCESS_INPUT_ERROR;
-                }
-            }
-
             return XRLT_PROCESS_INPUT_AGAIN;
 
         case XRLT_TRANSFORM_VALUE_BODY:
@@ -1085,7 +1056,6 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->node = node;
         tdata->srcNode = icomp->node;
-        tdata->requestData = icomp->requestData;
 
         COUNTER_INCREASE(ctx, node);
 
@@ -1093,63 +1063,60 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->pnode = node;
 
+        TRANSFORM_TO_STRING(ctx, node, &icomp->href, &tdata->href);
+
+        if (icomp->method.type == XRLT_VALUE_INT) {
+            tdata->method = (xrltHTTPMethod)icomp->method.intval;
+        } else if (icomp->method.type != XRLT_VALUE_EMPTY) {
+            TRANSFORM_TO_STRING(
+                ctx, node, &icomp->method, &tdata->cmethod
+            );
+        }
+
         if (icomp->type.type == XRLT_VALUE_INT) {
             tdata->type = (xrltSubrequestDataType)icomp->type.intval;
         } else if (icomp->type.type != XRLT_VALUE_EMPTY) {
             TRANSFORM_TO_STRING(ctx, node, &icomp->type, &tdata->ctype);
         }
 
-        if (icomp->requestData == XRLT_REQUEST_DATA_INCLUDE) {
-            TRANSFORM_TO_STRING(ctx, node, &icomp->href, &tdata->href);
+        if (icomp->bodyTest.type != XRLT_VALUE_EMPTY) {
+            TRANSFORM_TO_BOOLEAN(
+                ctx, node, &icomp->bodyTest, &tdata->bodyTest
+            );
+        } else {
+            tdata->bodyTest = TRUE;
+        }
 
-            if (icomp->method.type == XRLT_VALUE_INT) {
-                tdata->method = (xrltHTTPMethod)icomp->method.intval;
-            } else if (icomp->method.type != XRLT_VALUE_EMPTY) {
-                TRANSFORM_TO_STRING(
-                    ctx, node, &icomp->method, &tdata->cmethod
-                );
-            }
+        p = icomp->fheader;
 
-
-            if (icomp->bodyTest.type != XRLT_VALUE_EMPTY) {
+        for (i = 0; i < tdata->headerCount; i++) {
+            if (p->test.type != XRLT_VALUE_EMPTY)  {
                 TRANSFORM_TO_BOOLEAN(
-                    ctx, node, &icomp->bodyTest, &tdata->bodyTest
+                    ctx, node, &p->test, &tdata->header[i].test
                 );
             } else {
-                tdata->bodyTest = TRUE;
+                tdata->header[i].test = TRUE;
             }
+            p = p->next;
+        }
 
-            p = icomp->fheader;
+        p = icomp->fparam;
 
-            for (i = 0; i < tdata->headerCount; i++) {
-                if (p->test.type != XRLT_VALUE_EMPTY)  {
-                    TRANSFORM_TO_BOOLEAN(
-                        ctx, node, &p->test, &tdata->header[i].test
-                    );
-                } else {
-                    tdata->header[i].test = TRUE;
-                }
-                p = p->next;
+        for (i = 0; i < tdata->paramCount; i++) {
+            if (p->test.type != XRLT_VALUE_EMPTY)  {
+                TRANSFORM_TO_BOOLEAN(
+                    ctx, node, &p->test, &tdata->param[i].test
+                );
+            } else {
+                tdata->param[i].test = TRUE;
             }
-
-            p = icomp->fparam;
-
-            for (i = 0; i < tdata->paramCount; i++) {
-                if (p->test.type != XRLT_VALUE_EMPTY)  {
-                    TRANSFORM_TO_BOOLEAN(
-                        ctx, node, &p->test, &tdata->param[i].test
-                    );
-                } else {
-                    tdata->param[i].test = TRUE;
-                }
-                p = p->next;
-            }
+            p = p->next;
         }
 
         COUNTER_INCREASE(ctx, node);
 
         tdata->insert = insert;
-        tdata->comp = comp;
+        tdata->comp = (xrltCompiledIncludeData *)comp;
 
         // Schedule the next call.
         SCHEDULE_CALLBACK(
@@ -1192,85 +1159,62 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     return TRUE;
                 }
 
+                if (tdata->cmethod != NULL) {
+                    tdata->method = xrltIncludeMethodFromString(
+                        tdata->cmethod
+                    );
+                }
+
                 if (tdata->ctype != NULL) {
                     tdata->type = xrltIncludeTypeFromString(tdata->ctype);
                 }
 
-                if (icomp->requestData != XRLT_REQUEST_DATA_INCLUDE) {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+                p = icomp->fheader;
 
-                    xrltTransformValue   requestDataVal;
-
-                    requestDataVal.type = XRLT_TRANSFORM_VALUE_BODY;
-
-                    if (icomp->requestData == XRLT_REQUEST_DATA_BODY) {
-                        //if (tdata->buf != NULL) {}
-                    } else {
-                        requestDataVal.bodyval.val.data = \
-                            (char *)ctx->querystring;
-                        requestDataVal.bodyval.val.len = \
-                            (size_t)xmlStrlen(ctx->querystring);
-                        requestDataVal.bodyval.last = TRUE;
-
-                        if (!xrltIncludeInputFunc(ctx, &requestDataVal, tdata))
-                        {
-                            return FALSE;
-                        }
-                    }
-                } else {
-                    if (tdata->cmethod != NULL) {
-                        tdata->method = xrltIncludeMethodFromString(
-                            tdata->cmethod
-                        );
-                    }
-
-                    p = icomp->fheader;
-
-                    for (i = 0; i < tdata->headerCount; i++) {
-                        if (tdata->header[i].test) {
-                            TRANSFORM_TO_STRING(
-                                ctx, node, &p->name, &tdata->header[i].name
-                            );
-                            TRANSFORM_TO_STRING(
-                                ctx, node, &p->val, &tdata->header[i].val
-                            );
-                        }
-                        p = p->next;
-                    }
-
-                    p = icomp->fparam;
-
-                    for (i = 0; i < tdata->paramCount; i++) {
-                        if (tdata->param[i].test) {
-                            if (p->body.type == XRLT_VALUE_INT) {
-                                tdata->param[i].body = p->body.intval;
-                            } else {
-                                TRANSFORM_TO_STRING(
-                                    ctx, node, &p->body, &tdata->param[i].cbody
-                                );
-                            }
-                            TRANSFORM_TO_STRING(
-                                ctx, node, &p->name, &tdata->param[i].name
-                            );
-                            TRANSFORM_TO_STRING(
-                                ctx, node, &p->val, &tdata->param[i].val
-                            );
-                        }
-                        p = p->next;
-                    }
-
-                    if (tdata->bodyTest) {
+                for (i = 0; i < tdata->headerCount; i++) {
+                    if (tdata->header[i].test) {
                         TRANSFORM_TO_STRING(
-                            ctx, node, &icomp->body, &tdata->body
+                            ctx, node, &p->name, &tdata->header[i].name
+                        );
+                        TRANSFORM_TO_STRING(
+                            ctx, node, &p->val, &tdata->header[i].val
                         );
                     }
+                    p = p->next;
+                }
 
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
+                p = icomp->fparam;
 
-                    SCHEDULE_CALLBACK(
-                        ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
+                for (i = 0; i < tdata->paramCount; i++) {
+                    if (tdata->param[i].test) {
+                        if (p->body.type == XRLT_VALUE_INT) {
+                            tdata->param[i].body = p->body.intval;
+                        } else {
+                            TRANSFORM_TO_STRING(
+                                ctx, node, &p->body, &tdata->param[i].cbody
+                            );
+                        }
+                        TRANSFORM_TO_STRING(
+                            ctx, node, &p->name, &tdata->param[i].name
+                        );
+                        TRANSFORM_TO_STRING(
+                            ctx, node, &p->val, &tdata->param[i].val
+                        );
+                    }
+                    p = p->next;
+                }
+
+                if (tdata->bodyTest) {
+                    TRANSFORM_TO_STRING(
+                        ctx, node, &icomp->body, &tdata->body
                     );
                 }
+
+                tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
+
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
+                );
 
                 break;
 
@@ -1364,7 +1308,8 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                             tdata->stage = XRLT_INCLUDE_TRANSFORM_END;
 
-                            return xrltIncludeTransform(ctx, comp, insert, data);
+                            return xrltIncludeTransform(ctx, comp, insert,
+                                                        data);
 
                         case XRLT_VALUE_INT:
                             break;
@@ -1403,6 +1348,179 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 return FALSE;
         }
 
+    }
+
+    return TRUE;
+}
+
+
+
+
+
+
+
+
+
+
+
+static xrltBool
+xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
+{
+    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
+
+    if (data == NULL) { return FALSE; }
+
+    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
+        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+//                          tdata->comp, tdata->insert, tdata);
+//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+        return TRUE;
+    }
+
+    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
+        case XRLT_PROCESS_INPUT_ERROR:
+            return FALSE;
+
+        case XRLT_PROCESS_INPUT_AGAIN:
+            ctx->cur |= XRLT_STATUS_WAITING;
+
+            return TRUE;
+
+        case XRLT_PROCESS_INPUT_REFUSE:
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
+
+            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
+
+        case XRLT_PROCESS_INPUT_DONE:
+            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
+            //tdata->comp, tdata->insert, tdata);
+            break;
+    }
+
+    return TRUE;
+}
+
+
+xrltBool
+xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
+                          void *data)
+{
+    xrltIncludeTransformingData       *tdata;
+    xmlDocPtr                          vdoc;
+    xmlChar                            id[sizeof(xmlNodePtr) * 7];
+    xmlXPathObjectPtr                  varval = NULL;
+    xmlNodePtr                         node;
+    xrltTransformValue                *tval;
+    xrltNodeDataPtr                    n;
+    xrltTransformValueSubrequestBody   tmp;
+
+    tdata = (xrltIncludeTransformingData *)data;
+
+    if (val == NULL) {
+        if (insert == NULL) {
+            if (tdata->comp != NULL && tdata->comp->name != NULL) {
+                // Initial call, need to create a variable.
+                vdoc = xmlNewDoc(NULL);
+
+                xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+
+                XRLT_SET_VARIABLE(
+                    id, tdata->srcNode, tdata->comp->name, tdata->comp->declScope,
+                    ctx->varScope, vdoc, varval
+                );
+
+                node = (xmlNodePtr)vdoc;
+
+                tdata->node = node;
+
+                COUNTER_INCREASE(ctx, node);
+
+                if (tdata->comp->type.type == XRLT_VALUE_INT) {
+                    tdata->type = \
+                        (xrltSubrequestDataType)tdata->comp->type.intval;
+
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+                } else if (tdata->comp->type.type != XRLT_VALUE_EMPTY) {
+                    NEW_CHILD(ctx, tdata->pnode, node, "t");
+
+                    COUNTER_INCREASE(ctx, tdata->pnode);
+
+                    TRANSFORM_TO_STRING(
+                        ctx, tdata->pnode, &tdata->comp->type, &tdata->ctype
+                    );
+
+                    SCHEDULE_CALLBACK(
+                        ctx, &ctx->tcb, xrltRequestInputTransform, NULL, node,
+                        data
+                    );
+                }
+            }
+
+            return TRUE;
+        } else {
+            // We should get here if we needed to evaluate tdata->comp->type.
+            node = tdata->pnode;
+
+            ASSERT_NODE_DATA(node, n);
+
+            if (n->count > 0) {
+                COUNTER_DECREASE(ctx, node);
+
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(
+                        ctx, &n->tcb, xrltRequestInputTransform, NULL,
+                        node, data
+                    );
+
+                    return TRUE;
+                }
+            }
+
+            // Type should be ready.
+            if (tdata->ctype != NULL) {
+                tdata->type = xrltIncludeTypeFromString(tdata->ctype);
+            }
+
+            tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
+
+            if (tdata->comp->includeType == XRLT_INCLUDE_TYPE_QUERYSTRING) {
+                tmp.last = TRUE;
+                memcpy(&tmp.val, &ctx->querystring, sizeof(xrltString));
+
+                switch (xrltProcessBody(ctx, &tmp, tdata)) {
+
+                }
+
+                COUNTER_DECREASE(ctx, tdata->node);
+            } else { // XRLT_INCLUDE_TYPE_BODY
+                if (ctx->bodyBuf != NULL) {
+
+                }
+            }
+        }
+    } else {
+        tval = (xrltTransformValue *)val;
+
+        switch (xrltProcessInput(ctx, tval, tdata)) {
+        }
+
+        if (tval->type == XRLT_TRANSFORM_VALUE_QUERYSTRING &&
+            tdata->stage == XRLT_INCLUDE_TRANSFORM_READ_RESPONSE)
+        {
+            tmp.last = TRUE;
+            memcpy(&tmp.val, &ctx->querystring, sizeof(xrltString));
+
+            switch (xrltProcessBody(ctx, &tmp, tdata)) {
+
+            }
+
+            COUNTER_DECREASE(ctx, tdata->node);
+        }
     }
 
     return TRUE;
