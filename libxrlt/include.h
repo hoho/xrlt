@@ -20,17 +20,28 @@ extern "C" {
 typedef struct _xrltCompiledIncludeParam xrltCompiledIncludeParam;
 typedef xrltCompiledIncludeParam* xrltCompiledIncludeParamPtr;
 struct _xrltCompiledIncludeParam {
-    xrltCompiledValue   test;
-    xrltCompiledValue   body;
-    xrltCompiledValue   name;
-    xrltCompiledValue   val;
+    xrltCompiledValue             test;
+    xrltCompiledValue             body;
+    xrltCompiledValue             name;
+    xrltCompiledValue             val;
 
     xrltCompiledIncludeParamPtr   next;
 };
 
 
+typedef enum {
+    XRLT_REQUEST_DATA_INCLUDE = 0,
+    XRLT_REQUEST_DATA_QUERYSTRING,
+    XRLT_REQUEST_DATA_BODY
+} xrltRequestDataType;
+
+
 typedef struct {
     xmlNodePtr                    node;
+
+    xmlChar                      *name;
+    xrltRequestDataType           requestData;
+    xmlNodePtr                    declScope;
 
     xrltCompiledValue             href;
     xrltCompiledValue             method;
@@ -44,21 +55,21 @@ typedef struct {
     xrltCompiledIncludeParamPtr   lparam;
     size_t                        paramCount;
 
-    xrltCompiledValue bodyTest;
-    xrltCompiledValue body;
+    xrltCompiledValue             bodyTest;
+    xrltCompiledValue             body;
 
-    xrltCompiledValue success;
-    xrltCompiledValue failure;
+    xrltCompiledValue             success;
+    xrltCompiledValue             failure;
 } xrltCompiledIncludeData;
 
 
 typedef struct {
-    xrltHeaderOutType headerType;
-    xrltBool         body;
-    xmlChar         *cbody;
-    xrltBool         test;
-    xmlChar         *name;
-    xmlChar         *val;
+    xrltHeaderOutType   headerType;
+    xrltBool            body;
+    xmlChar            *cbody;
+    xrltBool            test;
+    xmlChar            *name;
+    xmlChar            *val;
 } xrltTransformingParam;
 
 
@@ -118,6 +129,10 @@ typedef struct {
 
     xrltBool                    bodyTest;
     xmlChar                    *body;
+
+    xrltRequestDataType         requestData;
+    xmlBufferPtr                buf;
+    xrltBool                    buflast;
 } xrltIncludeTransformingData;
 
 

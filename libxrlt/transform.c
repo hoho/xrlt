@@ -40,6 +40,14 @@ xrltUnregisterBuiltinElements(void)
 }
 
 
+static xrltBool
+xrltEmptyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                   void *data)
+{
+    return TRUE;
+}
+
+
 static inline xrltBool
 xrltRegisterBuiltinElementsIfUnregistered(void)
 {
@@ -62,6 +70,24 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltResponseCompile,
                                xrltResponseFree,
                                xrltResponseTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltIncludeCompile,
+                               xrltIncludeFree,
+                               xrltIncludeTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"querystring",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltIncludeCompile,
+                               xrltIncludeFree,
+                               xrltEmptyTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"body",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltIncludeCompile,
+                               xrltIncludeFree,
+                               xrltEmptyTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
                                XRLT_COMPILE_PASS1,
@@ -139,7 +165,7 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
                                xrltFunctionCompile,
                                xrltFunctionFree,
-                               xrltFunctionTransform);
+                               xrltEmptyTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"apply",
                                XRLT_COMPILE_PASS1 | XRLT_COMPILE_PASS2,

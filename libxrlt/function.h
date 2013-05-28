@@ -67,9 +67,6 @@ void *
                                  void *prevcomp);
 void
         xrltFunctionFree        (void *comp);
-xrltBool
-        xrltFunctionTransform   (xrltContextPtr ctx, void *comp,
-                                 xmlNodePtr insert, void *data);
 
 void *
         xrltApplyCompile        (xrltRequestsheetPtr sheet, xmlNodePtr node,

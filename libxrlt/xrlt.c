@@ -282,6 +282,16 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     ret->includeId = 0;
 
+    if (sheet->querystringNode != NULL) {
+        if (!xrltIncludeTransform(ret, sheet->querystringData, ret->response,
+                                  NULL))
+        {
+            goto error;
+        }
+
+        ret->querystringId = ret->includeId;
+    }
+
     return ret;
 
   error:
@@ -336,6 +346,10 @@ xrltContextFree(xrltContextPtr ctx)
 
     if (ctx->tcb.first != NULL) {
         xrltTransformCallbackQueueClear(&ctx->tcb);
+    }
+
+    if (ctx->querystring != NULL) {
+        xmlFree(ctx->querystring);
     }
 
     xmlFree(ctx);

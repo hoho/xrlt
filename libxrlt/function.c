@@ -212,14 +212,6 @@ xrltFunctionFree(void *comp)
 }
 
 
-xrltBool
-xrltFunctionTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
-                      void *data)
-{
-    return TRUE;
-}
-
-
 void *
 xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {

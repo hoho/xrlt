@@ -138,6 +138,11 @@ struct _xrltRequestsheet {
     xmlHashTablePtr   funcs;       // Functions of this requestsheet.
     xmlHashTablePtr   transforms;  // Transformations of this requestsheet.
 
+    xmlNodePtr        querystringNode;
+    void             *querystringData;
+    xmlNodePtr        bodyNode;
+    void             *bodyData;
+
     void             *js;          // JavaScript context.
 };
 
@@ -171,6 +176,10 @@ struct _xrltContext {
 
     xrltTransformCallbackQueue   tcb;
     xrltInputCallbackQueues      icb;
+
+    xmlChar                     *querystring;
+    size_t                       querystringId;
+    size_t                       bodyId;
 };
 
 

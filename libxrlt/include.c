@@ -4,7 +4,6 @@
 
 #include "transform.h"
 #include "include.h"
-#include "xrlt.h"
 
 
 static inline xrltHTTPMethod
@@ -139,6 +138,11 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
 }
 
 
+#define XRLT_INCLUDE_NO_VALUE                                                 \
+    xrltTransformError(NULL, sheet, tmp, "Element has no value\n");           \
+    goto error;
+
+
 void *
 xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
@@ -147,9 +151,69 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltNodeDataPtr               n;
     xrltCompiledIncludeParamPtr   param;
     xrltBool                      hasxrlt;
+    xrltBool                      ok;
+    xmlChar                      *type;
+    xrltBool                      toplevel;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltCompiledIncludeData*,
                 sizeof(xrltCompiledIncludeData), NULL);
+
+    toplevel = node->parent->parent->parent == NULL;
+
+    ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
+
+    if (ret->name == NULL && toplevel) {
+        // Top-level includes have to have variable name.
+        xrltTransformError(NULL, sheet, node, "Name is required\n");
+        goto error;
+    }
+
+    if (ret->name != NULL) {
+        ret->declScope = node->parent;
+    }
+
+    if (xmlStrEqual(node->name, (const xmlChar *)"querystring")) {
+        if (sheet->querystringNode != NULL) {
+            xrltTransformError(NULL, sheet, node,
+                              "Duplicate 'querystring' element\n");
+            goto error;
+        }
+
+        if (!toplevel) {
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, node);
+            goto error;
+        }
+
+        sheet->querystringNode = node;
+        sheet->querystringData = ret;
+        ret->requestData = XRLT_REQUEST_DATA_QUERYSTRING;
+    } else if (xmlStrEqual(node->name, (const xmlChar *)"body")) {
+        if (sheet->bodyNode != NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Duplicate 'body' element\n");
+            goto error;
+        }
+
+        if (!toplevel) {
+            ERROR_UNEXPECTED_ELEMENT(NULL, sheet, node);
+            goto error;
+        }
+
+        sheet->bodyNode = node;
+        sheet->bodyData = ret;
+        ret->requestData = XRLT_REQUEST_DATA_BODY;
+    }
+
+    type = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
+
+    if (type != NULL) {
+        ret->type.type = XRLT_VALUE_INT;
+
+        ret->type.intval = \
+            xrltIncludeTypeFromString(type);
+
+        xmlFree(type);
+    }
 
     tmp = node->children;
 
@@ -159,48 +223,10 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             goto error;
         }
 
-        if (ret->href.type == XRLT_VALUE_EMPTY &&
-            xmlStrEqual(tmp->name, XRLT_ELEMENT_HREF))
-        {
-            if (!xrltCompileValue(sheet, tmp, tmp->children,
-                                  XRLT_ELEMENT_ATTR_SELECT, NULL, NULL, TRUE,
-                                  &ret->href))
-            {
-                goto error;
-            }
+        ok = FALSE;
 
-            if (ret->href.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
-                goto error;
-            }
-        }
-        else if (ret->method.type == XRLT_VALUE_EMPTY &&
-                 xmlStrEqual(tmp->name, XRLT_ELEMENT_METHOD))
-        {
-            if (!xrltCompileValue(sheet, tmp, tmp->children,
-                                  XRLT_ELEMENT_ATTR_SELECT, NULL, NULL, TRUE,
-                                  &ret->method))
-            {
-                goto error;
-            }
-
-            if (ret->method.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
-                goto error;
-            }
-
-            if (ret->method.type == XRLT_VALUE_TEXT) {
-                ret->method.type = XRLT_VALUE_INT;
-
-                ret->method.intval = \
-                    xrltIncludeMethodFromString(ret->method.textval);
-
-                xmlFree(ret->method.textval);
-                ret->method.textval = NULL;
-            }
-        }
-        else if (ret->type.type == XRLT_VALUE_EMPTY &&
-                 xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE))
+        if (ret->type.type == XRLT_VALUE_EMPTY &&
+            xmlStrEqual(tmp->name, XRLT_ELEMENT_TYPE))
         {
             if (!xrltCompileValue(sheet, tmp, tmp->children,
                                   XRLT_ELEMENT_ATTR_SELECT, NULL, NULL, TRUE,
@@ -210,8 +236,7 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
 
             if (ret->type.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
-                goto error;
+                XRLT_INCLUDE_NO_VALUE;
             }
 
             if (ret->type.type == XRLT_VALUE_TEXT) {
@@ -223,70 +248,126 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 xmlFree(ret->type.textval);
                 ret->type.textval = NULL;
             }
+
+            ok = TRUE;
         }
-        else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_HEADER))
-        {
-            param = xrltIncludeParamCompile(sheet, tmp, TRUE);
 
-            if (param == NULL) {
-                goto error;
-            }
-
-            if (ret->fheader == NULL) {
-                ret->fheader = param;
-            } else {
-                ret->lheader->next = param;
-            }
-
-            ret->lheader = param;
-            ret->headerCount++;
-        }
-        else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_PARAM))
-        {
-            param = xrltIncludeParamCompile(sheet, tmp, FALSE);
-
-            if (param == NULL) {
-                goto error;
-            }
-
-            if (ret->fparam == NULL) {
-                ret->fparam = param;
-            } else {
-                ret->lparam->next = param;
-            }
-
-            ret->lparam = param;
-            ret->paramCount++;
-        }
-        else if (ret->body.type == XRLT_VALUE_EMPTY &&
-                 xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_BODY))
-        {
-            if (!xrltCompileCheckSubnodes(sheet, tmp, XRLT_ELEMENT_TEST,
-                                          XRLT_ELEMENT_VALUE, NULL, NULL, NULL,
-                                          NULL, &hasxrlt))
+        if (ret->requestData == XRLT_REQUEST_DATA_INCLUDE) {
+            // <xrl:querystring> and <xrl:body> don't have these.
+            if (ret->href.type == XRLT_VALUE_EMPTY &&
+                xmlStrEqual(tmp->name, XRLT_ELEMENT_HREF))
             {
-                goto error;
-            }
+                if (!xrltCompileValue(sheet, tmp, tmp->children,
+                                      XRLT_ELEMENT_ATTR_SELECT, NULL, NULL,
+                                      TRUE, &ret->href))
+                {
+                    goto error;
+                }
 
-            if (!xrltCompileValue(sheet, tmp, NULL, XRLT_ELEMENT_ATTR_TEST,
-                                  NULL, XRLT_ELEMENT_TEST, FALSE,
-                                  &ret->bodyTest))
+                if (ret->href.type == XRLT_VALUE_EMPTY) {
+                    XRLT_INCLUDE_NO_VALUE;
+                }
+
+                ok = TRUE;
+            }
+            else if (ret->method.type == XRLT_VALUE_EMPTY &&
+                     xmlStrEqual(tmp->name, XRLT_ELEMENT_METHOD))
             {
-                goto error;
-            }
+                if (!xrltCompileValue(sheet, tmp, tmp->children,
+                                      XRLT_ELEMENT_ATTR_SELECT, NULL, NULL,
+                                      TRUE, &ret->method))
+                {
+                    goto error;
+                }
 
-            if (!xrltCompileValue(sheet, tmp, hasxrlt ? NULL : tmp->children,
-                                  XRLT_ELEMENT_ATTR_SELECT, NULL,
-                                  XRLT_ELEMENT_VALUE, TRUE, &ret->body))
+                if (ret->method.type == XRLT_VALUE_EMPTY) {
+                    XRLT_INCLUDE_NO_VALUE;
+                }
+
+                if (ret->method.type == XRLT_VALUE_TEXT) {
+                    ret->method.type = XRLT_VALUE_INT;
+
+                    ret->method.intval = \
+                        xrltIncludeMethodFromString(ret->method.textval);
+
+                    xmlFree(ret->method.textval);
+                    ret->method.textval = NULL;
+                }
+
+                ok = TRUE;
+            }
+            else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_HEADER))
             {
-                goto error;
-            }
+                param = xrltIncludeParamCompile(sheet, tmp, TRUE);
 
-            if (ret->body.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
+                if (param == NULL) {
+                    goto error;
+                }
+
+                if (ret->fheader == NULL) {
+                    ret->fheader = param;
+                } else {
+                    ret->lheader->next = param;
+                }
+
+                ret->lheader = param;
+                ret->headerCount++;
+
+                ok = TRUE;
+            }
+            else if (xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_PARAM))
+            {
+                param = xrltIncludeParamCompile(sheet, tmp, FALSE);
+
+                if (param == NULL) {
+                    goto error;
+                }
+
+                if (ret->fparam == NULL) {
+                    ret->fparam = param;
+                } else {
+                    ret->lparam->next = param;
+                }
+
+                ret->lparam = param;
+                ret->paramCount++;
+
+                ok = TRUE;
+            }
+            else if (ret->body.type == XRLT_VALUE_EMPTY &&
+                     xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_BODY))
+            {
+                if (!xrltCompileCheckSubnodes(sheet, tmp, XRLT_ELEMENT_TEST,
+                                              XRLT_ELEMENT_VALUE, NULL, NULL,
+                                              NULL, NULL, &hasxrlt))
+                {
+                    goto error;
+                }
+
+                if (!xrltCompileValue(sheet, tmp, NULL, XRLT_ELEMENT_ATTR_TEST,
+                                      NULL, XRLT_ELEMENT_TEST, FALSE,
+                                      &ret->bodyTest))
+                {
+                    goto error;
+                }
+
+                if (!xrltCompileValue(sheet, tmp,
+                                      hasxrlt ? NULL : tmp->children,
+                                      XRLT_ELEMENT_ATTR_SELECT, NULL,
+                                      XRLT_ELEMENT_VALUE, TRUE, &ret->body))
+                {
+                    goto error;
+                }
+
+                if (ret->body.type == XRLT_VALUE_EMPTY) {
+                    XRLT_INCLUDE_NO_VALUE;
+                }
+
+                ok = TRUE;
             }
         }
-        else if (ret->success.type == XRLT_VALUE_EMPTY &&
+
+        if (ret->success.type == XRLT_VALUE_EMPTY &&
                  xmlStrEqual(tmp->name, XRLT_ELEMENT_SUCCESS))
         {
             if (!xrltCompileValue(sheet, tmp, tmp->children,
@@ -297,9 +378,10 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
 
             if (ret->success.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
-                goto error;
+                XRLT_INCLUDE_NO_VALUE;
             }
+
+            ok = TRUE;
         }
         else if (ret->failure.type == XRLT_VALUE_EMPTY &&
                  xmlStrEqual(tmp->name, XRLT_ELEMENT_FAILURE))
@@ -312,10 +394,13 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
 
             if (ret->failure.type == XRLT_VALUE_EMPTY) {
-                xrltTransformError(NULL, sheet, tmp, "Element has no value");
-                goto error;
+                XRLT_INCLUDE_NO_VALUE;
             }
-        } else {
+
+            ok = TRUE;
+        }
+
+        if (!ok) {
             ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             goto error;
         }
@@ -345,6 +430,8 @@ xrltIncludeFree(void *comp)
     xrltCompiledIncludeParamPtr   param, tmp;
 
     if (comp != NULL) {
+        if (ret->name != NULL) { xmlFree(ret->name); }
+
         CLEAR_XRLT_VALUE(ret->href);
         CLEAR_XRLT_VALUE(ret->method);
         CLEAR_XRLT_VALUE(ret->type);
@@ -442,6 +529,10 @@ xrltIncludeTransformingFree(void *data)
             if (tdata->param[i].val != NULL) {
                 xmlFree(tdata->param[i].val);
             }
+        }
+
+        if (tdata->buf != NULL) {
+            xmlBufferFree(tdata->buf);
         }
 
         xmlFree(tdata);
@@ -661,8 +752,9 @@ xrltProcessBody(xrltContextPtr ctx, xrltTransformValueSubrequestBody *val,
             data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
+        xmlDocFormatDump(stderr, data->doc, 1);
+
         return XRLT_PROCESS_INPUT_DONE;
-        //xmlDocFormatDump(stderr, tdata->doc, 1);
     }
 
     return XRLT_PROCESS_INPUT_AGAIN;
@@ -676,9 +768,31 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
     if (val == NULL || data == NULL) { return XRLT_PROCESS_INPUT_ERROR; }
 
     if (data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
-        xrltTransformError(ctx, NULL, data->srcNode,
-                           "Wrong transformation stage\n");
-        return XRLT_PROCESS_INPUT_ERROR;
+        switch (data->requestData) {
+            case XRLT_REQUEST_DATA_INCLUDE:
+                xrltTransformError(ctx, NULL, data->srcNode,
+                                   "Wrong transformation stage\n");
+                return XRLT_PROCESS_INPUT_ERROR;
+
+            case XRLT_REQUEST_DATA_QUERYSTRING:
+                return XRLT_PROCESS_INPUT_AGAIN;
+
+            case XRLT_REQUEST_DATA_BODY:
+                if (data->buf == NULL) {
+                    data->buf = xmlBufferCreate();
+                    if (data->buf == NULL) {
+                        ERROR_OUT_OF_MEMORY(ctx, NULL, data->srcNode);
+                        return XRLT_PROCESS_INPUT_ERROR;
+                    }
+                }
+
+                xmlBufferAdd(data->buf, (xmlChar *)val->bodyval.val.data,
+                             val->bodyval.val.len);
+
+                data->buflast = val->bodyval.last;
+
+                return XRLT_PROCESS_INPUT_AGAIN;
+        }
     }
 
     switch (val->type) {
@@ -688,7 +802,33 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
             return xrltProcessHeader(ctx, val, data);
 
         case XRLT_TRANSFORM_VALUE_QUERYSTRING:
-            break;
+            if (val->querystringval.val.len > 0) {
+                ctx->querystring = xmlStrndup(
+                    (xmlChar *)val->querystringval.val.data,
+                    val->querystringval.val.len
+                );
+
+                if (ctx->querystring == NULL) {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
+
+                    return XRLT_PROCESS_INPUT_ERROR;
+                }
+            }
+
+            if (ctx->querystringId > 0) {
+                val->type = XRLT_TRANSFORM_VALUE_BODY;
+                memcpy(&val->bodyval.val, &val->querystringval.val,
+                       sizeof(xrltString));
+                val->bodyval.last = TRUE;
+
+                if (xrltTransform(ctx, ctx->querystringId, val) &
+                    XRLT_STATUS_ERROR)
+                {
+                    return XRLT_PROCESS_INPUT_ERROR;
+                }
+            }
+
+            return XRLT_PROCESS_INPUT_AGAIN;
 
         case XRLT_TRANSFORM_VALUE_BODY:
             return xrltProcessBody(ctx, &val->bodyval, data);
@@ -696,6 +836,7 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
         case XRLT_TRANSFORM_VALUE_ERROR:
         case XRLT_TRANSFORM_VALUE_EMPTY:
             // These are processed earlier. It is an error if we've got here.
+            xrltTransformError(ctx, NULL, data->srcNode, "Strange type\n");
             break;
     }
 
@@ -920,12 +1061,13 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         ASSERT_NODE_DATA(node, n);
 
-        XRLT_MALLOC(ctx, NULL, icomp->node, tdata, xrltIncludeTransformingData*,
+        XRLT_MALLOC(ctx, NULL, icomp->node, tdata,
+                    xrltIncludeTransformingData*,
                     sizeof(xrltIncludeTransformingData) +
                     sizeof(xrltTransformingParam) * icomp->headerCount +
                     sizeof(xrltTransformingParam) * icomp->paramCount, FALSE);
 
-        tdata->header = (xrltTransformingParam *)(tdata + 1);
+        tdata->header = (xrltTransformingParam*)(tdata + 1);
 
         if (icomp->paramCount > 0) {
             tdata->paramCount = icomp->paramCount;
@@ -943,6 +1085,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->node = node;
         tdata->srcNode = icomp->node;
+        tdata->requestData = icomp->requestData;
 
         COUNTER_INCREASE(ctx, node);
 
@@ -950,50 +1093,57 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         tdata->pnode = node;
 
-        TRANSFORM_TO_STRING(ctx, node, &icomp->href, &tdata->href);
-
-        if (icomp->method.type == XRLT_VALUE_INT) {
-            tdata->method = (xrltHTTPMethod)icomp->method.intval;
-        } else if (icomp->method.type != XRLT_VALUE_EMPTY) {
-            TRANSFORM_TO_STRING(ctx, node, &icomp->method, &tdata->cmethod);
-        }
-
         if (icomp->type.type == XRLT_VALUE_INT) {
             tdata->type = (xrltSubrequestDataType)icomp->type.intval;
         } else if (icomp->type.type != XRLT_VALUE_EMPTY) {
             TRANSFORM_TO_STRING(ctx, node, &icomp->type, &tdata->ctype);
         }
 
-        if (icomp->bodyTest.type != XRLT_VALUE_EMPTY) {
-            TRANSFORM_TO_BOOLEAN(ctx, node, &icomp->bodyTest, &tdata->bodyTest);
-        } else {
-            tdata->bodyTest = TRUE;
-        }
+        if (icomp->requestData == XRLT_REQUEST_DATA_INCLUDE) {
+            TRANSFORM_TO_STRING(ctx, node, &icomp->href, &tdata->href);
 
-        p = icomp->fheader;
+            if (icomp->method.type == XRLT_VALUE_INT) {
+                tdata->method = (xrltHTTPMethod)icomp->method.intval;
+            } else if (icomp->method.type != XRLT_VALUE_EMPTY) {
+                TRANSFORM_TO_STRING(
+                    ctx, node, &icomp->method, &tdata->cmethod
+                );
+            }
 
-        for (i = 0; i < tdata->headerCount; i++) {
-            if (p->test.type != XRLT_VALUE_EMPTY)  {
+
+            if (icomp->bodyTest.type != XRLT_VALUE_EMPTY) {
                 TRANSFORM_TO_BOOLEAN(
-                    ctx, node, &p->test, &tdata->header[i].test
+                    ctx, node, &icomp->bodyTest, &tdata->bodyTest
                 );
             } else {
-                tdata->header[i].test = TRUE;
+                tdata->bodyTest = TRUE;
             }
-            p = p->next;
-        }
 
-        p = icomp->fparam;
+            p = icomp->fheader;
 
-        for (i = 0; i < tdata->paramCount; i++) {
-            if (p->test.type != XRLT_VALUE_EMPTY)  {
-                TRANSFORM_TO_BOOLEAN(
-                    ctx, node, &p->test, &tdata->param[i].test
-                );
-            } else {
-                tdata->param[i].test = TRUE;
+            for (i = 0; i < tdata->headerCount; i++) {
+                if (p->test.type != XRLT_VALUE_EMPTY)  {
+                    TRANSFORM_TO_BOOLEAN(
+                        ctx, node, &p->test, &tdata->header[i].test
+                    );
+                } else {
+                    tdata->header[i].test = TRUE;
+                }
+                p = p->next;
             }
-            p = p->next;
+
+            p = icomp->fparam;
+
+            for (i = 0; i < tdata->paramCount; i++) {
+                if (p->test.type != XRLT_VALUE_EMPTY)  {
+                    TRANSFORM_TO_BOOLEAN(
+                        ctx, node, &p->test, &tdata->param[i].test
+                    );
+                } else {
+                    tdata->param[i].test = TRUE;
+                }
+                p = p->next;
+            }
         }
 
         COUNTER_INCREASE(ctx, node);
@@ -1006,7 +1156,7 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, tdata
         );
     } else {
-        tdata = (xrltIncludeTransformingData *)data;
+        tdata = (xrltIncludeTransformingData*)data;
 
         switch (tdata->stage) {
             case XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN:
@@ -1042,58 +1192,85 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                     return TRUE;
                 }
 
-                if (tdata->cmethod != NULL) {
-                    tdata->method = xrltIncludeMethodFromString(tdata->cmethod);
-                }
-
                 if (tdata->ctype != NULL) {
                     tdata->type = xrltIncludeTypeFromString(tdata->ctype);
                 }
 
-                p = icomp->fheader;
+                if (icomp->requestData != XRLT_REQUEST_DATA_INCLUDE) {
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_READ_RESPONSE;
 
-                for (i = 0; i < tdata->headerCount; i++) {
-                    if (tdata->header[i].test) {
-                        TRANSFORM_TO_STRING(
-                            ctx, node, &p->name, &tdata->header[i].name
-                        );
-                        TRANSFORM_TO_STRING(
-                            ctx, node, &p->val, &tdata->header[i].val
+                    xrltTransformValue   requestDataVal;
+
+                    requestDataVal.type = XRLT_TRANSFORM_VALUE_BODY;
+
+                    if (icomp->requestData == XRLT_REQUEST_DATA_BODY) {
+                        //if (tdata->buf != NULL) {}
+                    } else {
+                        requestDataVal.bodyval.val.data = \
+                            (char *)ctx->querystring;
+                        requestDataVal.bodyval.val.len = \
+                            (size_t)xmlStrlen(ctx->querystring);
+                        requestDataVal.bodyval.last = TRUE;
+
+                        if (!xrltIncludeInputFunc(ctx, &requestDataVal, tdata))
+                        {
+                            return FALSE;
+                        }
+                    }
+                } else {
+                    if (tdata->cmethod != NULL) {
+                        tdata->method = xrltIncludeMethodFromString(
+                            tdata->cmethod
                         );
                     }
-                    p = p->next;
-                }
 
-                p = icomp->fparam;
+                    p = icomp->fheader;
 
-                for (i = 0; i < tdata->paramCount; i++) {
-                    if (tdata->param[i].test) {
-                        if (p->body.type == XRLT_VALUE_INT) {
-                            tdata->param[i].body = p->body.intval;
-                        } else {
+                    for (i = 0; i < tdata->headerCount; i++) {
+                        if (tdata->header[i].test) {
                             TRANSFORM_TO_STRING(
-                                ctx, node, &p->body, &tdata->param[i].cbody
+                                ctx, node, &p->name, &tdata->header[i].name
+                            );
+                            TRANSFORM_TO_STRING(
+                                ctx, node, &p->val, &tdata->header[i].val
                             );
                         }
+                        p = p->next;
+                    }
+
+                    p = icomp->fparam;
+
+                    for (i = 0; i < tdata->paramCount; i++) {
+                        if (tdata->param[i].test) {
+                            if (p->body.type == XRLT_VALUE_INT) {
+                                tdata->param[i].body = p->body.intval;
+                            } else {
+                                TRANSFORM_TO_STRING(
+                                    ctx, node, &p->body, &tdata->param[i].cbody
+                                );
+                            }
+                            TRANSFORM_TO_STRING(
+                                ctx, node, &p->name, &tdata->param[i].name
+                            );
+                            TRANSFORM_TO_STRING(
+                                ctx, node, &p->val, &tdata->param[i].val
+                            );
+                        }
+                        p = p->next;
+                    }
+
+                    if (tdata->bodyTest) {
                         TRANSFORM_TO_STRING(
-                            ctx, node, &p->name, &tdata->param[i].name
-                        );
-                        TRANSFORM_TO_STRING(
-                            ctx, node, &p->val, &tdata->param[i].val
+                            ctx, node, &icomp->body, &tdata->body
                         );
                     }
-                    p = p->next;
+
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
+
+                    SCHEDULE_CALLBACK(
+                        ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
+                    );
                 }
-
-                if (tdata->bodyTest) {
-                    TRANSFORM_TO_STRING(ctx, node, &icomp->body, &tdata->body);
-                }
-
-                tdata->stage = XRLT_INCLUDE_TRANSFORM_PARAMS_END;
-
-                SCHEDULE_CALLBACK(
-                    ctx, &ctx->tcb, xrltIncludeTransform, comp, insert, data
-                );
 
                 break;
 

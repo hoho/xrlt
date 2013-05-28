@@ -705,10 +705,6 @@ ngx_http_xrlt_transform_headers(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx)
                     break; // Ignore incorrect cookie header.
                 }
 
-                if (begin >= end) {
-                    break; // Ignore incorrect cookie header.
-                }
-
                 while (begin < end && *begin != ';') {
                     begin++;
                 }
@@ -731,19 +727,17 @@ ngx_http_xrlt_transform_headers(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx)
             }
         }
 
-        if (r->args.data != NULL) {
-            val.type = XRLT_TRANSFORM_VALUE_QUERYSTRING;
+        val.type = XRLT_TRANSFORM_VALUE_QUERYSTRING;
 
-            val.querystringval.val.data = (char *)r->args.data;
-            val.querystringval.val.len = r->args.len;
+        val.querystringval.val.data = (char *)r->args.data;
+        val.querystringval.val.len = r->args.len;
 
-            /*result = xrltTransform(ctx->xctx, 0, &val);
+        result = xrltTransform(ctx->xctx, 0, &val);
 
-            rc = ngx_http_xrlt_process_transform_result(r, ctx, result);
+        rc = ngx_http_xrlt_process_transform_result(r, ctx, result);
 
-            if (rc == NGX_ERROR || rc == NGX_DONE) {
-                return rc;
-            }*/
+        if (rc == NGX_ERROR || rc == NGX_DONE) {
+            return rc;
         }
     } else {
         part = &r->headers_out.headers.part;
