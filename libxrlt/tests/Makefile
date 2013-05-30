@@ -42,7 +42,8 @@ transform:
                                        transform/test5.xrl transform/test5.in transform/test5.out \
                                        transform/test6.xrl transform/test6.in transform/test6.out \
                                        transform/test7.xrl transform/test7.in transform/test7.out \
-                                       transform/test8.xrl transform/test8.in transform/test8.out
+                                       transform/test8.xrl transform/test8.in transform/test8.out \
+                                       transform/test9.xrl transform/test9.in transform/test9.out
 
 .PHONY: transformjs
 transformjs:

@@ -2,6 +2,7 @@
 #include <xrlterror.h>
 
 #include "../test.h"
+#include "xrlt.h"
 
 // Assume this is enough buffer size. We won't check for overflows at the
 // moment. Just increase the buffer size if it's not big enough to cover each
@@ -240,7 +241,6 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
     memset(outdata, 0, TEST_BUFFER_SIZE);
     memset(data, 0, TEST_BUFFER_SIZE);
 
-
     memset(error_buf, 0, TEST_BUFFER_SIZE);
     error_buf_pos = 0;
     xrltSetGenericErrorFunc(NULL, xrltTestErrorFunc);
@@ -293,9 +293,18 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
     {
         fgets(data, TEST_BUFFER_SIZE - 1, infile);
 
+        memset(&val, 0, sizeof(val));
+
         i = strlen(data);
+
         if (j == XRLT_TRANSFORM_VALUE_HEADER) {
             val.type = XRLT_TRANSFORM_VALUE_HEADER;
+        } else if (j == XRLT_TRANSFORM_VALUE_COOKIE) {
+            val.type = XRLT_TRANSFORM_VALUE_COOKIE;
+        } else if (j == XRLT_TRANSFORM_VALUE_STATUS) {
+            val.type = XRLT_TRANSFORM_VALUE_STATUS;
+        } else if (j == XRLT_TRANSFORM_VALUE_QUERYSTRING) {
+            val.type = XRLT_TRANSFORM_VALUE_QUERYSTRING;
         } else if (j == XRLT_TRANSFORM_VALUE_BODY) {
             val.type = XRLT_TRANSFORM_VALUE_BODY;
         } else if (j == 0) {
@@ -316,11 +325,35 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
 
         if (i > 1) {
             data[i - 1] = '\0';
-            val.bodyval.val.len = (size_t)(i - 1);
-            val.bodyval.val.data = data;
-        } else {
-            val.bodyval.val.len = 0;
-            val.bodyval.val.data = NULL;
+
+            switch (val.type) {
+                case XRLT_TRANSFORM_VALUE_HEADER:
+                case XRLT_TRANSFORM_VALUE_COOKIE:
+                    val.headerval.name.len = (size_t)(i - 1) / 2;
+                    val.headerval.name.data = data;
+                    val.headerval.val.len = (size_t)(i - 1) - val.headerval.name.len;
+                    val.headerval.val.data = data + val.headerval.name.len;
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_STATUS:
+                    val.statusval.status = (size_t)atoi(data);
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_QUERYSTRING:
+                    val.querystringval.val.len = (size_t)(i - 1);
+                    val.querystringval.val.data = data;
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_BODY:
+                    val.bodyval.val.len = (size_t)(i - 1);
+                    val.bodyval.val.data = data;
+                    break;
+
+                case XRLT_TRANSFORM_VALUE_ERROR:
+                case XRLT_TRANSFORM_VALUE_EMPTY:
+                    xrltTestFailurePush((char *)"Unexpected type");
+                    TEST_FAILED;
+            }
         }
 
         if (l) {

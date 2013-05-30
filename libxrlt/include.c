@@ -751,7 +751,7 @@ xrltProcessBody(xrltContextPtr ctx, xrltTransformValueSubrequestBody *val,
             data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
-        xmlDocFormatDump(stderr, data->doc, 1);
+        //xmlDocFormatDump(stderr, data->doc, 1);
 
         return XRLT_PROCESS_INPUT_DONE;
     }
