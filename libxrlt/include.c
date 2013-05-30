@@ -766,7 +766,9 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
 {
     if (val == NULL || data == NULL) { return XRLT_PROCESS_INPUT_ERROR; }
 
-    if (data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE) {
+    if (data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE &&
+        data->comp->includeType == XRLT_INCLUDE_TYPE_INCLUDE)
+    {
         xrltTransformError(ctx, NULL, data->srcNode,
                            "Wrong transformation stage\n");
         return XRLT_PROCESS_INPUT_ERROR;
@@ -1354,56 +1356,19 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 }
 
 
-
-
-
-
-
-
-
-
-
-static xrltBool
-xrltRequestInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
-{
-    xrltIncludeTransformingData  *tdata = (xrltIncludeTransformingData *)data;
-
-    if (data == NULL) { return FALSE; }
-
-    if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
-        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-//        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-//                          tdata->comp, tdata->insert, tdata);
-//        ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-        return TRUE;
-    }
-
-    switch (xrltProcessInput(ctx, val, (xrltIncludeTransformingData *)data)) {
-        case XRLT_PROCESS_INPUT_ERROR:
-            return FALSE;
-
-        case XRLT_PROCESS_INPUT_AGAIN:
-            ctx->cur |= XRLT_STATUS_WAITING;
-
-            return TRUE;
-
-        case XRLT_PROCESS_INPUT_REFUSE:
-            tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
-
-            //ctx->cur |= XRLT_STATUS_REFUSE_SUBREQUEST;
-
-            // No break here, schedule callback from XRLT_PROCESS_INPUT_DONE.
-
-        case XRLT_PROCESS_INPUT_DONE:
-            //SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
-            //tdata->comp, tdata->insert, tdata);
-            break;
-    }
-
-    return TRUE;
-}
+#define XRLT_REQUEST_INPUT_TRANSFORM_CASE                                     \
+    case XRLT_PROCESS_INPUT_ERROR:                                            \
+        return FALSE;                                                         \
+    case XRLT_PROCESS_INPUT_AGAIN:                                            \
+        ctx->cur |= XRLT_STATUS_WAITING;                                      \
+        break;                                                                \
+    case XRLT_PROCESS_INPUT_REFUSE:                                           \
+        tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;                        \
+        /* No break here, schedule callback from the next case. */            \
+    case XRLT_PROCESS_INPUT_DONE:                                             \
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,               \
+                          tdata->comp, tdata->insert, tdata);                 \
+        break;
 
 
 xrltBool
@@ -1427,14 +1392,28 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
                 // Initial call, need to create a variable.
                 vdoc = xmlNewDoc(NULL);
 
-                xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+                if (vdoc == NULL) {
+                    ERROR_CREATE_NODE(ctx, NULL, tdata->srcNode);
+
+                    return FALSE;
+                }
+
+                if (xmlAddChild(ctx->var, (xmlNodePtr)vdoc) == NULL) {
+                    ERROR_ADD_NODE(ctx, NULL, tdata->srcNode);
+
+                    xmlFreeDoc(vdoc);
+
+                    return FALSE;
+                }
 
                 XRLT_SET_VARIABLE(
-                    id, tdata->srcNode, tdata->comp->name, tdata->comp->declScope,
-                    ctx->varScope, vdoc, varval
+                    id, tdata->srcNode, tdata->comp->name,
+                    tdata->comp->declScope, ctx->varScope, vdoc, varval
                 );
 
                 node = (xmlNodePtr)vdoc;
+
+                NEW_CHILD(ctx, node, node, "r");
 
                 tdata->node = node;
 
@@ -1493,13 +1472,25 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
                 memcpy(&tmp.val, &ctx->querystring, sizeof(xrltString));
 
                 switch (xrltProcessBody(ctx, &tmp, tdata)) {
-
+                    XRLT_REQUEST_INPUT_TRANSFORM_CASE
                 }
 
-                COUNTER_DECREASE(ctx, tdata->node);
+                return TRUE;
             } else { // XRLT_INCLUDE_TYPE_BODY
                 if (ctx->bodyBuf != NULL) {
+                    tmp.last = ctx->bodyBufComplete;
+                    tmp.val.data = (char *)xmlBufferContent(ctx->bodyBuf);
+                    tmp.val.len = (size_t)xmlBufferLength(ctx->bodyBuf);
 
+                    switch (xrltProcessBody(ctx, &tmp, tdata)) {
+                        XRLT_REQUEST_INPUT_TRANSFORM_CASE
+                    }
+
+                    xmlBufferFree(ctx->bodyBuf);
+                    ctx->bodyBuf = NULL;
+                    ctx->bodyBufComplete = FALSE;
+
+                    return TRUE;
                 }
             }
         }
@@ -1507,19 +1498,41 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
         tval = (xrltTransformValue *)val;
 
         switch (xrltProcessInput(ctx, tval, tdata)) {
+            XRLT_REQUEST_INPUT_TRANSFORM_CASE
         }
 
-        if (tval->type == XRLT_TRANSFORM_VALUE_QUERYSTRING &&
+        if (tdata->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE &&
+            tdata->comp->includeType == XRLT_INCLUDE_TYPE_BODY)
+        {
+            if (ctx->bodyBuf == NULL) {
+                ctx->bodyBuf = xmlBufferCreate();
+
+                if (ctx->bodyBuf == NULL) {
+                    xrltTransformError(ctx, NULL, tdata->srcNode,
+                                       "Failed to create body buffer");
+                    return FALSE;
+                }
+            }
+
+            if (xmlBufferAdd(ctx->bodyBuf, (xmlChar *)tval->bodyval.val.data,
+                             tval->bodyval.val.len) != 0)
+            {
+                xrltTransformError(ctx, NULL, tdata->srcNode,
+                                   "Failed to add body to buffer");
+                return FALSE;
+            }
+
+            ctx->bodyBufComplete = tval->bodyval.last;
+        }
+        else if (tval->type == XRLT_TRANSFORM_VALUE_QUERYSTRING &&
             tdata->stage == XRLT_INCLUDE_TRANSFORM_READ_RESPONSE)
         {
             tmp.last = TRUE;
             memcpy(&tmp.val, &ctx->querystring, sizeof(xrltString));
 
             switch (xrltProcessBody(ctx, &tmp, tdata)) {
-
+                XRLT_REQUEST_INPUT_TRANSFORM_CASE
             }
-
-            COUNTER_DECREASE(ctx, tdata->node);
         }
     }
 

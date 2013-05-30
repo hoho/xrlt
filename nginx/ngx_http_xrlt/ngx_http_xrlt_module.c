@@ -742,6 +742,7 @@ ngx_http_xrlt_transform_headers(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx)
     } else {
         part = &r->headers_out.headers.part;
     }
+
     header = part->elts;
 
     val.type = XRLT_TRANSFORM_VALUE_HEADER;
@@ -880,6 +881,41 @@ ngx_http_xrlt_filter_init(ngx_conf_t *cf)
 }
 
 
+
+static void
+ngx_http_xrlt_post_request_body(ngx_http_request_t *r)
+{
+    ngx_http_xrlt_ctx_t  *ctx;
+    ngx_chain_t          *cl;
+    ngx_int_t             rc;
+    xrltString            s;
+
+    if (r != r->main) { return; }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_xrlt_module);
+
+    dd("Post request body (r: %p)", r);
+
+    for (cl = r->request_body->bufs; cl; cl = cl->next) {
+        s.data = (char *)cl->buf->pos;
+        s.len = cl->buf->last - cl->buf->pos;
+
+        rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, cl->buf->last_buf);
+
+        if (rc == NGX_ERROR) {
+            ngx_http_finalize_request(r, NGX_ERROR);
+
+            return;
+        }
+
+        cl->buf->pos = cl->buf->last;
+        cl->buf->file_pos = cl->buf->file_last;
+    }
+
+    r->main->count--;
+}
+
+
 static ngx_int_t
 ngx_http_xrlt_handler(ngx_http_request_t *r) {
     ngx_http_xrlt_ctx_t  *ctx;
@@ -908,9 +944,19 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
         return NGX_OK;
     }
 
-    r->main->count++;
+    if (ctx->xctx->bodyData != NULL) {
+        rc = ngx_http_read_client_request_body(
+            r, ngx_http_xrlt_post_request_body
+        );
 
-    return rc == NGX_DONE ? NGX_OK : NGX_DONE;
+        if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+            return rc;
+        }
+    } else {
+        r->main->count++;
+    }
+
+    return NGX_DONE;
 }
 
 
