@@ -43,6 +43,9 @@ extern "C" {
 #define XRLT_ELEMENT_PATH           (const xmlChar *)"path"
 #define XRLT_ELEMENT_EXPIRES        (const xmlChar *)"expires"
 #define XRLT_ELEMENT_DOMAIN         (const xmlChar *)"domain"
+#define XRLT_ELEMENT_SECURE         (const xmlChar *)"secure"
+#define XRLT_ELEMENT_HTTPONLY       (const xmlChar *)"httponly"
+#define XRLT_ELEMENT_PERMANENT      (const xmlChar *)"permanent"
 
 #define XRLT_VALUE_YES              (const xmlChar *)"yes"
 #define XRLT_VALUE_NO               (const xmlChar *)"no"
@@ -366,6 +369,7 @@ xrltCompileCheckSubnodes(xrltRequestsheetPtr sheet, xmlNodePtr node,
                          const xmlChar *name1, const xmlChar *name2,
                          const xmlChar *name3, const xmlChar *name4,
                          const xmlChar *name5, const xmlChar *name6,
+                         const xmlChar *name7, const xmlChar *name8,
                          xrltBool *hasxrlt)
 {
     xmlNodePtr   tmp;
@@ -381,7 +385,9 @@ xrltCompileCheckSubnodes(xrltRequestsheetPtr sheet, xmlNodePtr node,
              (name3 != NULL && xmlStrEqual(name3, tmp->name)) ||
              (name4 != NULL && xmlStrEqual(name4, tmp->name)) ||
              (name5 != NULL && xmlStrEqual(name5, tmp->name)) ||
-             (name6 != NULL && xmlStrEqual(name6, tmp->name))))
+             (name6 != NULL && xmlStrEqual(name6, tmp->name)) ||
+             (name7 != NULL && xmlStrEqual(name7, tmp->name)) ||
+             (name8 != NULL && xmlStrEqual(name8, tmp->name))))
         {
             xrlt = TRUE;
         } else {
@@ -632,8 +638,12 @@ xrltTransformToBoolean(xrltContextPtr ctx, xmlNodePtr insert,
             return xrltSetBooleanResultByXPath(ctx, &val->xpathval, insert,
                                                ret);
 
-        case XRLT_VALUE_EMPTY:
         case XRLT_VALUE_INT:
+            *ret = val->intval ? TRUE : FALSE;
+
+            break;
+
+        case XRLT_VALUE_EMPTY:
             *ret = FALSE;
 
             break;

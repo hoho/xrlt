@@ -137,6 +137,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltResponseHeaderFree,
                                xrltResponseHeaderTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"redirect",
+                               XRLT_COMPILE_PASS1,
+                               xrltResponseHeaderCompile,
+                               xrltResponseHeaderFree,
+                               xrltResponseHeaderTransform);
+
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"header",
                                XRLT_COMPILE_PASS1,
                                xrltHeaderElementCompile,

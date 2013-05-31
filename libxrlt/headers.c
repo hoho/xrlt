@@ -21,6 +21,8 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         ret->type = XRLT_HEADER_OUT_COOKIE;
     } else if (xmlStrEqual(node->name, (const xmlChar *)"response-status")) {
         ret->type = XRLT_HEADER_OUT_STATUS;
+    } else if (xmlStrEqual(node->name, (const xmlChar *)"redirect")) {
+        ret->type = XRLT_HEADER_OUT_REDIRECT;
     } else {
         ret->type = XRLT_HEADER_OUT_HEADER;
     }
@@ -30,22 +32,28 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                                       XRLT_ELEMENT_NAME, XRLT_ELEMENT_VALUE,
                                       XRLT_ELEMENT_PATH, XRLT_ELEMENT_EXPIRES,
                                       XRLT_ELEMENT_DOMAIN, XRLT_ELEMENT_TEST,
-                                      &hasxrlt))
+                                      XRLT_ELEMENT_SECURE,
+                                      XRLT_ELEMENT_HTTPONLY, &hasxrlt))
         {
             goto error;
         }
     } else {
-        if (!xrltCompileCheckSubnodes(sheet, node, ret->type ==      \
-                                      XRLT_HEADER_OUT_STATUS ?  \
+        if (!xrltCompileCheckSubnodes(sheet, node,
+                                      ret->type == XRLT_HEADER_OUT_STATUS  || \
+                                      ret->type == XRLT_HEADER_OUT_REDIRECT ? \
                                       NULL : XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, XRLT_ELEMENT_TEST,
-                                      NULL, NULL, NULL, &hasxrlt))
+                                      ret->type == XRLT_HEADER_OUT_REDIRECT ? \
+                                      XRLT_ELEMENT_PERMANENT : NULL,
+                                      NULL, NULL, NULL, NULL, &hasxrlt))
         {
             goto error;
         }
     }
 
-    if (ret->type != XRLT_HEADER_OUT_STATUS) {
+    if (ret->type != XRLT_HEADER_OUT_STATUS &&
+        ret->type != XRLT_HEADER_OUT_REDIRECT)
+    {
         if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_NAME,
                               XRLT_ELEMENT_NAME, TRUE, &ret->name))
         {
@@ -91,6 +99,39 @@ xrltResponseHeaderCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         {
             goto error;
         }
+
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_SECURE,
+                              XRLT_ELEMENT_SECURE, TRUE, &ret->secure))
+        {
+            goto error;
+        }
+
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_HTTPONLY,
+                              XRLT_ELEMENT_HTTPONLY, TRUE, &ret->httponly))
+        {
+            goto error;
+        }
+    }
+
+    if (ret->type == XRLT_HEADER_OUT_REDIRECT) {
+        if (!xrltCompileValue(sheet, node, NULL, NULL, XRLT_ELEMENT_PERMANENT,
+                              XRLT_ELEMENT_PERMANENT, TRUE, &ret->permanent))
+        {
+            goto error;
+        }
+
+        if (ret->permanent.type == XRLT_VALUE_TEXT) {
+            ret->permanent.type = XRLT_VALUE_INT;
+
+            if (xmlStrEqual(ret->permanent.textval, XRLT_VALUE_YES)) {
+                ret->permanent.intval = TRUE;
+            } else {
+                ret->permanent.intval = FALSE;
+            }
+
+            xmlFree(ret->permanent.textval);
+            ret->permanent.textval = NULL;
+        }
     }
 
     ret->node = node;
@@ -115,6 +156,9 @@ xrltResponseHeaderFree(void *comp)
         CLEAR_XRLT_VALUE(ret->path);
         CLEAR_XRLT_VALUE(ret->domain);
         CLEAR_XRLT_VALUE(ret->expires);
+        CLEAR_XRLT_VALUE(ret->secure);
+        CLEAR_XRLT_VALUE(ret->httponly);
+        CLEAR_XRLT_VALUE(ret->permanent);
 
         xmlFree(ret);
     }
@@ -187,6 +231,15 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 TRANSFORM_TO_STRING(ctx, node, &hcomp->expires,
                                     &tdata->expires);
+                TRANSFORM_TO_BOOLEAN(ctx, node, &hcomp->secure,
+                                     &tdata->secure);
+                TRANSFORM_TO_BOOLEAN(ctx, node, &hcomp->httponly,
+                                     &tdata->httponly);
+            }
+
+            if (hcomp->type == XRLT_HEADER_OUT_REDIRECT) {
+                TRANSFORM_TO_BOOLEAN(ctx, node, &hcomp->permanent,
+                                     &tdata->permanent);
             }
         } else {
             tdata->stage = XRLT_RESPONSE_HEADER_TRANSFORM_TEST;
@@ -224,12 +277,19 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 if (hcomp->type == XRLT_HEADER_OUT_COOKIE) {
                     TRANSFORM_TO_STRING(ctx, insert, &hcomp->path,
                                         &tdata->path);
-
                     TRANSFORM_TO_STRING(ctx, insert, &hcomp->domain,
                                         &tdata->domain);
-
                     TRANSFORM_TO_STRING(ctx, insert, &hcomp->expires,
                                         &tdata->expires);
+                    TRANSFORM_TO_BOOLEAN(ctx, insert, &hcomp->secure,
+                                         &tdata->secure);
+                    TRANSFORM_TO_BOOLEAN(ctx, insert, &hcomp->httponly,
+                                         &tdata->httponly);
+                }
+
+                if (hcomp->type == XRLT_HEADER_OUT_REDIRECT) {
+                    TRANSFORM_TO_BOOLEAN(ctx, insert, &hcomp->permanent,
+                                         &tdata->permanent);
                 }
 
                 SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltResponseHeaderTransform,
@@ -251,8 +311,13 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         xrltString   name;
         xrltString   val;
 
-        name.len = tdata->name == NULL ? 0 : (size_t)xmlStrlen(tdata->name);
-        name.data = name.len > 0 ? (char *)tdata->name : NULL;
+        if (hcomp->type == XRLT_HEADER_OUT_REDIRECT) {
+            name.data = (char *)"Location";
+            name.len = 8;
+        } else {
+            name.len = tdata->name == NULL ? 0 : (size_t)xmlStrlen(tdata->name);
+            name.data = name.len > 0 ? (char *)tdata->name : NULL;
+        }
 
         val.len = (size_t)xmlStrlen(tdata->val);
         val.data = val.len > 0 ? (char *)tdata->val : NULL;
@@ -261,6 +326,20 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
 
             return FALSE;
+        }
+
+        if (hcomp->type == XRLT_HEADER_OUT_REDIRECT) {
+            memset(&name, 0, sizeof(xrltString));
+
+            val.data = (char *)(tdata->permanent ? "301" : "302");
+            val.len = 3;
+
+            if (!xrltHeaderOutListPush(&ctx->header, hcomp->type, &name, &val))
+            {
+                ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+
+                return FALSE;
+            }
         }
 
         ctx->cur |= XRLT_STATUS_HEADER;
@@ -300,7 +379,7 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     if (ret->type != XRLT_HEADER_OUT_STATUS) {
         if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, NULL, NULL, NULL,
-                                      NULL, &hasxrlt))
+                                      NULL, NULL, NULL, &hasxrlt))
         {
             goto error;
         }
@@ -448,6 +527,10 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             node = NULL;
 
                             break;
+                        case XRLT_HEADER_OUT_REDIRECT:
+                            xrltTransformError(ctx, NULL, hcomp->node,
+                                               "Unexpected type\n");
+                            return FALSE;
                     }
                 }
 

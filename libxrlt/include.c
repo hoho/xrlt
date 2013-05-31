@@ -66,14 +66,15 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     if (header) {
         if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, XRLT_ELEMENT_TEST,
-                                      NULL, NULL, NULL, &hasxrlt))
+                                      NULL, NULL, NULL, NULL, NULL, &hasxrlt))
         {
             goto error;
         }
     } else {
         if (!xrltCompileCheckSubnodes(sheet, node, XRLT_ELEMENT_NAME,
                                       XRLT_ELEMENT_VALUE, XRLT_ELEMENT_TEST,
-                                      XRLT_ELEMENT_BODY, NULL, NULL, &hasxrlt))
+                                      XRLT_ELEMENT_BODY, NULL, NULL, NULL,
+                                      NULL, &hasxrlt))
         {
             goto error;
         }
@@ -343,7 +344,8 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             {
                 if (!xrltCompileCheckSubnodes(sheet, tmp, XRLT_ELEMENT_TEST,
                                               XRLT_ELEMENT_VALUE, NULL, NULL,
-                                              NULL, NULL, &hasxrlt))
+                                              NULL, NULL, NULL, NULL,
+                                              &hasxrlt))
                 {
                     goto error;
                 }

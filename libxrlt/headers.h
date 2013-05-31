@@ -22,9 +22,14 @@ typedef struct {
     xrltCompiledValue   test;
     xrltCompiledValue   name;
     xrltCompiledValue   val;
-    xrltCompiledValue   path;
-    xrltCompiledValue   domain;
-    xrltCompiledValue   expires;
+
+    xrltCompiledValue   path;      // For cookies.
+    xrltCompiledValue   domain;    // For cookies.
+    xrltCompiledValue   expires;   // For cookies.
+    xrltCompiledValue   secure;    // For cookies.
+    xrltCompiledValue   httponly;  // For cookies.
+
+    xrltCompiledValue   permanent; // For redirects.
 } xrltResponseHeaderData;
 
 
@@ -55,6 +60,9 @@ typedef struct {
     xmlChar                           *path;
     xmlChar                           *domain;
     xmlChar                           *expires;
+    xrltBool                           secure;
+    xrltBool                           httponly;
+    xrltBool                           permanent;
 } xrltResponseHeaderTransformingData;
 
 

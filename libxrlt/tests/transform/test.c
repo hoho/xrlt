@@ -106,6 +106,13 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
             case XRLT_HEADER_OUT_HEADER:
                 sprintf(buf, "header: %s %s\n", n.data, v.data);
                 break;
+            case XRLT_HEADER_OUT_REDIRECT:
+                if (n.data == NULL) {
+                    sprintf(buf, "redirect: %s\n", v.data);
+                } else {
+                    sprintf(buf, "redirect: %s %s\n", n.data, v.data);
+                }
+                break;
         }
 
         xrltStringClear(&n);
@@ -191,6 +198,8 @@ dumpResult(xrltContextPtr ctx, int ret, char *out)
                     break;
                 case XRLT_HEADER_OUT_HEADER:
                     sprintf(buf, "sr header: %s: %s\n", n.data, v.data);
+                    break;
+                case XRLT_HEADER_OUT_REDIRECT:
                     break;
             }
             xrltStringClear(&n);

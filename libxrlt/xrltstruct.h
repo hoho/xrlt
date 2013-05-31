@@ -67,7 +67,8 @@ typedef enum {
 typedef enum {
     XRLT_HEADER_OUT_HEADER = 0,
     XRLT_HEADER_OUT_COOKIE,
-    XRLT_HEADER_OUT_STATUS
+    XRLT_HEADER_OUT_STATUS,
+    XRLT_HEADER_OUT_REDIRECT
 } xrltHeaderOutType;
 
 
