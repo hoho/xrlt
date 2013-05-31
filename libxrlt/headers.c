@@ -311,16 +311,92 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         xrltString   name;
         xrltString   val;
 
-        if (hcomp->type == XRLT_HEADER_OUT_REDIRECT) {
-            name.data = (char *)"Location";
-            name.len = 8;
-        } else {
-            name.len = tdata->name == NULL ? 0 : (size_t)xmlStrlen(tdata->name);
-            name.data = name.len > 0 ? (char *)tdata->name : NULL;
+        switch (hcomp->type) {
+            case XRLT_HEADER_OUT_HEADER:
+                name.len = \
+                    tdata->name == NULL ? 0 : (size_t)xmlStrlen(tdata->name);
+                name.data = name.len > 0 ? (char *)tdata->name : NULL;
+                break;
+
+            case XRLT_HEADER_OUT_COOKIE:
+                name.data = (char *)"Set-Cookie";
+                name.len = 10;
+                break;
+
+            case XRLT_HEADER_OUT_STATUS:
+                memset(&name, 0, sizeof(xrltString));
+                break;
+
+            case XRLT_HEADER_OUT_REDIRECT:
+                name.data = (char *)"Location";
+                name.len = 8;
+                break;
         }
 
-        val.len = (size_t)xmlStrlen(tdata->val);
-        val.data = val.len > 0 ? (char *)tdata->val : NULL;
+        if (hcomp->type == XRLT_HEADER_OUT_COOKIE) {
+            // TODO: Optimize and add expires support.
+
+            int       i = xmlStrlen(tdata->name);
+            int       j = xmlStrlen(tdata->val);
+            xmlChar  *tmp = (xmlChar *)xmlMalloc((size_t)(
+                i + j + xmlStrlen(tdata->path) + xmlStrlen(tdata->domain) +
+                (tdata->secure ? 8 : 0) + (tdata->httponly ? 10 : 0) + 40
+            ));
+
+            if (tmp == NULL) {
+                ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
+
+                return FALSE;
+            }
+
+            memcpy(tmp, tdata->name, (size_t)i);
+
+            tmp[i] = '=';
+
+            memcpy(tmp + i + 1, tdata->val, (size_t)j);
+
+            xmlFree(tdata->val);
+
+            tdata->val = tmp;
+
+            tmp += i + j + 1;
+
+            if (tdata->domain != NULL) {
+                memcpy(tmp, "; Domain=", 9);
+                tmp += 9;
+
+                i = xmlStrlen(tdata->domain);
+                memcpy(tmp, tdata->domain, (size_t)i);
+                tmp += i;
+            }
+
+            if (tdata->path != NULL) {
+                memcpy(tmp, "; Path=", 7);
+                tmp += 7;
+
+                i = xmlStrlen(tdata->path);
+                memcpy(tmp, tdata->path, (size_t)i);
+                tmp += i;
+            }
+
+            if (tdata->secure) {
+                memcpy(tmp, "; Secure", 8);
+                tmp += 8;
+            }
+
+            if (tdata->httponly) {
+                memcpy(tmp, "; HttpOnly", 10);
+                tmp += 10;
+            }
+
+            *tmp = '\0';
+
+            val.data = (char *)tdata->val;
+            val.len = tmp - tdata->val;
+        } else {
+            val.len = (size_t)xmlStrlen(tdata->val);
+            val.data = val.len > 0 ? (char *)tdata->val : NULL;
+        }
 
         if (!xrltHeaderOutListPush(&ctx->header, hcomp->type, &name, &val)) {
             ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
