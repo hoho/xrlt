@@ -71,12 +71,6 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltResponseFree,
                                xrltResponseTransform);
 
-    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"include",
-                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
-                               xrltIncludeCompile,
-                               xrltIncludeFree,
-                               xrltIncludeTransform);
-
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"querystring",
                                XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
                                xrltIncludeCompile,

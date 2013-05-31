@@ -307,8 +307,10 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
             val.type = XRLT_TRANSFORM_VALUE_QUERYSTRING;
         } else if (j == XRLT_TRANSFORM_VALUE_BODY) {
             val.type = XRLT_TRANSFORM_VALUE_BODY;
-        } else if (j == 0) {
+        } else if (j == 100) {
             val.type = XRLT_TRANSFORM_VALUE_EMPTY;
+        } else if (j == 0) {
+            val.type = XRLT_TRANSFORM_VALUE_ERROR;
         } else {
             xrltTestFailurePush((char *)"Unexpected 'type' value");
             TEST_FAILED;

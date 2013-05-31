@@ -9,6 +9,8 @@ chunk: FFF
 chunk: |
 chunk: DDD
 chunk: |
+chunk: 302
+chunk: |
 chunk: hello world
 chunk: |
 chunk: 123456

@@ -5,7 +5,7 @@
     <xrl:body name="b" type="json" />
 
     <xrl:response>
-        <xrl:header name="EEE" />|<xrl:cookie name="CCC" />
+        <xrl:header name="EEE" />|<xrl:cookie name="CCC" />|<xrl:status />
         <xrl:text>|</xrl:text>
         <xrl:value-of select="$qs" />|<xrl:value-of select="$b" />
     </xrl:response>

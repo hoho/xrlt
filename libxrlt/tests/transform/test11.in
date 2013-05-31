@@ -1,0 +1,6 @@
+id:0, type:400, last:0, error: 0, data:302
+id:0, type:500, last:0, error: 0, data:hello world
+id:0, type:600, last:1, error: 0, data:{"a": 123, "b": 456}
+id:0, type:100, last:0, error: 0, data:
+id:1, type:600, last:1, error: 0, data:text
+id:0, type:100, last:0, error: 0, data:

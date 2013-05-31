@@ -1,0 +1,33 @@
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /qtype
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
+sr type: JSON
+sr url: /btype
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: FFF
+chunk: |
+chunk: DDD
+chunk: |
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: hello world,hello world,hello world
+chunk: |
+chunk: 123456,123456
+XRLT_STATUS_DONE

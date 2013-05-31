@@ -43,7 +43,10 @@ transform:
                                        transform/test6.xrl transform/test6.in transform/test6.out \
                                        transform/test7.xrl transform/test7.in transform/test7.out \
                                        transform/test8.xrl transform/test8.in transform/test8.out \
-                                       transform/test9.xrl transform/test9.in transform/test9.out
+                                       transform/test9.xrl transform/test9.in transform/test9.out \
+                                       transform/test10.xrl transform/test10.in transform/test10.out \
+                                       transform/test11.xrl transform/test11.in transform/test11.out \
+                                       transform/test12.xrl transform/test12.in transform/test12.out
 
 .PHONY: transformjs
 transformjs:

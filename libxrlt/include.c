@@ -767,6 +767,7 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
     if (val == NULL || data == NULL) { return XRLT_PROCESS_INPUT_ERROR; }
 
     if (data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE &&
+        data->comp != NULL &&
         data->comp->includeType == XRLT_INCLUDE_TYPE_INCLUDE)
     {
         xrltTransformError(ctx, NULL, data->srcNode,
@@ -804,6 +805,13 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
             return XRLT_PROCESS_INPUT_AGAIN;
 
         case XRLT_TRANSFORM_VALUE_BODY:
+            if (data->comp != NULL &&
+                data->comp->includeType == XRLT_INCLUDE_TYPE_BODY &&
+                data->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE)
+            {
+                return XRLT_PROCESS_INPUT_AGAIN;
+            }
+
             return xrltProcessBody(ctx, &val->bodyval, data);
 
         case XRLT_TRANSFORM_VALUE_ERROR:
@@ -1449,15 +1457,15 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
 
             if (n->count > 0) {
                 COUNTER_DECREASE(ctx, node);
+            }
 
-                if (n->count > 0) {
-                    SCHEDULE_CALLBACK(
-                        ctx, &n->tcb, xrltRequestInputTransform, NULL,
-                        node, data
-                    );
+            if (n->count > 0) {
+                SCHEDULE_CALLBACK(
+                    ctx, &n->tcb, xrltRequestInputTransform, NULL,
+                    node, data
+                );
 
-                    return TRUE;
-                }
+                return TRUE;
             }
 
             // Type should be ready.
@@ -1502,6 +1510,7 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
         }
 
         if (tdata->stage != XRLT_INCLUDE_TRANSFORM_READ_RESPONSE &&
+            tdata->comp != NULL &&
             tdata->comp->includeType == XRLT_INCLUDE_TYPE_BODY)
         {
             if (ctx->bodyBuf == NULL) {
