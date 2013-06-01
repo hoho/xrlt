@@ -38,6 +38,7 @@ typedef struct {
     xrltHeaderOutType   type;
     xrltCompiledValue   name;
     xrltCompiledValue   val;
+    xrltBool            main;
 
 } xrltHeaderElementData;
 

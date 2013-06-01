@@ -26,6 +26,7 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_SELECT    (const xmlChar *)"select"
 #define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
 #define XRLT_ELEMENT_ATTR_ASYNC     (const xmlChar *)"async"
+#define XRLT_ELEMENT_ATTR_MAIN      (const xmlChar *)"main"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
 #define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"

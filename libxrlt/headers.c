@@ -441,6 +441,7 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
 {
     xrltHeaderElementData  *ret = NULL;
     xrltBool                hasxrlt;
+    xmlChar                *main;
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltHeaderElementData*,
                 sizeof(xrltHeaderElementData), NULL);
@@ -477,6 +478,16 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
                               XRLT_ELEMENT_VALUE, TRUE, &ret->val))
         {
             goto error;
+        }
+
+        main = xmlGetProp(node, XRLT_ELEMENT_ATTR_MAIN);
+
+        if (main != NULL) {
+            if (xmlStrEqual(main, XRLT_VALUE_YES)) {
+                ret->main = TRUE;
+            }
+
+            xmlFree(main);
         }
     }
 
@@ -571,18 +582,23 @@ xrltHeaderElementTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             case XRLT_HEADER_ELEMENT_TRANSFORM_NAME:
                 node = insert;
 
-                do {
-                    ASSERT_NODE_DATA(node, n);
-                    node = node->parent;
-                } while (node != NULL && n->sr == NULL);
+                if (hcomp->main) {
+                    sr = (xrltIncludeTransformingData *)ctx->headersData;
+                } else {
+                    do {
+                        ASSERT_NODE_DATA(node, n);
+                        node = node->parent;
+                    } while (node != NULL && n->sr == NULL);
 
-                if (n->sr == NULL) {
+                    sr = n->sr == NULL ?
+                        NULL : (xrltIncludeTransformingData *)n->sr;
+                }
+
+                if (sr == NULL) {
                     xrltTransformError(ctx, NULL, hcomp->node,
                                        "No request data\n");
                     return FALSE;
                 } else {
-                    sr = (xrltIncludeTransformingData *)n->sr;
-
                     switch (hcomp->type) {
                         case XRLT_HEADER_OUT_HEADER:
                             node = sr->hnode;
