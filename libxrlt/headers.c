@@ -410,7 +410,8 @@ xrltResponseHeaderTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             val.data = (char *)(tdata->permanent ? "301" : "302");
             val.len = 3;
 
-            if (!xrltHeaderOutListPush(&ctx->header, hcomp->type, &name, &val))
+            if (!xrltHeaderOutListPush(&ctx->header, XRLT_HEADER_OUT_STATUS,
+                                       &name, &val))
             {
                 ERROR_OUT_OF_MEMORY(ctx, NULL, hcomp->node);
 

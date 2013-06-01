@@ -29,6 +29,26 @@ typedef struct {
 
 
 typedef struct {
+    xrltCompiledValue   test;
+    xmlNodePtr          children;
+} xrltChooseCaseData;
+typedef struct {
+    xmlNodePtr           node;
+    xrltChooseCaseData  *cases;
+    int                  len;
+} xrltChooseData;
+
+
+typedef struct {
+    xmlNodePtr   node;
+    xmlNodePtr   testNode;
+    int          pos;
+    xrltBool     testRet;
+    xmlNodePtr   retNode;
+} xrltChooseTransformingData;
+
+
+typedef struct {
     xmlNodePtr          node;
     xrltCompiledValue   select;
 } xrltValueOfData;
@@ -73,6 +93,16 @@ void
         xrltIfFree                 (void *comp);
 xrltBool
         xrltIfTransform            (xrltContextPtr ctx, void *comp,
+                                    xmlNodePtr insert, void *data);
+
+
+void *
+        xrltChooseCompile          (xrltRequestsheetPtr sheet, xmlNodePtr node,
+                                    void *prevcomp);
+void
+        xrltChooseFree             (void *comp);
+xrltBool
+        xrltChooseTransform        (xrltContextPtr ctx, void *comp,
                                     xmlNodePtr insert, void *data);
 
 

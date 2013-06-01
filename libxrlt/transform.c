@@ -108,10 +108,16 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltLogTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"if",
-                               XRLT_COMPILE_PASS2,
+                               XRLT_COMPILE_PASS1,
                                xrltIfCompile,
                                xrltIfFree,
                                xrltIfTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"choose",
+                               XRLT_COMPILE_PASS1,
+                               xrltChooseCompile,
+                               xrltChooseFree,
+                               xrltChooseTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"value-of",
                                XRLT_COMPILE_PASS2,
