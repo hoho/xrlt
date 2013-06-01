@@ -1298,23 +1298,27 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         case XRLT_VALUE_EMPTY:
                             if (tdata->stage == XRLT_INCLUDE_TRANSFORM_SUCCESS)
                             {
-                                node = xmlDocCopyNodeList(tdata->rnode->doc,
-                                                          tdata->doc->children);
-                                if (node == NULL) {
-                                    ERROR_CREATE_NODE(
-                                        ctx, NULL, tdata->srcNode
+                                if (tdata->doc->children != NULL) {
+                                    node = xmlDocCopyNodeList(
+                                        tdata->rnode->doc, tdata->doc->children
                                     );
 
-                                    return FALSE;
-                                }
+                                    if (node == NULL) {
+                                        ERROR_CREATE_NODE(
+                                            ctx, NULL, tdata->srcNode
+                                        );
 
-                                if (xmlAddChildList(tdata->rnode, node) == NULL)
-                                {
-                                    ERROR_ADD_NODE(ctx, NULL, tdata->srcNode);
+                                        return FALSE;
+                                    }
 
-                                    xmlFreeNodeList(node);
+                                    if (xmlAddChildList(tdata->rnode, node) == NULL)
+                                    {
+                                        ERROR_ADD_NODE(ctx, NULL, tdata->srcNode);
 
-                                    return FALSE;
+                                        xmlFreeNodeList(node);
+
+                                        return FALSE;
+                                    }
                                 }
                             }
 
@@ -1536,7 +1540,7 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
             ctx->bodyBufComplete = tval->bodyval.last;
         }
         else if (tval->type == XRLT_TRANSFORM_VALUE_QUERYSTRING &&
-            tdata->stage == XRLT_INCLUDE_TRANSFORM_READ_RESPONSE)
+                 tdata->stage == XRLT_INCLUDE_TRANSFORM_READ_RESPONSE)
         {
             tmp.last = TRUE;
             memcpy(&tmp.val, &ctx->querystring, sizeof(xrltString));
