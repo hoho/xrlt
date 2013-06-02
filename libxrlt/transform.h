@@ -27,6 +27,7 @@ extern "C" {
 #define XRLT_ELEMENT_ATTR_TYPE      (const xmlChar *)"type"
 #define XRLT_ELEMENT_ATTR_ASYNC     (const xmlChar *)"async"
 #define XRLT_ELEMENT_ATTR_MAIN      (const xmlChar *)"main"
+#define XRLT_ELEMENT_ATTR_SRC       (const xmlChar *)"src"
 #define XRLT_ELEMENT_PARAM          (const xmlChar *)"param"
 #define XRLT_ELEMENT_HREF           (const xmlChar *)"href"
 #define XRLT_ELEMENT_METHOD         (const xmlChar *)"method"
@@ -782,6 +783,59 @@ xrltTransformByXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     if (s != NULL) { xmlFree(s); }
 
     return ret;
+}
+
+
+static inline xrltBool
+xrltTransformByCompiledValue(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
+                             void *data)
+{
+    xrltCompiledValue  *val = (xrltCompiledValue *)comp;
+    xmlNodePtr          node;
+
+    if (data == NULL) {
+        switch (val->type) {
+            case XRLT_VALUE_NODELIST:
+                COUNTER_INCREASE(ctx, insert);
+
+                TRANSFORM_SUBTREE(ctx, val->nodeval, insert);
+
+                SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltTransformByCompiledValue,
+                                  comp, insert, (void *)0x1);
+
+                break;
+
+            case XRLT_VALUE_XPATH:
+                TRANSFORM_XPATH_TO_NODE(ctx, &val->xpathval, insert);
+
+                break;
+
+            case XRLT_VALUE_TEXT:
+                node = xmlNewText(val->textval);
+
+                if (node == NULL) {
+                    ERROR_CREATE_NODE(ctx, NULL, NULL);
+
+                    return FALSE;
+                }
+
+                if (xmlAddChild(insert, node) == NULL) {
+                    ERROR_ADD_NODE(ctx, NULL, NULL);
+
+                    return FALSE;
+                }
+
+                break;
+
+            case XRLT_VALUE_EMPTY:
+            case XRLT_VALUE_INT:
+                break;
+        }
+    } else {
+        COUNTER_DECREASE(ctx, insert);
+    }
+
+    return TRUE;
 }
 
 

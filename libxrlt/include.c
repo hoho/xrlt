@@ -1311,9 +1311,12 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                         return FALSE;
                                     }
 
-                                    if (xmlAddChildList(tdata->rnode, node) == NULL)
+                                    if (xmlAddChildList(tdata->rnode,
+                                                                 node) == NULL)
                                     {
-                                        ERROR_ADD_NODE(ctx, NULL, tdata->srcNode);
+                                        ERROR_ADD_NODE(
+                                            ctx, NULL, tdata->srcNode
+                                        );
 
                                         xmlFreeNodeList(node);
 

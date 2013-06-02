@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <libxml/xpathInternals.h>
+#include <libxslt/transform.h>
 
 #include "xrlt.h"
 #include "transform.h"
@@ -121,6 +122,10 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 
     if (sheet->funcs != NULL) {
         xmlHashFree(sheet->funcs, NULL);
+    }
+
+    if (sheet->transforms != NULL) {
+        xmlHashFree(sheet->transforms, NULL);
     }
 
     if (sheet->doc != NULL) {
@@ -514,6 +519,8 @@ xrltCleanup(void)
 #ifndef __XRLT_NO_JAVASCRIPT__
     xrltJSFree();
 #endif
+    xsltCleanupGlobals();
+    xmlCleanupParser();
 }
 
 

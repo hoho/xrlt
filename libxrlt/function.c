@@ -4,6 +4,7 @@
 
 #include "transform.h"
 #include "function.h"
+#include <libxslt/xsltutils.h>
 
 
 static void
@@ -35,6 +36,9 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltVariableDataPtr   p;
     xrltVariableDataPtr  *newp;
     size_t                i;
+    xrltBool              isTransformation;
+    xmlHashTablePtr       table;
+    const char           *what;
 #ifndef __XRLT_NO_JAVASCRIPT__
     xmlNodePtr            tmp2;
     xmlBufferPtr          buf = NULL;
@@ -43,7 +47,15 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     XRLT_MALLOC(NULL, sheet, node, ret, xrltFunctionData*,
                 sizeof(xrltFunctionData), NULL);
 
-    if (sheet->funcs == NULL) {
+    if (xmlStrEqual(node->name, (const xmlChar *)"transformation")) {
+        isTransformation = TRUE;
+        what = "transformation";
+    } else {
+        isTransformation = FALSE;
+        what = "function";
+    }
+
+    if (!isTransformation && sheet->funcs == NULL) {
         sheet->funcs = xmlHashCreate(20);
 
         if (sheet->funcs == NULL) {
@@ -51,32 +63,61 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                                "Functions hash creation failed\n");
             goto error;
         }
+    } else if (isTransformation && sheet->transforms == NULL) {
+        sheet->transforms = xmlHashCreate(20);
+
+        if (sheet->transforms == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Transformations hash creation failed\n");
+            goto error;
+        }
     }
+
+    table = isTransformation ? sheet->transforms : sheet->funcs;
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
 
     if (xmlValidateNCName(ret->name, 0)) {
-        xrltTransformError(NULL, sheet, node, "Invalid function name\n");
+        xrltTransformError(NULL, sheet, node, "Invalid %s name\n", what);
         goto error;
     }
 
-
-#ifndef __XRLT_NO_JAVASCRIPT__
     t = xmlGetProp(node, XRLT_ELEMENT_ATTR_TYPE);
     if (t != NULL) {
         if (xmlStrcasecmp(t, (xmlChar *)"javascript") == 0) {
             ret->js = TRUE;
         }
+
+        // TODO: Throw an error for invalid type values.
+
+        if (isTransformation) {
+            if (xmlStrcasecmp(t, (xmlChar *)"xslt-stringify") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_XSLT_STRINGIFY;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"xslt") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_XSLT;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"json-stringify") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_JSON_STRINGIFY;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"json-parse") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_JSON_PARSE;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"xml-stringify") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_XML_STRINGIFY;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"xml-parse") == 0) {
+                ret->transformation = XRLT_TRANSFORMATION_XML_PARSE;
+            } else {
+                ret->transformation = XRLT_TRANSFORMATION_CUSTOM;
+            }
+        } else {
+            ret->transformation = XRLT_TRANSFORMATION_FUNCTION;
+        }
+
         xmlFree(t);
     }
-#endif
 
     // We keep the last function declaration as a function.
-    xmlHashRemoveEntry3(sheet->funcs, ret->name, NULL, NULL,
-                        xrltFunctionRemove);
+    xmlHashRemoveEntry3(table, ret->name, NULL, NULL, xrltFunctionRemove);
 
-    if (xmlHashAddEntry3(sheet->funcs, ret->name, NULL, NULL, ret)) {
-        xrltTransformError(NULL, sheet, node, "Failed to add function\n");
+    if (xmlHashAddEntry3(table, ret->name, NULL, NULL, ret)) {
+        xrltTransformError(NULL, sheet, node, "Failed to add %s\n", what);
         goto error;
     }
 
@@ -115,6 +156,15 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             xmlFree(t);
         } else {
             p->sync = TRUE;
+        }
+
+        if ((ret->transformation == XRLT_TRANSFORMATION_XSLT_STRINGIFY ||
+             ret->transformation == XRLT_TRANSFORMATION_XSLT) && !p->sync)
+        {
+            xrltTransformError(NULL, sheet, p->node,
+                               "XSLT transformations can't have async "
+                               "params\n");
+            goto error;
         }
 
         tmp = tmp->next;
@@ -181,6 +231,36 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
     ret->node = node;
 
+    if (ret->children != NULL &&
+        ret->transformation != XRLT_TRANSFORMATION_FUNCTION &&
+        ret->transformation != XRLT_TRANSFORMATION_CUSTOM)
+    {
+        ERROR_UNEXPECTED_ELEMENT(NULL, sheet, ret->children);
+        goto error;
+    }
+
+    if (ret->transformation == XRLT_TRANSFORMATION_XSLT_STRINGIFY ||
+        ret->transformation == XRLT_TRANSFORMATION_XSLT)
+    {
+        t = xmlGetProp(node, XRLT_ELEMENT_ATTR_SRC);
+        if (t == NULL) {
+            xrltTransformError(NULL, sheet, node, "No 'src' attrubute\n");
+            goto error;
+        }
+
+        ret->xslt = xsltParseStylesheetFile(t);
+
+        if (ret->xslt == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to load '%s' stylesheet\n", t);
+            xmlFree(t);
+
+            goto error;
+        }
+
+        xmlFree(t);
+    }
+
     return ret;
 
   error:
@@ -207,6 +287,10 @@ xrltFunctionFree(void *comp)
             xmlFree(f->param);
         }
 
+        if (f->xslt != NULL) {
+            xsltFreeStylesheet(f->xslt);
+        }
+
         xmlFree(comp);
     }
 }
@@ -222,10 +306,17 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltVariableDataPtr  *newp;
     size_t                i, j;
     int                   k;
+    const char           *what, *what2;
 
     if (prevcomp == NULL) {
         XRLT_MALLOC(NULL, sheet, node, ret, xrltApplyData*,
                     sizeof(xrltApplyData), NULL);
+
+        if (xmlStrEqual(node->name, (const xmlChar *)"transform")) {
+            ret->transform = TRUE;
+        } else {
+            ret->transform = FALSE;
+        }
 
         tmp = node->children;
 
@@ -276,27 +367,47 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
         }
 
-        if (tmp != NULL) {
+        if (ret->transform) {
+            ret->children = tmp;
+
+            if (!xrltCompileValue(sheet, node, tmp, XRLT_ELEMENT_ATTR_SELECT,
+                                  NULL, NULL, FALSE, &ret->self))
+            {
+                goto error;
+            }
+        } else if (tmp != NULL) {
             ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
             goto error;
         }
     } else {
         ret = (xrltApplyData *)prevcomp;
 
+        if (ret->transform) {
+            what = "transformation";
+            what2 = "Transformation";
+        } else {
+            what = "function";
+            what2 = "Function";
+        }
+
         name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
 
         if (xmlValidateNCName(name, 0)) {
             if (name != NULL) { xmlFree(name); }
-            xrltTransformError(NULL, sheet, node, "Invalid function name\n");
+            xrltTransformError(NULL, sheet, node, "Invalid %s name\n", what);
             return NULL;
         }
 
-        ret->func = (xrltFunctionData *)xmlHashLookup3(sheet->funcs, name,
-                                                       NULL, NULL);
+        ret->func = (xrltFunctionData *)xmlHashLookup3(
+            ret->transform ? sheet->transforms : sheet->funcs, name, NULL, NULL
+        );
+
         xmlFree(name);
 
         if (ret->func == NULL) {
-            xrltTransformError(NULL, sheet, node, "Function is not declared\n");
+            xrltTransformError(
+                NULL, sheet, node, "%s is not declared\n", what2
+            );
             return NULL;
         }
 
@@ -406,6 +517,8 @@ xrltApplyFree(void *comp)
             xmlFree(a->merged);
         }
 
+        CLEAR_XRLT_VALUE(a->self);
+
         xmlFree(comp);
     }
 }
@@ -436,6 +549,74 @@ xrltApplyTransformingFree(void *data)
 
         xmlFree(tdata);
     }
+}
+
+
+static inline xrltBool
+xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
+                  xmlDocPtr doc, xrltBool tostr, xmlNodePtr insert)
+{
+    xmlDocPtr    res = NULL;
+    xmlChar     *ret;
+    int          len;
+    xmlNodePtr   node;
+
+    res = xsltApplyStylesheet(style, doc, NULL);
+
+    if (res == NULL) {
+        xrltTransformError(ctx, NULL, src,
+                           "XSLT transformation failed\n");
+        goto error;
+    }
+
+    if (tostr) {
+        if (xsltSaveResultToString(&ret, &len, res, style) == 0) {
+            node = xmlNewTextLen(ret, len);
+
+            xmlFree(ret);
+
+            if (node == NULL) {
+                ERROR_CREATE_NODE(ctx, NULL, src);
+
+                goto error;
+            }
+
+            if (xmlAddChild(insert, node) == NULL) {
+                ERROR_ADD_NODE(ctx, NULL, src);
+
+                goto error;
+            }
+        } else {
+            xrltTransformError(ctx, NULL, src,
+                               "Failed to stringify XSLT result\n");
+            goto error;
+        }
+    } else if (res->children != NULL) {
+        node = xmlDocCopyNodeList(insert->doc, res->children);
+
+        if (node == NULL) {
+            ERROR_CREATE_NODE(ctx, NULL, src);
+
+            goto error;
+        }
+
+        if (xmlAddChildList(insert, node) == NULL) {
+            ERROR_ADD_NODE(ctx, NULL, src);
+
+            xmlFreeNodeList(node);
+
+            goto error;
+        }
+    }
+
+    xmlFreeDoc(res);
+
+    return TRUE;
+
+  error:
+    if (res != NULL) { xmlFreeDoc(res); }
+
+    return FALSE;
 }
 
 
@@ -489,7 +670,29 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
         COUNTER_INCREASE(ctx, tdata->node);
 
-        if (!acomp->hasSyncParam && !acomp->func->js) {
+        if (acomp->func->transformation != XRLT_TRANSFORMATION_FUNCTION) {
+            tdata->self = xmlNewDoc(NULL);
+
+            if (tdata->self == NULL) {
+                ERROR_CREATE_NODE(ctx, NULL, acomp->node);
+
+                return FALSE;
+            }
+
+            if (xmlAddChild(ctx->var, (xmlNodePtr)tdata->self) == NULL) {
+                ERROR_ADD_NODE(ctx, NULL, acomp->node);
+
+                xmlFreeDoc(tdata->self);
+
+                return FALSE;
+            }
+
+            if (!xrltTransformByCompiledValue(ctx, &acomp->self,
+                                              (xmlNodePtr)tdata->self, NULL))
+            {
+                return FALSE;
+            }
+        } else if (!acomp->hasSyncParam && !acomp->func->js) {
             TRANSFORM_SUBTREE(ctx, acomp->func->children, tdata->retNode);
         }
 
@@ -499,6 +702,16 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         tdata = (xrltApplyTransformingData *)data;
 
         if (!tdata->finalize) {
+            if (tdata->self != NULL) {
+                ASSERT_NODE_DATA(tdata->self, n);
+
+                if (n->count > 0) {
+                    SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
+                                      insert, tdata);
+                    return TRUE;
+                }
+            }
+
             if (tdata->paramNode != NULL) {
                 ASSERT_NODE_DATA(tdata->paramNode, n);
 
@@ -529,8 +742,45 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 tdata->paramNode = NULL;
 
                 if (!acomp->func->js) {
-                    TRANSFORM_SUBTREE(ctx, acomp->func->children,
-                                      tdata->retNode);
+                    switch (acomp->func->transformation) {
+                        case XRLT_TRANSFORMATION_FUNCTION:
+                        case XRLT_TRANSFORMATION_CUSTOM:
+                            ASSERT_NODE_DATA(tdata->retNode, n);
+
+                            n->root = tdata->self;
+
+                            TRANSFORM_SUBTREE(ctx, acomp->func->children,
+                                              tdata->retNode);
+                            break;
+
+                        case XRLT_TRANSFORMATION_XSLT_STRINGIFY:
+                            if (!xrltXSLTTransform(ctx, acomp->node,
+                                                   acomp->func->xslt,
+                                                   tdata->self, TRUE,
+                                                   tdata->retNode))
+                            {
+                                return FALSE;
+                            }
+
+                            break;
+
+                        case XRLT_TRANSFORMATION_XSLT:
+                            if (!xrltXSLTTransform(ctx, acomp->node,
+                                                   acomp->func->xslt,
+                                                   tdata->self, FALSE,
+                                                   tdata->retNode))
+                            {
+                                return FALSE;
+                            }
+
+                            break;
+
+                        case XRLT_TRANSFORMATION_JSON_STRINGIFY:
+                        case XRLT_TRANSFORMATION_JSON_PARSE:
+                        case XRLT_TRANSFORMATION_XML_STRINGIFY:
+                        case XRLT_TRANSFORMATION_XML_PARSE:
+                            break;
+                    }
 
                     SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp,
                                       insert, tdata);

@@ -179,6 +179,18 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltApplyFree,
                                xrltApplyTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"transformation",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltFunctionCompile,
+                               xrltFunctionFree,
+                               xrltEmptyTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"transform",
+                               XRLT_COMPILE_PASS1 | XRLT_COMPILE_PASS2,
+                               xrltApplyCompile,
+                               xrltApplyFree,
+                               xrltApplyTransform);
+
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"text",
                                XRLT_COMPILE_PASS1,
                                xrltTextCompile,
