@@ -712,34 +712,36 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 }
             }
 
-            if (tdata->paramNode != NULL) {
-                ASSERT_NODE_DATA(tdata->paramNode, n);
+            if (tdata->paramNode != NULL || tdata->self != NULL) {
+                if (tdata->paramNode != NULL) {
+                    ASSERT_NODE_DATA(tdata->paramNode, n);
 
-                if (n->count > 0) {
-                    SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform, comp,
-                                      insert, tdata);
-                    return TRUE;
-                }
-
-                node = tdata->paramNode->children;
-
-                while (node != NULL) {
-                    tmp = node->next;
-
-                    xmlUnlinkNode(node);
-
-                    if (!xmlAddChild(ctx->var, node)) {
-                        ERROR_ADD_NODE(ctx, NULL, acomp->node);
-
-                        xmlFreeDoc((xmlDocPtr)node);
-
-                        return FALSE;
+                    if (n->count > 0) {
+                        SCHEDULE_CALLBACK(ctx, &n->tcb, xrltApplyTransform,
+                                          comp, insert, tdata);
+                        return TRUE;
                     }
 
-                    node = tmp;
-                }
+                    node = tdata->paramNode->children;
 
-                tdata->paramNode = NULL;
+                    while (node != NULL) {
+                        tmp = node->next;
+
+                        xmlUnlinkNode(node);
+
+                        if (!xmlAddChild(ctx->var, node)) {
+                            ERROR_ADD_NODE(ctx, NULL, acomp->node);
+
+                            xmlFreeDoc((xmlDocPtr)node);
+
+                            return FALSE;
+                        }
+
+                        node = tmp;
+                    }
+
+                    tdata->paramNode = NULL;
+                }
 
                 if (!acomp->func->js) {
                     switch (acomp->func->transformation) {
@@ -781,6 +783,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                         case XRLT_TRANSFORMATION_XML_PARSE:
                             break;
                     }
+
+                    tdata->self = NULL;
 
                     SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp,
                                       insert, tdata);
