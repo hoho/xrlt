@@ -4,6 +4,7 @@
 
 #include "transform.h"
 #include "function.h"
+#include <libxml/uri.h>
 #include <libxslt/xsltutils.h>
 
 
@@ -32,7 +33,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltFunctionData     *ret = NULL;
     xmlNodePtr            tmp;
-    xmlChar              *t;
+    xmlChar              *t = NULL, *base = NULL, *URI = NULL;
     xrltVariableDataPtr   p;
     xrltVariableDataPtr  *newp;
     size_t                i;
@@ -111,6 +112,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         xmlFree(t);
+        t = NULL;
     }
 
     // We keep the last function declaration as a function.
@@ -154,6 +156,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             p->sync = \
                 xmlStrcasecmp(t, (const xmlChar *)"yes") == 0 ? FALSE : TRUE;
             xmlFree(t);
+            t = NULL;
         } else {
             p->sync = TRUE;
         }
@@ -244,26 +247,42 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     {
         t = xmlGetProp(node, XRLT_ELEMENT_ATTR_SRC);
         if (t == NULL) {
-            xrltTransformError(NULL, sheet, node, "No 'src' attrubute\n");
+            xrltTransformError(NULL, sheet, node,
+                               "%s: No 'src' attrubute\n", __func__);
             goto error;
         }
 
-        ret->xslt = xsltParseStylesheetFile(t);
+        base = xmlNodeGetBase(node->doc, node);
+        URI = xmlBuildURI(t, base);
 
-        if (ret->xslt == NULL) {
+        xmlFree(base);
+
+        if (URI == NULL) {
             xrltTransformError(NULL, sheet, node,
-                               "Failed to load '%s' stylesheet\n", t);
-            xmlFree(t);
-
+                               "Invalid URI reference %s\n", t);
             goto error;
         }
 
         xmlFree(t);
+        t = NULL;
+
+        ret->xslt = xsltParseStylesheetFile(URI);
+
+        if (ret->xslt == NULL) {
+            xrltTransformError(NULL, sheet, node,
+                               "Failed to load '%s' stylesheet\n", URI);
+            goto error;
+        }
+
+        xmlFree(URI);
+        URI = NULL;
     }
 
     return ret;
 
   error:
+    if (t != NULL) { xmlFree(t); }
+    if (URI != NULL) { xmlFree(URI); }
     xrltFunctionFree(ret);
 
     return NULL;
@@ -275,6 +294,7 @@ xrltFunctionFree(void *comp)
 {
     if (comp != NULL) {
         xrltFunctionData  *f = (xrltFunctionData *)comp;
+        xrltNodeDataPtr    n;
         size_t             i;
 
         if (f->name != NULL) { xmlFree(f->name); }
@@ -289,6 +309,11 @@ xrltFunctionFree(void *comp)
 
         if (f->xslt != NULL) {
             xsltFreeStylesheet(f->xslt);
+        }
+
+        if (f->node && f->node->_private) {
+            n = (xrltNodeDataPtr)f->node->_private;
+            n->data = NULL;
         }
 
         xmlFree(comp);

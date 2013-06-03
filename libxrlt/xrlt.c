@@ -9,6 +9,7 @@
 #include "xrlt.h"
 #include "transform.h"
 #include "include.h"
+#include "import.h"
 
 #ifndef __XRLT_NO_JAVASCRIPT__
     #include "js.h"
@@ -89,6 +90,12 @@ xrltRequestsheetCreate(xmlDocPtr doc)
 
         goto error;
     }
+
+    if (!xrltProcessImports(ret, root, 1)) {
+        goto error;
+    }
+
+    xmlReconciliateNs(doc, root);
 
     xrltRemoveBlankNodesAndComments(root);
 

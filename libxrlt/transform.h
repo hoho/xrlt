@@ -447,14 +447,14 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
 
     if (sel != NULL && vNode != NULL) {
         xrltTransformError(NULL, sheet, node,
-                           "Either '%s' attribute or '%s' element is allowed",
+                           "Either '%s' attribute or '%s' element is allowed\n",
                            xpathAttrName, valNodeName);
         goto error;
     }
 
     if (v != NULL && vNode != NULL) {
         xrltTransformError(NULL, sheet, node,
-                           "Either '%s' attribute or '%s' element is allowed",
+                           "Either '%s' attribute or '%s' element is allowed\n",
                            valAttrName, valNodeName);
         goto error;
     }
@@ -462,27 +462,27 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
     if (sel != NULL && v != NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Either '%s' attribute or '%s' attribute is "
-                           "allowed", valAttrName, xpathAttrName);
+                           "allowed\n", valAttrName, xpathAttrName);
         goto error;
     }
 
     if (sel != NULL && tmp != NULL) {
         xrltTransformError(NULL, sheet, node,
-                           "Either '%s' attribute or content is allowed",
+                           "Either '%s' attribute or content is allowed\n",
                             xpathAttrName);
         goto error;
     }
 
     if (v != NULL && tmp != NULL) {
         xrltTransformError(NULL, sheet, node,
-                           "Either '%s' attribute or content is allowed",
+                           "Either '%s' attribute or content is allowed\n",
                            valAttrName);
         goto error;
     }
 
     if (vsel != NULL && tmp != NULL) {
         xrltTransformError(NULL, sheet, vNode,
-                           "Either '%s' attribute or content is allowed",
+                           "Either '%s' attribute or content is allowed\n",
                            XRLT_ELEMENT_ATTR_SELECT);
         goto error;
     }
@@ -493,7 +493,7 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
         val->xpathval.expr = xmlXPathCompile(sel);
         if (val->xpathval.expr == NULL) {
             xrltTransformError(NULL, sheet, node,
-                               "Failed to compile '%s' expression",
+                               "Failed to compile '%s' expression\n",
                                xpathAttrName);
             goto error;
         }
@@ -505,7 +505,7 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
         val->xpathval.expr = xmlXPathCompile(vsel);
         if (val->xpathval.expr == NULL) {
             xrltTransformError(NULL, sheet, vNode,
-                               "Failed to compile '%s' expression",
+                               "Failed to compile '%s' expression\n",
                                XRLT_ELEMENT_ATTR_SELECT);
             goto error;
         }

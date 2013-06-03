@@ -34,7 +34,7 @@ compile:
 
 .PHONY: transform
 transform:
-	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
+	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../import.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
 	@$(VALGRIND) .build/transform_test transform/test1.xrl transform/test1.in transform/test1.out \
                                        transform/test2.xrl transform/test2.in transform/test2.out \
                                        transform/test3.xrl transform/test3.in transform/test3.out \
@@ -47,7 +47,8 @@ transform:
                                        transform/test10.xrl transform/test10.in transform/test10.out \
                                        transform/test11.xrl transform/test11.in transform/test11.out \
                                        transform/test12.xrl transform/test12.in transform/test12.out \
-                                       transform/test13.xrl transform/test13.in transform/test13.out
+                                       transform/test13.xrl transform/test13.in transform/test13.out \
+                                       transform/test14.xrl transform/test14.in transform/test14.out
 
 .PHONY: transformjs
 transformjs:

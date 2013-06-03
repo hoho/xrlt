@@ -469,7 +469,7 @@ xrltHeaderElementCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
         }
 
         if (ret->name.type == XRLT_VALUE_EMPTY) {
-            xrltTransformError(NULL, sheet, node, "No name");
+            xrltTransformError(NULL, sheet, node, "No name\n");
             goto error;
         }
 

@@ -302,7 +302,7 @@ xrltChooseCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xrltNodeDataPtr      n;
 
     if (node->children == NULL) {
-        xrltTransformError(NULL, sheet, node, "Element is empty");
+        xrltTransformError(NULL, sheet, node, "Element is empty\n");
     }
 
     i = 0;

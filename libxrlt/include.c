@@ -110,7 +110,8 @@ xrltIncludeParamCompile(xrltRequestsheetPtr sheet, xmlNodePtr node,
     if (ret->name.type == XRLT_VALUE_EMPTY &&
         ret->val.type == XRLT_VALUE_EMPTY)
     {
-        xrltTransformError(NULL, sheet, node, "Element has no name and value");
+        xrltTransformError(NULL, sheet, node,
+                           "Element has no name and value\n");
         goto error;
     }
 
@@ -1527,7 +1528,7 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
 
                 if (ctx->bodyBuf == NULL) {
                     xrltTransformError(ctx, NULL, tdata->srcNode,
-                                       "Failed to create body buffer");
+                                       "Failed to create body buffer\n");
                     return FALSE;
                 }
             }
@@ -1536,7 +1537,7 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
                              tval->bodyval.val.len) != 0)
             {
                 xrltTransformError(ctx, NULL, tdata->srcNode,
-                                   "Failed to add body to buffer");
+                                   "Failed to add body to buffer\n");
                 return FALSE;
             }
 
