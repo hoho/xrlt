@@ -5,7 +5,11 @@
 #include <libxml/tree.h>
 
 #include "transform.h"
-#include "builtins.h"
+#include "response.h"
+#include "if.h"
+#include "log.h"
+#include "choose.h"
+#include "valueof.h"
 #include "include.h"
 #include "variable.h"
 #include "headers.h"
@@ -190,12 +194,6 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltApplyCompile,
                                xrltApplyFree,
                                xrltApplyTransform);
-
-    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"text",
-                               XRLT_COMPILE_PASS1,
-                               xrltTextCompile,
-                               xrltTextFree,
-                               xrltTextTransform);
 
     if (!ret) {
         xrltUnregisterBuiltinElements();
@@ -469,8 +467,7 @@ xrltBool
 xrltHasXRLTElement(xmlNodePtr node)
 {
     while (node != NULL) {
-        if ((node->ns != NULL && xmlStrEqual(node->ns->href, XRLT_NS)) ||
-            xrltHasXRLTElement(node->children))
+        if (xrltIsXRLTNamespace(node) || xrltHasXRLTElement(node->children))
         {
             return TRUE;
         }

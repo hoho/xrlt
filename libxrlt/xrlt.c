@@ -16,21 +16,79 @@
 #endif
 
 
-static inline void
-xrltRemoveBlankNodesAndComments(xmlNodePtr first) {
-    xmlNodePtr   tmp;
+static xrltBool
+xrltRemoveBlankNodesAndComments(xrltRequestsheetPtr sheet, xmlNodePtr first,
+                                xrltBool inResponse) {
+    xmlNodePtr   tmp, tmp2, tmp3, textNode;
+    xrltBool     isResponse;
 
     while (first != NULL) {
+        isResponse = FALSE;
+
+        if (xrltIsXRLTNamespace(first)) {
+            if (inResponse &&
+                xmlStrEqual(first->name, (const xmlChar *)"text"))
+            {
+                tmp = first->children;
+
+                while (tmp != NULL) {
+                    if (tmp->type != XML_TEXT_NODE &&
+                        tmp->type != XML_CDATA_SECTION_NODE)
+                    {
+                        ERROR_UNEXPECTED_ELEMENT(NULL, sheet, tmp);
+                        return FALSE;
+                    }
+
+                    tmp = tmp->next;
+                }
+
+                textNode = first;
+                tmp = first;
+                tmp2 = tmp->children;
+
+                first = first->next;
+
+                while (tmp2 != NULL) {
+                    tmp3 = tmp2->next;
+
+                    tmp = xmlAddNextSibling(tmp, tmp2);
+
+                    if (tmp == NULL) {
+                        ERROR_ADD_NODE(NULL, sheet, tmp2);
+                        return FALSE;
+                    }
+
+                    tmp2 = tmp3;
+                }
+
+                xmlUnlinkNode(textNode);
+                xmlFreeNode(textNode);
+
+                continue;
+            }
+
+            if (xmlStrEqual(first->name, (const xmlChar *)"response")) {
+                isResponse = TRUE;
+            }
+        }
+
         if (xmlIsBlankNode(first) || first->type == XML_COMMENT_NODE) {
             tmp = first->next;
             xmlUnlinkNode(first);
             xmlFreeNode(first);
             first = tmp;
         } else {
-            xrltRemoveBlankNodesAndComments(first->children);
+            if (!xrltRemoveBlankNodesAndComments(sheet, first->children,
+                                                 inResponse || isResponse))
+            {
+                return FALSE;
+            }
+
             first = first->next;
         }
     }
+
+    return TRUE;
 }
 
 
@@ -97,7 +155,9 @@ xrltRequestsheetCreate(xmlDocPtr doc)
 
     xmlReconciliateNs(doc, root);
 
-    xrltRemoveBlankNodesAndComments(root);
+    if (!xrltRemoveBlankNodesAndComments(ret, root, FALSE)) {
+        goto error;
+    }
 
     ret->pass = XRLT_PASS1;
     if (!xrltElementCompile(ret, root->children)) {

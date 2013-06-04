@@ -100,7 +100,7 @@ xrltProcessImports(xrltRequestsheetPtr sheet, xmlNodePtr node, int level)
     node = node->children;
 
     while (node != NULL) {
-        if (node->ns != NULL && xmlStrEqual(node->ns->href, XRLT_NS) &&
+        if (xrltIsXRLTNamespace(node) &&
             xmlStrEqual(node->name, (const xmlChar *)"import"))
         {
             tmp = node->next;

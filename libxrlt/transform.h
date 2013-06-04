@@ -235,6 +235,19 @@ xmlXPathObjectPtr
 
 
 static inline xrltBool
+xrltIsXRLTNamespace(xmlNodePtr node)
+{
+    if (node != NULL && node->ns != NULL &&
+        xmlStrEqual(node->ns->href, XRLT_NS))
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+
+static inline xrltBool
 xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
                                xmlNodePtr insert, size_t varScope, void *data)
@@ -381,7 +394,7 @@ xrltCompileCheckSubnodes(xrltRequestsheetPtr sheet, xmlNodePtr node,
     tmp = node->children;
 
     while (tmp != NULL) {
-        if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS) &&
+        if (xrltIsXRLTNamespace(tmp) &&
             ((name1 != NULL && xmlStrEqual(name1, tmp->name)) ||
              (name2 != NULL && xmlStrEqual(name2, tmp->name)) ||
              (name3 != NULL && xmlStrEqual(name3, tmp->name)) ||
@@ -425,8 +438,7 @@ xrltCompileValue(xrltRequestsheetPtr sheet, xmlNodePtr node,
         tmp = node->children;
 
         while (tmp != NULL) {
-            if (tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS) &&
-                xmlStrEqual(tmp->name, valNodeName))
+            if (xrltIsXRLTNamespace(tmp) && xmlStrEqual(tmp->name, valNodeName))
             {
                 if (vNode == NULL) {
                     vNode = tmp;

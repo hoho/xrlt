@@ -34,7 +34,9 @@ compile:
 
 .PHONY: transform
 transform:
-	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../import.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
+	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
+		../xrlt.c ../json2xml.c ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
+		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
 	@$(VALGRIND) .build/transform_test transform/test1.xrl transform/test1.in transform/test1.out \
                                        transform/test2.xrl transform/test2.in transform/test2.out \
                                        transform/test3.xrl transform/test3.in transform/test3.out \

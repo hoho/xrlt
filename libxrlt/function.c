@@ -126,7 +126,7 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     tmp = node->children;
 
     while (tmp != NULL && xmlStrEqual(tmp->name, XRLT_ELEMENT_PARAM) &&
-           tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS))
+           xrltIsXRLTNamespace(tmp))
     {
         p = (xrltVariableDataPtr)xrltVariableCompile(sheet, tmp, NULL);
 
@@ -346,7 +346,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         tmp = node->children;
 
         while (tmp != NULL && xmlStrEqual(tmp->name, XRLT_ELEMENT_WITH_PARAM)
-               && tmp->ns != NULL && xmlStrEqual(tmp->ns->href, XRLT_NS))
+               && xrltIsXRLTNamespace(tmp))
         {
             p = (xrltVariableDataPtr)xrltVariableCompile(sheet, tmp, NULL);
 
