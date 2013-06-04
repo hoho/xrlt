@@ -22,11 +22,15 @@ xrltIfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         goto error;
     }
 
-    ret->test.src = node;
-    ret->test.scope = node->parent;
-    ret->test.expr = xmlXPathCompile(expr);
+    ret->node = node;
 
-    if (ret->test.expr == NULL) {
+    ret->test.xpathval.expr = xmlXPathCompile(expr);
+    ret->test.type = XRLT_VALUE_XPATH;
+
+    ret->test.xpathval.src = node;
+    ret->test.xpathval.scope = node->parent;
+
+    if (ret->test.xpathval.expr == NULL) {
         xrltTransformError(NULL, sheet, node,
                            "Failed to compile expression\n");
         goto error;
@@ -50,14 +54,55 @@ void
 xrltIfFree(void *comp)
 {
     if (comp != NULL) {
-        xmlXPathFreeCompExpr(((xrltIfData *)comp)->test.expr);
+        xmlXPathFreeCompExpr(((xrltIfData *)comp)->test.xpathval.expr);
         xmlFree(comp);
     }
 }
 
 
-xrltBool
-xrltIfTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert, void *data)
+static void xrltIfTransformingFree(void *data)
 {
-    return TRUE;
+    if (data != NULL) {
+        xmlFree(data);
+    }
 }
+
+
+DEFINE_TRANSFORM_FUNCTION(
+    xrltIfTransform,
+    xrltIfData*,
+    xrltIfTransformingData*,
+    sizeof(xrltIfTransformingData),
+    xrltIfTransformingFree,
+    ;,
+    {
+        NEW_CHILD(ctx, tdata->testNode, tdata->node, "t");
+
+        TRANSFORM_TO_BOOLEAN(ctx, tdata->testNode, &tcomp->test, &tdata->test);
+    },
+    {
+        if (tdata->testNode != NULL) {
+            WAIT_FOR_NODE(ctx, tdata->testNode, xrltIfTransform,
+                          comp, insert, data);
+
+            tdata->testNode = NULL;
+
+            if (tdata->test) {
+                NEW_CHILD(ctx, tdata->retNode, tdata->node, "r");
+
+                TRANSFORM_SUBTREE(ctx, tcomp->children, tdata->retNode);
+
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltIfTransform, comp, insert, data
+                );
+
+                return TRUE;
+            }
+        }
+
+        if (tdata->retNode != NULL) {
+            WAIT_FOR_NODE(ctx, tdata->retNode, xrltIfTransform,
+                          comp, insert, data);
+        }
+    }
+);

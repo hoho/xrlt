@@ -15,9 +15,18 @@ extern "C" {
 
 
 typedef struct {
-    xrltXPathExpr   test;
-    xmlNodePtr      children;
+    xmlNodePtr          node;
+    xrltCompiledValue   test;
+    xmlNodePtr          children;
 } xrltIfData;
+
+
+typedef struct {
+    DEFAULT_TRANSFORMING_PARAMS;
+
+    xmlNodePtr   testNode;
+    xrltBool     test;
+} xrltIfTransformingData;
 
 
 void *

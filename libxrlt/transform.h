@@ -196,6 +196,66 @@ extern "C" {
 }
 
 
+#define DEFAULT_TRANSFORMING_PARAMS                                           \
+    xmlNodePtr   node;                                                        \
+    xmlNodePtr   retNode;
+
+
+#define WAIT_FOR_NODE(ctx, node, func, comp, insert, data)                    \
+    ASSERT_NODE_DATA(node, nodeData);                                         \
+    if (nodeData->count > 0) {                                                \
+        SCHEDULE_CALLBACK(ctx, &nodeData->tcb, func, comp, insert, data);     \
+        return TRUE;                                                          \
+    }
+
+
+#define DEFINE_TRANSFORM_FUNCTION(funcName, compType, transformType,          \
+                                  transformSize, transformFree, varsDecl,     \
+                                  firstRun, nextRun)                          \
+xrltBool funcName(xrltContextPtr ctx, void *comp, xmlNodePtr insert,          \
+                  void *data)                                                 \
+{                                                                             \
+    if (ctx == NULL || comp == NULL || insert == NULL) { return FALSE; }      \
+                                                                              \
+    compType          tcomp = (compType)comp;                                 \
+    transformType     tdata;                                                  \
+    xrltNodeDataPtr   nodeData;                                               \
+    xmlNodePtr        tmpNode;                                                \
+    varsDecl                                                                  \
+                                                                              \
+    if (data == NULL) {                                                       \
+        NEW_CHILD(ctx, tmpNode, insert, "t");                                 \
+        COUNTER_INCREASE(ctx, tmpNode);                                       \
+        ASSERT_NODE_DATA(tmpNode, nodeData);                                  \
+        XRLT_MALLOC(ctx, NULL, tcomp->node, tdata, transformType,             \
+                    transformSize, FALSE);                                    \
+        tdata->node = tmpNode;                                                \
+        nodeData->data = tdata;                                               \
+        nodeData->free = transformFree;                                       \
+        firstRun                                                              \
+        SCHEDULE_CALLBACK(ctx, &ctx->tcb, funcName, comp, insert, tdata);     \
+    } else {                                                                  \
+        tdata = (transformType)data;                                          \
+        nextRun                                                               \
+        ASSERT_NODE_DATA(tdata->node, nodeData);                              \
+        if (nodeData->count != 1) {                                           \
+            xrltTransformError(ctx, NULL, tcomp->node,                        \
+                               "%s: Unexpected function behaviour\n",         \
+                               __func__);                                     \
+            return FALSE;                                                     \
+        }                                                                     \
+        COUNTER_DECREASE(ctx, tdata->node);                                   \
+        if (tdata->retNode == NULL) {                                         \
+            REMOVE_RESPONSE_NODE(ctx, tdata->node);                           \
+        } else {                                                              \
+            REPLACE_RESPONSE_NODE(ctx, tdata->node, tdata->retNode->children, \
+                                  tcomp->node);                               \
+        }                                                                     \
+    }                                                                         \
+    return TRUE;                                                              \
+}
+
+
 typedef struct _xrltElement xrltElement;
 typedef xrltElement* xrltElementPtr;
 struct _xrltElement {
