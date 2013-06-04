@@ -82,8 +82,7 @@ DEFINE_TRANSFORM_FUNCTION(
     },
     {
         if (tdata->testNode != NULL) {
-            WAIT_FOR_NODE(ctx, tdata->testNode, xrltIfTransform,
-                          comp, insert, data);
+            WAIT_FOR_NODE(ctx, tdata->testNode, xrltIfTransform);
 
             tdata->testNode = NULL;
 
@@ -92,17 +91,12 @@ DEFINE_TRANSFORM_FUNCTION(
 
                 TRANSFORM_SUBTREE(ctx, tcomp->children, tdata->retNode);
 
-                SCHEDULE_CALLBACK(
-                    ctx, &ctx->tcb, xrltIfTransform, comp, insert, data
-                );
-
-                return TRUE;
+                CALL_AGAIN(ctx, xrltIfTransform);
             }
         }
 
         if (tdata->retNode != NULL) {
-            WAIT_FOR_NODE(ctx, tdata->retNode, xrltIfTransform,
-                          comp, insert, data);
+            WAIT_FOR_NODE(ctx, tdata->retNode, xrltIfTransform);
         }
     }
 );

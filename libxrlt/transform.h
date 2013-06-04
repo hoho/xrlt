@@ -201,12 +201,17 @@ extern "C" {
     xmlNodePtr   retNode;
 
 
-#define WAIT_FOR_NODE(ctx, node, func, comp, insert, data)                    \
+#define WAIT_FOR_NODE(ctx, node, func)                                        \
     ASSERT_NODE_DATA(node, nodeData);                                         \
     if (nodeData->count > 0) {                                                \
         SCHEDULE_CALLBACK(ctx, &nodeData->tcb, func, comp, insert, data);     \
         return TRUE;                                                          \
     }
+
+
+#define CALL_AGAIN(ctx, func)                                                 \
+    SCHEDULE_CALLBACK(ctx, &ctx->tcb, func, comp, insert, data);              \
+    return TRUE;
 
 
 #define DEFINE_TRANSFORM_FUNCTION(funcName, compType, transformType,          \

@@ -130,104 +130,57 @@ xrltChooseTransformingFree(void *data)
 }
 
 
-xrltBool
-xrltChooseTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
-                    void *data)
-{
-    xrltChooseData              *ccomp = (xrltChooseData *)comp;
-    xrltChooseTransformingData  *tdata;
-    xmlNodePtr                   node;
-    xrltNodeDataPtr              n;
+DEFINE_TRANSFORM_FUNCTION(
+    xrltChooseTransform,
+    xrltChooseData*,
+    xrltChooseTransformingData*,
+    sizeof(xrltChooseTransformingData),
+    xrltChooseTransformingFree,
+    ;,
+    {
+        NEW_CHILD(ctx, tdata->testNode, tdata->node, "t");
 
-    if (data == NULL) {
-        if (ccomp->len == 0) {
-            return TRUE;
-        }
+        TRANSFORM_TO_BOOLEAN(
+            ctx, tdata->testNode, &tcomp->cases[0].test, &tdata->test
+        );
+    },
+    {
+        if (tdata->testNode != NULL) {
+            WAIT_FOR_NODE(ctx, tdata->testNode, xrltChooseTransform);
 
-        NEW_CHILD(ctx, node, insert, "c");
+            if (tdata->test) {
+                tdata->testNode = NULL;
 
-        ASSERT_NODE_DATA(node, n);
-
-        XRLT_MALLOC(ctx, NULL, ccomp->node, tdata, xrltChooseTransformingData*,
-                    sizeof(xrltChooseTransformingData), FALSE);
-
-        n->data = tdata;
-        n->free = xrltChooseTransformingFree;
-
-        COUNTER_INCREASE(ctx, node);
-
-        tdata->node = node;
-
-        NEW_CHILD(ctx, node, node, "tmp");
-
-        tdata->testNode = node;
-
-        TRANSFORM_TO_BOOLEAN(ctx, node, &ccomp->cases[0].test, &tdata->testRet);
-
-        SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltChooseTransform, comp, insert,
-                          tdata);
-    } else {
-        tdata = (xrltChooseTransformingData *)data;
-
-        node = tdata->retNode == NULL ? tdata->testNode : tdata->retNode;
-
-        ASSERT_NODE_DATA(node, n);
-
-        if (n->count > 0) {
-            SCHEDULE_CALLBACK(ctx, &n->tcb, xrltChooseTransform, comp, insert,
-                              tdata);
-            return TRUE;
-        }
-
-        if (tdata->retNode == NULL) {
-            if (tdata->testRet) {
                 NEW_CHILD(ctx, tdata->retNode, tdata->node, "r");
 
                 TRANSFORM_SUBTREE(
-                    ctx, ccomp->cases[tdata->pos].children, tdata->retNode
+                    ctx, tcomp->cases[tdata->pos].children, tdata->retNode
                 );
 
-                SCHEDULE_CALLBACK(
-                    ctx, &ctx->tcb, xrltChooseTransform, comp, insert, tdata
-                );
-
-                return TRUE;
+                CALL_AGAIN(ctx, xrltChooseTransform);
             } else {
                 tdata->pos++;
 
-                if (tdata->pos < ccomp->len) {
-                    if (ccomp->cases[tdata->pos].test.type == XRLT_VALUE_EMPTY)
+                if (tdata->pos < tcomp->len) {
+                    if (tcomp->cases[tdata->pos].test.type == XRLT_VALUE_EMPTY)
                     {
-                        tdata->testRet = TRUE;
+                        tdata->test = TRUE;
 
                         return xrltChooseTransform(ctx, comp, insert, data);
                     } else {
                         TRANSFORM_TO_BOOLEAN(
-                            ctx, node, &ccomp->cases[tdata->pos].test,
-                            &tdata->testRet
+                            ctx, tdata->testNode,
+                            &tcomp->cases[tdata->pos].test, &tdata->test
                         );
 
-                        SCHEDULE_CALLBACK(
-                            ctx, &ctx->tcb, xrltChooseTransform, comp, insert,
-                            tdata
-                        );
-
-                        return TRUE;
+                        CALL_AGAIN(ctx, xrltChooseTransform);
                     }
-                } else {
-                    COUNTER_DECREASE(ctx, tdata->node);
-
-                    REMOVE_RESPONSE_NODE(ctx, tdata->node);
                 }
             }
-        } else {
-            COUNTER_DECREASE(ctx, tdata->node);
+        }
 
-            REPLACE_RESPONSE_NODE(
-                ctx, tdata->node, tdata->retNode->children, ccomp->node
-            );
+        if (tdata->retNode != NULL) {
+            WAIT_FOR_NODE(ctx, tdata->retNode, xrltChooseTransform);
         }
     }
-
-    return TRUE;
-}
+);

@@ -28,11 +28,11 @@ typedef struct {
 
 
 typedef struct {
-    xmlNodePtr   node;
+    DEFAULT_TRANSFORMING_PARAMS;
+
     xmlNodePtr   testNode;
     int          pos;
-    xrltBool     testRet;
-    xmlNodePtr   retNode;
+    xrltBool     test;
 } xrltChooseTransformingData;
 
 
