@@ -50,7 +50,8 @@ transform:
                                        transform/test11.xrl transform/test11.in transform/test11.out \
                                        transform/test12.xrl transform/test12.in transform/test12.out \
                                        transform/test13.xrl transform/test13.in transform/test13.out \
-                                       transform/test14.xrl transform/test14.in transform/test14.out
+                                       transform/test14.xrl transform/test14.in transform/test14.out \
+                                       transform/test15_choose_if.xrl transform/test15_choose_if.in transform/test15_choose_if.out
 
 .PHONY: transformjs
 transformjs:

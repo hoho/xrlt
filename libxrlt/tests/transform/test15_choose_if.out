@@ -1,0 +1,16 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /tmp
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_CHUNK
+chunk: cc
+chunk: gg
+chunk: jj
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: mm
+chunk: oo
+XRLT_STATUS_DONE
