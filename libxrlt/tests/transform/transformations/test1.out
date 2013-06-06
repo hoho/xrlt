@@ -1,3 +1,15 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /heck
+sr query: (null)
+sr body: (null)
 XRLT_STATUS_CHUNK
 chunk: hihi|test: yoyoyo|test: yaya|haha
+chunk: |||
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: <yoyo>hihi|quack: opop|heck: quack-quack|quack: apap|haha</yoyo>
+
 XRLT_STATUS_DONE

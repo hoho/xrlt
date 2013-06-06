@@ -3,12 +3,14 @@
     <xsl:output method="html" />
 
     <xsl:template match="/">
-        <xsl:text>hihi|</xsl:text>
-        <xsl:for-each select="*">
-            <xsl:value-of select="concat(local-name(), ': ', text())" />
-            <xsl:text>|</xsl:text>
-        </xsl:for-each>
-        <xsl:text>haha</xsl:text>
+        <yoyo>
+            <xsl:text>hihi|</xsl:text>
+            <xsl:for-each select="*">
+                <xsl:value-of select="concat(local-name(), ': ', text())" />
+                <xsl:text>|</xsl:text>
+            </xsl:for-each>
+            <xsl:text>haha</xsl:text>
+        </yoyo>
     </xsl:template>
 
 </xsl:stylesheet>
