@@ -1,0 +1,14 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: XML
+sr url: /tmp
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: b
+chunk: f
+chunk: aaa
+chunk: ddd
+XRLT_STATUS_DONE

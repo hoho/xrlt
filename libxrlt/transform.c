@@ -10,6 +10,7 @@
 #include "log.h"
 #include "choose.h"
 #include "valueof.h"
+#include "copyof.h"
 #include "include.h"
 #include "variable.h"
 #include "headers.h"
@@ -128,6 +129,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltValueOfCompile,
                                xrltValueOfFree,
                                xrltValueOfTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"copy-of",
+                               XRLT_COMPILE_PASS2,
+                               xrltCopyOfCompile,
+                               xrltCopyOfFree,
+                               xrltCopyOfTransform);
 
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"response-header",
                                XRLT_COMPILE_PASS1,

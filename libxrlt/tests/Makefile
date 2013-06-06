@@ -36,7 +36,8 @@ compile:
 transform:
 	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
 		../xrlt.c ../json2xml.c ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
-		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
+		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../xrlterror.c transform/test.c \
+		-lxml2 -lyajl -lxslt
 	@$(VALGRIND) .build/transform_test transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
                                        transform/includes/test2.xrl transform/includes/test2.in transform/includes/test2.out \
                                        transform/includes/test3.xrl transform/includes/test3.in transform/includes/test3.out \
@@ -57,7 +58,9 @@ transform:
                                        \
                                        transform/imports/test1.xrl transform/imports/test1.in transform/imports/test1.out \
                                        \
-                                       transform/choose_if/test1.xrl transform/choose_if/test1.in transform/choose_if/test1.out
+                                       transform/choose_if/test1.xrl transform/choose_if/test1.in transform/choose_if/test1.out \
+                                       \
+                                       transform/copyof/test1.xrl transform/copyof/test1.in transform/copyof/test1.out
 
 .PHONY: transformjs
 transformjs:
