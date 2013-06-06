@@ -5,11 +5,10 @@
         <hello>world</hello>
     </xrl:function>
 
-    <xrl:import href="test14i.xrl" />
+    <xrl:import href="test1i.xrl" />
 
     <xrl:response>
         <xrl:apply name="ololo" />|<xrl:apply name="ololo2" />
-
     </xrl:response>
 
 </xrl:requestsheet>

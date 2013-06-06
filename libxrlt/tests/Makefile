@@ -37,21 +37,27 @@ transform:
 	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
 		../xrlt.c ../json2xml.c ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
 		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../xrlterror.c transform/test.c -lxml2 -lyajl -lxslt
-	@$(VALGRIND) .build/transform_test transform/test1.xrl transform/test1.in transform/test1.out \
-                                       transform/test2.xrl transform/test2.in transform/test2.out \
-                                       transform/test3.xrl transform/test3.in transform/test3.out \
-                                       transform/test4.xrl transform/test4.in transform/test4.out \
-                                       transform/test5.xrl transform/test5.in transform/test5.out \
-                                       transform/test6.xrl transform/test6.in transform/test6.out \
-                                       transform/test7.xrl transform/test7.in transform/test7.out \
-                                       transform/test8.xrl transform/test8.in transform/test8.out \
-                                       transform/test9.xrl transform/test9.in transform/test9.out \
-                                       transform/test10.xrl transform/test10.in transform/test10.out \
-                                       transform/test11.xrl transform/test11.in transform/test11.out \
-                                       transform/test12.xrl transform/test12.in transform/test12.out \
-                                       transform/test13.xrl transform/test13.in transform/test13.out \
-                                       transform/test14.xrl transform/test14.in transform/test14.out \
-                                       transform/test15_choose_if.xrl transform/test15_choose_if.in transform/test15_choose_if.out
+	@$(VALGRIND) .build/transform_test transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
+                                       transform/includes/test2.xrl transform/includes/test2.in transform/includes/test2.out \
+                                       transform/includes/test3.xrl transform/includes/test3.in transform/includes/test3.out \
+                                       transform/includes/test4.xrl transform/includes/test4.in transform/includes/test4.out \
+                                       transform/includes/test5.xrl transform/includes/test5.in transform/includes/test5.out \
+                                       transform/includes/test6.xrl transform/includes/test6.in transform/includes/test6.out \
+                                       \
+                                       transform/headers/test1.xrl transform/headers/test1.in transform/headers/test1.out \
+                                       \
+                                       transform/functions/test1.xrl transform/functions/test1.in transform/functions/test1.out \
+                                       \
+                                       transform/querystrings_bodies/test1.xrl transform/querystrings_bodies/test1.in transform/querystrings_bodies/test1.out \
+                                       transform/querystrings_bodies/test2.xrl transform/querystrings_bodies/test2.in transform/querystrings_bodies/test2.out \
+                                       transform/querystrings_bodies/test3.xrl transform/querystrings_bodies/test3.in transform/querystrings_bodies/test3.out \
+                                       transform/querystrings_bodies/test4.xrl transform/querystrings_bodies/test4.in transform/querystrings_bodies/test4.out \
+                                       \
+                                       transform/transformations/test1.xrl transform/transformations/test1.in transform/transformations/test1.out \
+                                       \
+                                       transform/imports/test1.xrl transform/imports/test1.in transform/imports/test1.out \
+                                       \
+                                       transform/choose_if/test1.xrl transform/choose_if/test1.in transform/choose_if/test1.out
 
 .PHONY: transformjs
 transformjs:

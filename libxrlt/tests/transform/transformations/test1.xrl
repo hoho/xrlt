@@ -1,8 +1,7 @@
 <?xml version="1.0"?>
 <xrl:requestsheet xmlns:xrl="http://xrlt.net/Transform">
 
-    <xrl:transformation name="testxsl" type="xslt" src="test13.xsl" />
-
+    <xrl:transformation name="testxsl" type="xslt" src="test1.xsl" />
 
     <xrl:response>
         <xrl:transform name="testxsl">
