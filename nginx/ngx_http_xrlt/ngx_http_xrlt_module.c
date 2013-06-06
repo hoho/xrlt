@@ -896,20 +896,33 @@ ngx_http_xrlt_post_request_body(ngx_http_request_t *r)
 
     dd("Post request body (r: %p)", r);
 
-    for (cl = r->request_body->bufs; cl; cl = cl->next) {
-        s.data = (char *)cl->buf->pos;
-        s.len = cl->buf->last - cl->buf->pos;
+    if (r->request_body->bufs == NULL) {
+        s.data = NULL;
+        s.len = 0;
 
-        rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, cl->buf->last_buf);
+        rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, TRUE);
 
         if (rc == NGX_ERROR) {
             ngx_http_finalize_request(r, NGX_ERROR);
 
             return;
         }
+    } else {
+        for (cl = r->request_body->bufs; cl; cl = cl->next) {
+            s.data = (char *)cl->buf->pos;
+            s.len = cl->buf->last - cl->buf->pos;
 
-        cl->buf->pos = cl->buf->last;
-        cl->buf->file_pos = cl->buf->file_last;
+            rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, cl->buf->last_buf);
+
+            if (rc == NGX_ERROR) {
+                ngx_http_finalize_request(r, NGX_ERROR);
+
+                return;
+            }
+
+            cl->buf->pos = cl->buf->last;
+            cl->buf->file_pos = cl->buf->file_last;
+        }
     }
 
     r->main->count--;

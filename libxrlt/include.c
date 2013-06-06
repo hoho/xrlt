@@ -1533,7 +1533,8 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
                 }
             }
 
-            if (xmlBufferAdd(ctx->bodyBuf, (xmlChar *)tval->bodyval.val.data,
+            if (tval->bodyval.val.len > 0 &&
+                xmlBufferAdd(ctx->bodyBuf, (xmlChar *)tval->bodyval.val.data,
                              tval->bodyval.val.len) != 0)
             {
                 xrltTransformError(ctx, NULL, tdata->srcNode,
