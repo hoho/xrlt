@@ -53,6 +53,7 @@ transform:
                                        transform/querystrings_bodies/test2.xrl transform/querystrings_bodies/test2.in transform/querystrings_bodies/test2.out \
                                        transform/querystrings_bodies/test3.xrl transform/querystrings_bodies/test3.in transform/querystrings_bodies/test3.out \
                                        transform/querystrings_bodies/test4.xrl transform/querystrings_bodies/test4.in transform/querystrings_bodies/test4.out \
+                                       transform/querystrings_bodies/test5.xrl transform/querystrings_bodies/test5.in transform/querystrings_bodies/test5.out \
                                        \
                                        transform/transformations/test1.xrl transform/transformations/test1.in transform/transformations/test1.out \
                                        \

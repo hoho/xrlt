@@ -792,18 +792,28 @@ xrltProcessInput(xrltContextPtr ctx, xrltTransformValue *val,
             }
 
             if (val->querystringval.val.len > 0) {
-                ctx->querystring.data = (char *)xmlStrndup(
-                    (xmlChar *)val->querystringval.val.data,
-                    val->querystringval.val.len
-                );
+                if (data->type != XRLT_SUBREQUEST_DATA_QUERYSTRING &&
+                    data->comp != NULL &&
+                    data->comp->includeType == XRLT_INCLUDE_TYPE_QUERYSTRING)
+                {
+                    ctx->querystring.data = (char *)xrltURLDecode(
+                        val->querystringval.val.data,
+                        val->querystringval.val.len
+                    );
+                    ctx->querystring.len = strlen(ctx->querystring.data);
+                } else {
+                    ctx->querystring.data = (char *)xmlStrndup(
+                        (xmlChar *)val->querystringval.val.data,
+                        val->querystringval.val.len
+                    );
+                    ctx->querystring.len = val->querystringval.val.len;
+                }
 
                 if (ctx->querystring.data == NULL) {
                     ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
 
                     return XRLT_PROCESS_INPUT_ERROR;
                 }
-
-                ctx->querystring.len = val->querystringval.val.len;
             }
             return XRLT_PROCESS_INPUT_AGAIN;
 
