@@ -924,8 +924,6 @@ ngx_http_xrlt_post_request_body(ngx_http_request_t *r)
             cl->buf->file_pos = cl->buf->file_last;
         }
     }
-
-    r->main->count--;
 }
 
 
