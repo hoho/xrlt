@@ -65,7 +65,11 @@ transform:
 
 .PHONY: transformjs
 transformjs:
-	@g++ -o .build/transform_testjs   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c ../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../builtins.c ../include.c ../variable.c ../headers.c ../function.c ../js.cc ../xrlterror.c transform/test.c -lxml2 -lyajl -lv8 -lxslt
+	@g++ -o .build/transform_testjs   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
+		../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
+		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../js.cc ../xrlterror.c transform/test.c \
+		-lxml2 -lyajl -lv8 -lxslt
+	@$(VALGRIND) .build/transform_testjs transform/rddm/test1.xrl transform/rddm/test1.in transform/rddm/test1.out
 
 .PHONY: querystring
 querystring:

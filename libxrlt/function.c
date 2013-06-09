@@ -609,6 +609,8 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
             if (xmlAddChild(insert, node) == NULL) {
                 ERROR_ADD_NODE(ctx, NULL, src);
 
+                xmlFreeNode(node);
+
                 goto error;
             }
         } else {
@@ -822,7 +824,39 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                         case XRLT_TRANSFORMATION_JSON_STRINGIFY:
                         case XRLT_TRANSFORMATION_JSON_PARSE:
-                        case XRLT_TRANSFORMATION_XML_STRINGIFY:
+                            break;
+
+                        case XRLT_TRANSFORMATION_XML_STRINGIFY: {
+                                xmlChar  *mem;
+                                int       size;
+
+                                xmlDocDumpMemory(tdata->self, &mem, &size);
+
+                                if (size > 0) {
+                                    node = xmlNewTextLen(mem, size);
+
+                                    xmlFree(mem);
+
+                                    if (node == NULL) {
+                                        ERROR_CREATE_NODE(
+                                            ctx, NULL, acomp->node
+                                        );
+
+                                        return FALSE;
+                                    }
+
+                                    if (xmlAddChild(insert, node) == NULL) {
+                                        ERROR_ADD_NODE(ctx, NULL, acomp->node);
+
+                                        xmlFreeNode(node);
+
+                                        return FALSE;
+                                    }
+
+                                }
+                            }
+                            break;
+
                         case XRLT_TRANSFORMATION_XML_PARSE:
                             break;
                     }
