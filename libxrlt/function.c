@@ -4,6 +4,7 @@
 
 #include "transform.h"
 #include "function.h"
+#include "xml2json.h"
 #include <libxml/uri.h>
 #include <libxslt/xsltutils.h>
 
@@ -823,6 +824,24 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             break;
 
                         case XRLT_TRANSFORMATION_JSON_STRINGIFY:
+                            {
+                                xmlBufferPtr   buf = NULL;
+
+                                xrltXML2JSONStringify(
+                                    (xmlNodePtr)tdata->self, NULL, &buf
+                                );
+
+                                if (buf != NULL) {
+                                    NEW_TEXT_CHILD(
+                                        ctx, node, insert,
+                                        xmlBufferContent(buf),
+                                        xmlBufferLength(buf),
+                                        xmlBufferFree(buf)
+                                    );
+                                }
+                            }
+                            break;
+
                         case XRLT_TRANSFORMATION_JSON_PARSE:
                             break;
 
@@ -833,26 +852,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                 xmlDocDumpMemory(tdata->self, &mem, &size);
 
                                 if (size > 0) {
-                                    node = xmlNewTextLen(mem, size);
-
-                                    xmlFree(mem);
-
-                                    if (node == NULL) {
-                                        ERROR_CREATE_NODE(
-                                            ctx, NULL, acomp->node
-                                        );
-
-                                        return FALSE;
-                                    }
-
-                                    if (xmlAddChild(insert, node) == NULL) {
-                                        ERROR_ADD_NODE(ctx, NULL, acomp->node);
-
-                                        xmlFreeNode(node);
-
-                                        return FALSE;
-                                    }
-
+                                    NEW_TEXT_CHILD(ctx, node, insert, mem,
+                                                   size, xmlFree(mem));
                                 }
                             }
                             break;

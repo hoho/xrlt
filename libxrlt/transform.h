@@ -161,6 +161,21 @@ extern "C" {
 }
 
 
+#define NEW_TEXT_CHILD(ctx, ret, parent, text, len, freeText) {               \
+    ret = xmlNewTextLen(text, len);                                           \
+    freeText;                                                                 \
+    if (ret == NULL) {                                                        \
+        ERROR_CREATE_NODE(ctx, NULL, NULL);                                   \
+        return FALSE;                                                         \
+    }                                                                         \
+    if (xmlAddChild(parent, ret) == NULL) {                                   \
+        ERROR_ADD_NODE(ctx, NULL, NULL);                                      \
+        xmlFreeNode(ret);                                                     \
+        return FALSE;                                                         \
+    }                                                                         \
+}
+
+
 #define TRANSFORM_SUBTREE(ctx, first, insert) {                               \
     if (!xrltElementTransform(ctx, first, insert)) { return FALSE; }          \
 }

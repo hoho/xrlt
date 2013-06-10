@@ -7,7 +7,7 @@
 
 #include "xrlterror.h"
 #include "js.h"
-#include "xml2json.h"
+#include "xml2js.h"
 #include "json2xml.h"
 #include "transform.h"
 
@@ -181,7 +181,7 @@ xrltJSInit(void)
 {
     v8::HandleScope   scope;
 
-    xrltXML2JSONTemplateInit();
+    xrltXML2JSTemplateInit();
 
     xrltDeferredConstructor = \
         v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
@@ -206,7 +206,7 @@ xrltJSInit(void)
 void
 xrltJSFree(void)
 {
-    xrltXML2JSONTemplateFree();
+    xrltXML2JSTemplateFree();
     xrltDeferredConstructor.Dispose();
 }
 
@@ -643,7 +643,7 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     resolve = \
         v8::Local<v8::Function>::Cast((*obj)->Get(v8::String::New("resolve")));
 
-    argv[0] = v8::Local<v8::Value>::New(xrltXML2JSONCreate(val));
+    argv[0] = v8::Local<v8::Value>::New(xrltXML2JSCreate(val));
 
     resolve->Call(*obj, 1, argv);
 
@@ -750,7 +750,7 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                     argv[i] = *_val;
                 } else {
                     argv[i] = v8::Local<v8::Value>::New(
-                        xrltXML2JSONCreate(val)
+                        xrltXML2JSCreate(val)
                     );
                 }
             }

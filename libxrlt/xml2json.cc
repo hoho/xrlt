@@ -1,141 +1,61 @@
-/*
- * Copyright Marat Abdullin (https://github.com/hoho)
- */
-
-#include <vector>
-#include <map>
-#include <string>
-
-#include <xrlt.h>
-#include "json2xml.h"
 #include "xml2json.h"
+#include <sstream>
 
 
-// XML2JSON cache template, needs xrltXML2JSONTemplateInit to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltXML2JSONCacheTemplate;
-
-// XML2JSON object template, needs xrltXML2JSONTemplateInit to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltXML2JSONTemplate;
-
-
-// C++ structure to be associated with XML2JSON cache.
-struct xrltXML2JSONCache {
-    xrltXML2JSONCache(v8::Handle<v8::Array> data) : index(0), data(data) {};
-    bool get(void *key, v8::Handle<v8::Value> *value);
-    void set(void *key, v8::Handle<v8::Value> value);
-
-  private:
-    uint32_t                     index;
-    std::map<void *, uint32_t>   cache;
-    v8::Handle<v8::Array>        data;
-};
-
-
-bool
-xrltXML2JSONCache::get(void *key, v8::Handle<v8::Value> *value)
+xrltXML2JSONTypeMap::xrltXML2JSONTypeMap()
 {
-    std::map<void *, uint32_t>::iterator i;
-
-    i = cache.find(key);
-
-    if (i != cache.end()) {
-        *value = data->Get(i->second);
-        return true;
-    }
-
-    return false;
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_STRING,
+            XRLT_JSON2XML_STRING
+        )
+    );
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_NUMBER,
+            XRLT_JSON2XML_NUMBER
+        )
+    );
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_BOOLEAN,
+            XRLT_JSON2XML_BOOLEAN
+        )
+    );
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_OBJECT,
+            XRLT_JSON2XML_OBJECT
+        )
+    );
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_ARRAY,
+            XRLT_JSON2XML_ARRAY
+        )
+    );
+    types.insert(
+        std::pair<std::string, xrltJSON2XMLType>(
+            (const char *)XRLT_JSON2XML_ATTR_TYPE_NULL,
+            XRLT_JSON2XML_NULL
+        )
+    );
 }
-
-
-void
-xrltXML2JSONCache::set(void *key, v8::Handle<v8::Value> value)
-{
-    cache.insert(std::pair<void *, uint32_t>(key, index));
-
-    data->Set(index++, value);
-}
-
-
-// Deallocator for C++ data connected to XML2JSON cache.
-void
-xrltXML2JSONCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
-{
-    xrltXML2JSONCache *data = static_cast<xrltXML2JSONCache *>(payload);
-    delete data;
-    obj.ClearWeak();
-    obj.Dispose();
-}
-
-
-// Map to find XML node content type by xrl:type attribute.
-struct xrltXML2JSONTypeMap {
-    xrltXML2JSONTypeMap()
-    {
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_STRING,
-                XRLT_JSON2XML_STRING
-            )
-        );
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_NUMBER,
-                XRLT_JSON2XML_NUMBER
-            )
-        );
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_BOOLEAN,
-                XRLT_JSON2XML_BOOLEAN
-            )
-        );
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_OBJECT,
-                XRLT_JSON2XML_OBJECT
-            )
-        );
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_ARRAY,
-                XRLT_JSON2XML_ARRAY
-            )
-        );
-        types.insert(
-            std::pair<std::string, xrltJSON2XMLType>(
-                (const char *)XRLT_JSON2XML_ATTR_TYPE_NULL,
-                XRLT_JSON2XML_NULL
-            )
-        );
-    }
-
-    xrltJSON2XMLType getType(xmlChar *str)
-    {
-        std::map<std::string, xrltJSON2XMLType>::iterator i;
-        i = types.find((const char *)str);
-        return i != types.end() ? i->second : XRLT_JSON2XML_UNKNOWN;
-    }
-
-  private:
-    std::map<std::string, xrltJSON2XMLType> types;
-};
 xrltXML2JSONTypeMap XRLT_TYPE_MAP;
 
 
-// C++ structure to be associated with XML2JSON JavaScript object.
-struct xrltXML2JSONData {
-    xrltXML2JSONData(xmlNodePtr parent, xmlXPathObjectPtr val,
-                     xrltXML2JSONCache *cache);
+xrltJSON2XMLType xrltXML2JSONTypeMap::getType(xmlChar *str)
+{
+    std::map<std::string, xrltJSON2XMLType>::iterator i;
 
-    xrltJSON2XMLType                         type;
-    std::vector<xmlNodePtr>                  nodes;
-    std::multimap<std::string, xmlNodePtr>   named;
-    xrltXML2JSONCache                       *cache;
-};
+    i = types.find((const char *)str);
+
+    return i != types.end() ? i->second : XRLT_JSON2XML_UNKNOWN;
+}
 
 
 xrltXML2JSONData::xrltXML2JSONData(xmlNodePtr parent, xmlXPathObjectPtr val,
-                                   xrltXML2JSONCache *cache) : cache(cache)
+                                   void *cache) : cache(cache)
 {
     xmlNodePtr   n;
 
@@ -183,254 +103,192 @@ xrltXML2JSONData::xrltXML2JSONData(xmlNodePtr parent, xmlXPathObjectPtr val,
         }
     }
 
-    if ((typestr == NULL || type == XRLT_JSON2XML_UNKNOWN) &&
-        (named.size() > 1 && nodes.size() == named.count(key)))
-    {
-        type = XRLT_JSON2XML_ARRAY;
-    }
-}
+    if (typestr == NULL || type == XRLT_JSON2XML_UNKNOWN) {
+        if (named.size() > 1 && nodes.size() == named.count(key)) {
+            type = XRLT_JSON2XML_ARRAY;
+        }
 
-
-// Deallocator for C++ data connected to XML2JSON JavaScript object.
-void
-xrltXML2JSONWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
-{
-    xrltXML2JSONData *data = static_cast<xrltXML2JSONData *>(payload);
-    delete data;
-    obj.ClearWeak();
-    obj.Dispose();
-}
-
-
-// XML2JSON JavaScript object creator. Pretty much to optimize here.
-v8::Handle<v8::Value>
-xrltXML2JSONCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
-                           xrltXML2JSONCache *cache)
-{
-    v8::Handle<v8::Value>   ret;
-
-    if (cache != NULL) {
-        if ((parent != NULL && cache->get(parent, &ret)) ||
-            (val != NULL && cache->get(val, &ret)))
+        if (named.size() == 0 && parent != NULL &&
+            (parent->type == XML_TEXT_NODE ||
+             parent->type == XML_CDATA_SECTION_NODE))
         {
-            return ret;
+            type = XRLT_JSON2XML_STRING;
         }
     }
+}
 
-    xrltXML2JSONData       *data = new xrltXML2JSONData(parent, val, cache);
-    bool                    isXML2JSON = false;
+
+xrltBool
+xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
+                      xmlBufferPtr *buf)
+{
+    // TODO: Check if response values are valid JSON values.
+    //       Check buffer operations success.
+    xrltXML2JSONData    *data = NULL;
+    size_t               i;
+    xrltBool             prev;
+
+    if (buf == NULL) { return FALSE; }
+
+    if (*buf == NULL) {
+        *buf = xmlBufferCreate();
+    }
+
+    if (val != NULL) {
+        switch (val->type) {
+            case XPATH_STRING:
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                xmlBufferAdd(*buf, val->stringval, xmlStrlen(val->stringval));
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                return TRUE;
+
+            case XPATH_NUMBER:
+                {
+                    std::ostringstream   fbuf;
+                    std::string          tmp;
+                    fbuf << val->floatval;
+                    tmp = fbuf.str();
+                    xmlBufferAdd(*buf, (xmlChar *)tmp.c_str(), tmp.length());
+                }
+                return TRUE;
+
+            case XPATH_BOOLEAN:
+                if (val->boolval) {
+                    xmlBufferAdd(*buf, (const xmlChar *)"true", 4);
+                } else {
+                    xmlBufferAdd(*buf, (const xmlChar *)"false", 5);
+                }
+                return TRUE;
+
+            case XPATH_NODESET:
+                break;
+
+            case XPATH_UNDEFINED:
+            case XPATH_POINT:
+            case XPATH_RANGE:
+            case XPATH_LOCATIONSET:
+            case XPATH_USERS:
+            case XPATH_XSLT_TREE:
+                return FALSE;
+        }
+
+        if (val->nodesetval == NULL || val->nodesetval->nodeTab == NULL ||
+            val->nodesetval->nodeNr == 0)
+        {
+            return FALSE;
+        }
+
+        if (val->nodesetval->nodeNr == 1 &&
+            val->nodesetval->nodeTab[0]->type == XML_DOCUMENT_NODE)
+        {
+            data = new xrltXML2JSONData(val->nodesetval->nodeTab[0],
+                                        NULL, NULL);
+        } else {
+            data = new xrltXML2JSONData(NULL, val, NULL);
+        }
+    } else {
+        data = new xrltXML2JSONData(parent, NULL, NULL);
+    }
 
     if (data->type == XRLT_JSON2XML_ARRAY) {
-        // If it's an array, return a JavaScript array of XML2JSON objects.
-        v8::Local<v8::Array>   arr = v8::Array::New(data->nodes.size());
-        uint32_t               i;
+        xmlBufferAdd(*buf, (const xmlChar *)"[", 1);
+
+        prev = FALSE;
 
         for (i = 0; i < data->nodes.size(); i++) {
-            arr->Set(i,
-                     xrltXML2JSONCreateInternal(data->nodes[i], NULL, cache));
+            if (prev) {
+                xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+            }
+
+            prev |= xrltXML2JSONStringify(data->nodes[i], NULL, buf);
         }
-        ret = arr;
+
+        xmlBufferAdd(*buf, (const xmlChar *)"]", 1);
     } else {
         if (data->nodes.size() == 0) {
-            // Empty XML node is null, unless xrl:type="object" attribute is
-            // present.
             if (data->type == XRLT_JSON2XML_OBJECT) {
-                ret = v8::Object::New();
+                xmlBufferAdd(*buf, (const xmlChar *)"{}", 2);
+            } else if (data->type == XRLT_JSON2XML_STRING && parent != NULL &&
+                       parent->content != NULL) {
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                xmlBufferAdd(*buf, parent->content, xmlStrlen(parent->content));
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
             } else {
-                ret = v8::Null();
+                xmlBufferAdd(*buf, (const xmlChar *)"null", 4);
             }
         } else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0])) {
-            // A single text node becomes a JavaScript string, unless parent's
-            // xrl:type attribute says it should be a number or a boolean.
             if (data->type == XRLT_JSON2XML_NUMBER) {
-                ret = v8::String::New(
-                    (const char *)data->nodes[0]->content
-                )->ToNumber();
+                xmlBufferAdd(*buf, parent->content, xmlStrlen(parent->content));
             } else if (data->type == XRLT_JSON2XML_BOOLEAN) {
-                ret = xmlStrEqual(data->nodes[0]->content,
-                                  (const xmlChar *)"true")
-                    ?
-                    v8::True()
-                    :
-                    v8::False();
+                if (xmlStrEqual(data->nodes[0]->content,
+                    (const xmlChar *)"true"))
+                {
+                    xmlBufferAdd(*buf, (const xmlChar *)"true", 4);
+                } else {
+                    xmlBufferAdd(*buf, (const xmlChar *)"false", 5);
+                }
             } else {
-                ret = v8::String::New((const char *)data->nodes[0]->content);
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                xmlBufferAdd(*buf, data->nodes[0]->content,
+                             xmlStrlen(data->nodes[0]->content));
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
             }
         } else {
-            // We have some more complex structure, create XML2JSON object.
-            v8::Persistent<v8::Object> rddm;
+            std::multimap<std::string, xmlNodePtr>::iterator              iter;
+            std::multimap<std::string, xmlNodePtr>::iterator              iter2;
+            std::pair<std::multimap<std::string, xmlNodePtr>::iterator,
+                      std::multimap<std::string, xmlNodePtr>::iterator>   range;
+            xrltBool                                                      prev2;
 
-            rddm = v8::Persistent<v8::Object>::New(
-                xrltXML2JSONTemplate->NewInstance()
-            );
+            xmlBufferAdd(*buf, (const xmlChar *)"{", 1);
 
-            rddm.MakeWeak(data, xrltXML2JSONWeakCallback);
+            prev = FALSE;
 
-            rddm->SetAlignedPointerInInternalField(0, data);
+            for (iter = data->named.begin(); iter != data->named.end();
+                 iter = data->named.upper_bound(iter->first))
+            {
+                range = data->named.equal_range(iter->first);
 
-            ret = rddm;
-            isXML2JSON = true;
-        }
-    }
+                if (prev) {
+                    xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+                }
 
-    // Free data if necessary.
-    if (!isXML2JSON) { delete data; }
+                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                xmlBufferAdd(*buf, (xmlChar *)iter->first.c_str(),
+                             iter->first.length());
+                xmlBufferAdd(*buf, (const xmlChar *)"\": ", 3);
 
-    if (cache != NULL) {
-        cache->set(parent, ret);
-    }
+                if (std::distance(range.first, range.second) <= 1) {
+                    prev |= xrltXML2JSONStringify(iter->second, NULL, buf);
+                } else {
+                    xmlBufferAdd(*buf, (const xmlChar *)"[", 1);
 
-    return ret;
-}
+                    prev2 = FALSE;
 
+                    for (iter2 = range.first; iter2 != range.second; iter2++) {
+                        if (prev2) {
+                            xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+                        }
 
-// XML2JSON JavaScript object creator. Pretty much to optimize here.
-v8::Handle<v8::Value>
-xrltXML2JSONCreate(xmlXPathObjectPtr value)
-{
-    xrltXML2JSONCache           *cache;
-    v8::Persistent<v8::Object>   cacheobj;
+                        prev2 |=
+                            xrltXML2JSONStringify(iter2->second, NULL, buf);
+                    }
 
-    switch (value->type) {
-        case XPATH_STRING:
-            return v8::String::New((const char *)value->stringval);
-        case XPATH_NUMBER:
-            return v8::Number::New(value->floatval);
-        case XPATH_BOOLEAN:
-            return v8::Boolean::New(value->boolval ? true : false);
-        case XPATH_NODESET:
-            break;
-        case XPATH_UNDEFINED:
-        case XPATH_POINT:
-        case XPATH_RANGE:
-        case XPATH_LOCATIONSET:
-        case XPATH_USERS:
-        case XPATH_XSLT_TREE:
-            return v8::Undefined();
-    }
+                    xmlBufferAdd(*buf, (const xmlChar *)"]", 1);
 
-    if (value->nodesetval == NULL || value->nodesetval->nodeTab == NULL ||
-        value->nodesetval->nodeNr == 0)
-    {
-        return v8::Undefined();
-    }
+                    prev = TRUE;
+                }
 
-    // We will store objects in JavaScript array to avoid freeing them by GC
-    // before cache is freed.
-    v8::Local<v8::Array>         data = v8::Array::New();
-
-    cacheobj = v8::Persistent<v8::Object>::New(
-        xrltXML2JSONCacheTemplate->NewInstance()
-    );
-
-    // Make a reference to cached data.
-    cacheobj->Set(0, data);
-
-    cache = new xrltXML2JSONCache(data);
-
-    cacheobj.MakeWeak(cache, xrltXML2JSONCacheWeakCallback);
-    cacheobj->SetAlignedPointerInInternalField(0, cache);
-
-    if (value->nodesetval->nodeNr == 1 &&
-        value->nodesetval->nodeTab[0]->type == XML_DOCUMENT_NODE)
-    {
-        return xrltXML2JSONCreateInternal(value->nodesetval->nodeTab[0], NULL,
-                                          cache);
-    } else {
-        return xrltXML2JSONCreateInternal(NULL, value, cache);
-    }
-}
-
-
-// Named properties interceptor for XML2JSON JavaScript object.
-v8::Handle<v8::Value>
-xrltXML2JSONGetProperty(v8::Local<v8::String> name,
-                        const v8::AccessorInfo& info)
-{
-    xrltXML2JSONData                                  *data;
-    data = (xrltXML2JSONData *)info.Holder()->
-                                        GetAlignedPointerFromInternalField(0);
-
-    std::string                                        key;
-    v8::String::Utf8Value                              keyarg(name);
-    std::multimap<std::string, xmlNodePtr>::iterator   i;
-    std::vector<xmlNodePtr>                            values;
-
-    key.assign(*keyarg);
-
-    i = data->named.find(key);
-
-    if (i != data->named.end()) {
-        for (; i != data->named.upper_bound(key); i++) {
-            values.push_back(i->second);
-        }
-
-        if (values.size() == 1) {
-            return xrltXML2JSONCreateInternal(values[0], NULL, data->cache);
-        } else if (values.size() > 1) {
-            uint32_t               index = 0;
-            v8::Local<v8::Array>   ret = v8::Array::New();
-
-            for (index = 0; index < values.size(); index++) {
-                ret->Set(index,
-                         xrltXML2JSONCreateInternal(values[index], NULL,
-                                                    data->cache));
+                i++;
             }
-            return ret;
+
+            xmlBufferAdd(*buf, (const xmlChar *)"}", 1);
         }
     }
 
-    return v8::Undefined();
-}
-
-
-// Named properties enumerator for XML2JSON JavaScript object.
-v8::Handle<v8::Array>
-xrltXML2JSONEnumProperties(const v8::AccessorInfo& info)
-{
-    xrltXML2JSONData                                  *data;
-    data = (xrltXML2JSONData *)info.Holder()->
-                                         GetAlignedPointerFromInternalField(0);
-
-    v8::HandleScope                                    scope;
-
-    v8::Local<v8::Array>                               ret = v8::Array::New();
-    uint32_t                                           index = 0;
-    std::multimap<std::string, xmlNodePtr>::iterator   i;
-
-    for (i = data->named.begin(); i != data->named.end();
-         i = data->named.upper_bound(i->first))
-    {
-        ret->Set(index++, v8::String::New(i->first.c_str()));
+    if (data != NULL) {
+        delete data;
     }
 
-    return scope.Close(ret);
-}
-
-
-// This function must be called to initialize XML2JSON object template.
-void
-xrltXML2JSONTemplateInit(void)
-{
-    xrltXML2JSONCacheTemplate = \
-        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
-
-    xrltXML2JSONCacheTemplate->SetInternalFieldCount(1);
-
-    xrltXML2JSONTemplate = \
-        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
-
-    xrltXML2JSONTemplate->SetInternalFieldCount(1);
-
-    xrltXML2JSONTemplate->SetNamedPropertyHandler(
-        xrltXML2JSONGetProperty, 0, 0, 0, xrltXML2JSONEnumProperties
-    );
-}
-
-
-void
-xrltXML2JSONTemplateFree(void)
-{
-    xrltXML2JSONCacheTemplate.Dispose();
-    xrltXML2JSONTemplate.Dispose();
+    return TRUE;
 }
