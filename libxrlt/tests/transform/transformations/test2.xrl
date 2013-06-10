@@ -10,7 +10,7 @@
             <test xrl:type="number">123</test>
             <test>
                 <a>aaa</a>
-                <b>bbb</b>
+                <b>"b\b'b</b>
                 <c>ccc</c>
             </test>
         </xrl:transform>

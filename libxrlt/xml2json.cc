@@ -1,6 +1,5 @@
 #include "xml2json.h"
-#include <sstream>
-
+#include "ccan_json.h"
 
 xrltXML2JSONTypeMap::xrltXML2JSONTypeMap()
 {
@@ -118,46 +117,85 @@ xrltXML2JSONData::xrltXML2JSONData(xmlNodePtr parent, xmlXPathObjectPtr val,
 }
 
 
+#define RAISE_OUT_OF_MEMORY_IF_TRUE(cond)                                     \
+    if (cond) {                                                               \
+        ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);                                 \
+        return FALSE;                                                         \
+    }
+
+#define ENCODE_ADD_STRING(str)                                                \
+    tmp = json_encode_string((const char *)str);                              \
+    RAISE_OUT_OF_MEMORY_IF_TRUE(tmp == NULL);                                 \
+    if (xmlBufferAdd(*buf, (const xmlChar *)tmp, -1) != 0) {                  \
+        free(tmp);                                                            \
+        ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);                                 \
+        return FALSE;                                                         \
+    } else {                                                                  \
+        free(tmp);                                                            \
+    }
+
+#define ADD_CONST(chars)                                                      \
+    RAISE_OUT_OF_MEMORY_IF_TRUE(                                              \
+        xmlBufferAdd(*buf, (const xmlChar *)chars, sizeof(chars) - 1) != 0    \
+    );
+
 xrltBool
-xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
-                      xmlBufferPtr *buf)
+xrltXML2JSONStringify(xrltContextPtr ctx, xmlNodePtr parent,
+                      xmlXPathObjectPtr val, xmlBufferPtr *buf)
 {
-    // TODO: Check if response values are valid JSON values.
-    //       Check buffer operations success.
     xrltXML2JSONData    *data = NULL;
     size_t               i;
     xrltBool             prev;
+    JsonNode            *jsnode;
+    char                *tmp;
 
-    if (buf == NULL) { return FALSE; }
+    if (buf == NULL) {
+        return FALSE;
+    }
 
     if (*buf == NULL) {
         *buf = xmlBufferCreate();
+
+        RAISE_OUT_OF_MEMORY_IF_TRUE(*buf == NULL);
     }
 
     if (val != NULL) {
         switch (val->type) {
             case XPATH_STRING:
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
-                xmlBufferAdd(*buf, val->stringval, xmlStrlen(val->stringval));
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                ENCODE_ADD_STRING(val->stringval);
+
                 return TRUE;
 
             case XPATH_NUMBER:
-                {
-                    std::ostringstream   fbuf;
-                    std::string          tmp;
-                    fbuf << val->floatval;
-                    tmp = fbuf.str();
-                    xmlBufferAdd(*buf, (xmlChar *)tmp.c_str(), tmp.length());
+                jsnode = json_mknumber(val->floatval);
+
+                RAISE_OUT_OF_MEMORY_IF_TRUE(jsnode == NULL);
+
+                tmp = json_encode(jsnode);
+
+                free(jsnode);
+
+                RAISE_OUT_OF_MEMORY_IF_TRUE(tmp == NULL);
+
+                if (xmlBufferAdd(*buf, (xmlChar *)tmp, -1) != 0) {
+                    free(tmp);
+
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
+
+                    return FALSE;
                 }
+
+                free(tmp);
+
                 return TRUE;
 
             case XPATH_BOOLEAN:
                 if (val->boolval) {
-                    xmlBufferAdd(*buf, (const xmlChar *)"true", 4);
+                    ADD_CONST("true");
                 } else {
-                    xmlBufferAdd(*buf, (const xmlChar *)"false", 5);
+                    ADD_CONST("false");
                 }
+
                 return TRUE;
 
             case XPATH_NODESET:
@@ -175,6 +213,8 @@ xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
         if (val->nodesetval == NULL || val->nodesetval->nodeTab == NULL ||
             val->nodesetval->nodeNr == 0)
         {
+            xrltTransformError(ctx, NULL, NULL,
+                               "Can't JSON-stringify empty nodeset\n");
             return FALSE;
         }
 
@@ -183,56 +223,86 @@ xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
         {
             data = new xrltXML2JSONData(val->nodesetval->nodeTab[0],
                                         NULL, NULL);
+            RAISE_OUT_OF_MEMORY_IF_TRUE(data == NULL);
         } else {
             data = new xrltXML2JSONData(NULL, val, NULL);
+
+            RAISE_OUT_OF_MEMORY_IF_TRUE(data == NULL);
         }
     } else {
         data = new xrltXML2JSONData(parent, NULL, NULL);
+
+        RAISE_OUT_OF_MEMORY_IF_TRUE(data == NULL);
     }
 
     if (data->type == XRLT_JSON2XML_ARRAY) {
-        xmlBufferAdd(*buf, (const xmlChar *)"[", 1);
+        ADD_CONST("[");
 
         prev = FALSE;
 
         for (i = 0; i < data->nodes.size(); i++) {
             if (prev) {
-                xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+                ADD_CONST(", ");
             }
 
-            prev |= xrltXML2JSONStringify(data->nodes[i], NULL, buf);
+            if (!xrltXML2JSONStringify(ctx, data->nodes[i], NULL, buf)) {
+                return FALSE;
+            }
+
+            prev = TRUE;
         }
 
-        xmlBufferAdd(*buf, (const xmlChar *)"]", 1);
+        ADD_CONST("]");
     } else {
         if (data->nodes.size() == 0) {
             if (data->type == XRLT_JSON2XML_OBJECT) {
-                xmlBufferAdd(*buf, (const xmlChar *)"{}", 2);
+                ADD_CONST("{}");
             } else if (data->type == XRLT_JSON2XML_STRING && parent != NULL &&
                        parent->content != NULL) {
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
-                xmlBufferAdd(*buf, parent->content, xmlStrlen(parent->content));
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                ENCODE_ADD_STRING(parent->content);
             } else {
-                xmlBufferAdd(*buf, (const xmlChar *)"null", 4);
+                ADD_CONST("null");
             }
         } else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0])) {
             if (data->type == XRLT_JSON2XML_NUMBER) {
-                xmlBufferAdd(*buf, data->nodes[0]->content,
-                             xmlStrlen(data->nodes[0]->content));
+                jsnode = json_decode((const char *)data->nodes[0]->content);
+
+                RAISE_OUT_OF_MEMORY_IF_TRUE(jsnode == NULL);
+
+                if (jsnode->tag != JSON_NUMBER) {
+                    free(jsnode);
+
+                    xrltTransformError(ctx, NULL, NULL,
+                                       "Invalid JSON number\n");
+
+                    return FALSE;
+                }
+
+                tmp = json_encode(jsnode);
+
+                free(jsnode);
+
+                RAISE_OUT_OF_MEMORY_IF_TRUE(tmp == NULL);
+
+                if (xmlBufferAdd(*buf, (xmlChar *)tmp, -1) != 0) {
+                    free(tmp);
+
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, NULL);
+
+                    return FALSE;
+                }
+
+                free(tmp);
             } else if (data->type == XRLT_JSON2XML_BOOLEAN) {
                 if (xmlStrEqual(data->nodes[0]->content,
                     (const xmlChar *)"true"))
                 {
-                    xmlBufferAdd(*buf, (const xmlChar *)"true", 4);
+                    ADD_CONST("true");
                 } else {
-                    xmlBufferAdd(*buf, (const xmlChar *)"false", 5);
+                    ADD_CONST("false");
                 }
             } else {
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
-                xmlBufferAdd(*buf, data->nodes[0]->content,
-                             xmlStrlen(data->nodes[0]->content));
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
+                ENCODE_ADD_STRING(data->nodes[0]->content);
             }
         } else {
             std::multimap<std::string, xmlNodePtr>::iterator              iter;
@@ -241,7 +311,7 @@ xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
                       std::multimap<std::string, xmlNodePtr>::iterator>   range;
             xrltBool                                                      prev2;
 
-            xmlBufferAdd(*buf, (const xmlChar *)"{", 1);
+            ADD_CONST("{");
 
             prev = FALSE;
 
@@ -251,39 +321,45 @@ xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
                 range = data->named.equal_range(iter->first);
 
                 if (prev) {
-                    xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+                    ADD_CONST(", ");
                 }
 
-                xmlBufferAdd(*buf, (const xmlChar *)"\"", 1);
-                xmlBufferAdd(*buf, (xmlChar *)iter->first.c_str(),
-                             iter->first.length());
-                xmlBufferAdd(*buf, (const xmlChar *)"\": ", 3);
+                ENCODE_ADD_STRING(iter->first.c_str());
+
+                ADD_CONST(": ");
 
                 if (std::distance(range.first, range.second) <= 1) {
-                    prev |= xrltXML2JSONStringify(iter->second, NULL, buf);
+                    if (!xrltXML2JSONStringify(ctx, iter->second, NULL, buf)) {
+                        return FALSE;
+                    }
+
+                    prev = TRUE;
                 } else {
-                    xmlBufferAdd(*buf, (const xmlChar *)"[", 1);
+                    ADD_CONST("[");
 
                     prev2 = FALSE;
 
                     for (iter2 = range.first; iter2 != range.second; iter2++) {
                         if (prev2) {
-                            xmlBufferAdd(*buf, (const xmlChar *)", ", 2);
+                            ADD_CONST(", ");
                         }
 
-                        prev2 |=
-                            xrltXML2JSONStringify(iter2->second, NULL, buf);
+                        if (!xrltXML2JSONStringify(ctx, iter2->second,
+                                                   NULL, buf))
+                        {
+                            return FALSE;
+                        }
+
+                        prev2 = TRUE;
                     }
 
-                    xmlBufferAdd(*buf, (const xmlChar *)"]", 1);
+                    ADD_CONST("]");
 
                     prev = TRUE;
                 }
-
-                i++;
             }
 
-            xmlBufferAdd(*buf, (const xmlChar *)"}", 1);
+            ADD_CONST("}");
         }
     }
 

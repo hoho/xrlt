@@ -12,6 +12,7 @@
 #include <libxml/xpath.h>
 
 #include "xrlt.h"
+#include "transform.h"
 #include "json2xml.h"
 
 
@@ -41,8 +42,8 @@ struct xrltXML2JSONData {
 
 
 xrltBool
-        xrltXML2JSONStringify   (xmlNodePtr parent, xmlXPathObjectPtr val,
-                                 xmlBufferPtr *buf);
+        xrltXML2JSONStringify   (xrltContextPtr ctx, xmlNodePtr parent,
+                                 xmlXPathObjectPtr val, xmlBufferPtr *buf);
 
 
 #endif /* __XRLT_XML2JSON_H__ */

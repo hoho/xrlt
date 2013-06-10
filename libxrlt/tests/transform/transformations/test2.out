@@ -1,3 +1,3 @@
 XRLT_STATUS_CHUNK
-chunk: ["yoyoyo", "yaya", 123, {"a": "aaa", "b": "bbb", "c": "ccc"}]
+chunk: ["yoyoyo", "yaya", 123, {"a": "aaa", "b": "\"b\\b'b", "c": "ccc"}]
 XRLT_STATUS_DONE

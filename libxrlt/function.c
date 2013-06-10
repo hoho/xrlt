@@ -827,9 +827,15 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             {
                                 xmlBufferPtr   buf = NULL;
 
-                                xrltXML2JSONStringify(
-                                    (xmlNodePtr)tdata->self, NULL, &buf
-                                );
+                                if (!xrltXML2JSONStringify(
+                                     ctx, (xmlNodePtr)tdata->self, NULL, &buf))
+                                {
+                                    if (buf != NULL) {
+                                        xmlBufferFree(buf);
+                                    }
+
+                                    return FALSE;
+                                }
 
                                 if (buf != NULL) {
                                     NEW_TEXT_CHILD(
