@@ -35,7 +35,7 @@ compile:
 .PHONY: transform
 transform:
 	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
-		../xrlt.c ../json2xml.c ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
+		../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
 		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../xrlterror.c transform/test.c \
 		-lxml2 -lyajl -lxslt
 	@$(VALGRIND) .build/transform_test transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
@@ -56,6 +56,7 @@ transform:
                                        transform/querystrings_bodies/test5.xrl transform/querystrings_bodies/test5.in transform/querystrings_bodies/test5.out \
                                        \
                                        transform/transformations/test1.xrl transform/transformations/test1.in transform/transformations/test1.out \
+                                       transform/transformations/test2.xrl transform/transformations/test2.in transform/transformations/test2.out \
                                        \
                                        transform/imports/test1.xrl transform/imports/test1.in transform/imports/test1.out \
                                        \
@@ -66,8 +67,9 @@ transform:
 .PHONY: transformjs
 transformjs:
 	@g++ -o .build/transform_testjs   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
-		../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
-		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../js.cc ../xrlterror.c transform/test.c \
+		../xrlt.c ../json2xml.c ../xml2json.cc ../xml2js.cc ../querystring.c ../include.c ../variable.c ../headers.c \
+		../function.c ../import.c ../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../js.cc \
+		../xrlterror.c transform/test.c \
 		-lxml2 -lyajl -lv8 -lxslt
 	@$(VALGRIND) .build/transform_testjs transform/rddm/test1.xrl transform/rddm/test1.in transform/rddm/test1.out
 

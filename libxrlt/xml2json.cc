@@ -218,7 +218,8 @@ xrltXML2JSONStringify(xmlNodePtr parent, xmlXPathObjectPtr val,
             }
         } else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0])) {
             if (data->type == XRLT_JSON2XML_NUMBER) {
-                xmlBufferAdd(*buf, parent->content, xmlStrlen(parent->content));
+                xmlBufferAdd(*buf, data->nodes[0]->content,
+                             xmlStrlen(data->nodes[0]->content));
             } else if (data->type == XRLT_JSON2XML_BOOLEAN) {
                 if (xmlStrEqual(data->nodes[0]->content,
                     (const xmlChar *)"true"))
