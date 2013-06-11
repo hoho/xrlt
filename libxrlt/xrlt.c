@@ -407,6 +407,8 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
     xmlNodePtr                insert;
     size_t                    varScope;
     xmlNodePtr                xpathContext;
+    int                       xpathContextSize;
+    int                       xpathProximityPosition;
     void                     *data;
     size_t                    len;
     xrltInputCallbackQueue   *q = NULL;
@@ -500,10 +502,13 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
 
     while (xrltTransformCallbackQueueShift(&ctx->tcb, &func, &comp,
                                            &insert, &varScope, &xpathContext,
-                                           &data))
+                                           &xpathContextSize,
+                                           &xpathProximityPosition, &data))
     {
         ctx->varScope = varScope;
         ctx->xpathContext = xpathContext;
+        ctx->xpathContextSize = xpathContextSize;
+        ctx->xpathProximityPosition = xpathProximityPosition;
 
         if (!func(ctx, comp, insert, data)) {
             ctx->cur |= XRLT_STATUS_ERROR;
@@ -550,7 +555,9 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert, xrltXPathExpr *expr,
     }
 
     if (ctx->xpathContext != NULL) {
-        //ctx->xpath->node = ctx->xpathContext;
+        ctx->xpath->node = ctx->xpathContext;
+        ctx->xpath->contextSize = ctx->xpathContextSize;
+        ctx->xpath->proximityPosition = ctx->xpathProximityPosition;
     }
 
     ctx->varContext = expr->scope;

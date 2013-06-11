@@ -174,6 +174,8 @@ struct _xrltContext {
     size_t                       varScope;
     xmlDocPtr                    xpathDefault;
     xmlNodePtr                   xpathContext;
+    int                          xpathContextSize;
+    int                          xpathProximityPosition;
     xmlXPathContextPtr           xpath;
     xmlNodePtr                   xpathWait;
 
@@ -194,6 +196,8 @@ struct _xrltTransformCallback {
     xmlNodePtr                 insert;  // Place to insert the result.
     size_t                     varScope;
     xmlNodePtr                 xpathContext;
+    int                        xpathContextSize;
+    int                        xpathProximityPosition;
     void                      *data;    // Data allocated by transform
                                         // function. These datas are stored in
                                         // the transformation context. They are

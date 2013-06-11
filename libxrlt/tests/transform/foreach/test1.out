@@ -1,0 +1,7 @@
+XRLT_STATUS_CHUNK
+chunk: 1. a: aaa, false
+2. b: bbb, false
+3. c: ccc, false
+4. d: ddd, true
+
+XRLT_STATUS_DONE

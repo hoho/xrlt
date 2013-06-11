@@ -126,7 +126,8 @@ extern "C" {
 #define SCHEDULE_CALLBACK(ctx, tcb, func, comp, insert, data) {               \
     if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert,              \
                                         ctx->varScope, ctx->xpathContext,     \
-                                        data))                                \
+                                        ctx->xpathContextSize,                \
+                                        ctx->xpathProximityPosition, data))   \
     {                                                                         \
         xrltTransformError(ctx, NULL, NULL, "Failed to push callback\n");     \
         return FALSE;                                                         \
@@ -220,7 +221,7 @@ extern "C" {
 #define WAIT_FOR_NODE(ctx, node, func)                                        \
     ASSERT_NODE_DATA(node, nodeData);                                         \
     if (nodeData->count > 0) {                                                \
-        SCHEDULE_CALLBACK(ctx, &nodeData->tcb, func, comp, insert, data);     \
+        SCHEDULE_CALLBACK(ctx, &nodeData->tcb, func, comp, insert, tdata);    \
         return TRUE;                                                          \
     }
 
@@ -332,7 +333,8 @@ static inline xrltBool
 xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
                                xmlNodePtr insert, size_t varScope,
-                               xmlNodePtr xpathContext, void *data)
+                               xmlNodePtr xpathContext, int xpathContextSize,
+                               int xpathProximityPosition, void *data)
 {
     if (tcb == NULL || func == NULL) {
         return FALSE;
@@ -348,6 +350,8 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
     item->comp = comp;
     item->varScope = varScope;
     item->xpathContext = xpathContext;
+    item->xpathContextSize = xpathContextSize;
+    item->xpathProximityPosition = xpathProximityPosition;
     item->data = data;
 
 
@@ -366,7 +370,9 @@ static inline xrltBool
 xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
                                 xrltTransformFunction *func, void **comp,
                                 xmlNodePtr *insert, size_t *varScope,
-                                xmlNodePtr *xpathContext, void **data)
+                                xmlNodePtr *xpathContext,
+                                int *xpathContextSize,
+                                int *xpathProximityPosition, void **data)
 {
     if (tcb == NULL) { return FALSE; }
 
@@ -382,6 +388,8 @@ xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
     *varScope = item->varScope;
     *data = item->data;
     *xpathContext = item->xpathContext;
+    *xpathContextSize = item->xpathContextSize;
+    *xpathProximityPosition = item->xpathProximityPosition;
 
     tcb->first = item->next;
     if (item->next == NULL) { tcb->last = NULL; }
@@ -400,10 +408,14 @@ xrltTransformCallbackQueueClear(xrltTransformCallbackQueue *tcb)
     xmlNodePtr              insert;
     size_t                  varScope;
     xmlNodePtr              xpathContext;
+    int                     xpathContextSize;
+    int                     xpathProximityPosition;
     void                   *data;
 
     while (xrltTransformCallbackQueueShift(tcb, &func, &comp, &insert,
-                                           &varScope, &xpathContext, &data));
+                                           &varScope, &xpathContext,
+                                           &xpathContextSize,
+                                           &xpathProximityPosition, &data));
 }
 
 

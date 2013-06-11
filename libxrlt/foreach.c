@@ -98,7 +98,7 @@ DEFINE_TRANSFORM_FUNCTION(
     xrltForEachTransformingData*,
     sizeof(xrltForEachTransformingData),
     xrltForEachTransformingFree,
-    xmlXPathObjectPtr  val;,
+    xmlXPathObjectPtr   val;,
     {
         if (!xrltXPathEval(ctx, insert, &tcomp->select.xpathval, &val)) {
             return FALSE;
@@ -108,8 +108,6 @@ DEFINE_TRANSFORM_FUNCTION(
             tdata->xpathEvaluation = TRUE;
 
             WAIT_FOR_NODE(ctx, ctx->xpathWait, xrltForEachTransform);
-
-            return TRUE;
         } else {
             MOVE_NODESET_TO_TDATA;
 
@@ -135,12 +133,27 @@ DEFINE_TRANSFORM_FUNCTION(
             if (tdata->val != NULL && tdata->val->nodeNr > 0) {
                 if (tdata->retNode == NULL) {
                     int   i;
+                    int   oldContextSize;
+                    int   oldProximityPosition;
 
                     NEW_CHILD(ctx, tdata->retNode, tdata->node, "r");
 
+                    tmpNode = ctx->xpathContext;
+                    oldContextSize = ctx->xpathContextSize;
+                    oldProximityPosition = ctx->xpathProximityPosition;
+
+                    ctx->xpathContextSize = tdata->val->nodeNr;
+
                     for (i = 0; i < tdata->val->nodeNr; i++) {
-                        //TRANSFORM_SUBTREE(ctx, tcomp->children, tdata->retNode);
+                        ctx->xpathContext = tdata->val->nodeTab[i];
+                        ctx->xpathProximityPosition = i + 1;
+
+                        TRANSFORM_SUBTREE(ctx, tcomp->children, tdata->retNode);
                     }
+
+                    ctx->xpathContext = tmpNode;
+                    ctx->xpathContextSize = oldContextSize;
+                    ctx->xpathProximityPosition = oldProximityPosition;
 
                     SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltForEachTransform,
                                       comp, insert, data);
