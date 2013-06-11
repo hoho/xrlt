@@ -15,6 +15,7 @@
 #include "variable.h"
 #include "headers.h"
 #include "function.h"
+#include "foreach.h"
 
 
 static xmlHashTablePtr xrltRegisteredElements = NULL;
@@ -201,6 +202,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltApplyCompile,
                                xrltApplyFree,
                                xrltApplyTransform);
+
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"for-each",
+                               XRLT_COMPILE_PASS2,
+                               xrltForEachCompile,
+                               xrltForEachFree,
+                               xrltForEachTransform);
 
     if (!ret) {
         xrltUnregisterBuiltinElements();

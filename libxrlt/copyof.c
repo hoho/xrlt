@@ -13,7 +13,7 @@ xrltCopyOfCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     xmlChar         *select = NULL;
 
     if (node->children != NULL) {
-        xrltTransformError(NULL, sheet, node, "Element can't have content\n");
+        ERROR_UNEXPECTED_ELEMENT(NULL, sheet, node->children);
         return NULL;
     }
 

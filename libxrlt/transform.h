@@ -125,7 +125,8 @@ extern "C" {
 
 #define SCHEDULE_CALLBACK(ctx, tcb, func, comp, insert, data) {               \
     if (!xrltTransformCallbackQueuePush(tcb, func, comp, insert,              \
-                                        ctx->varScope, data))                 \
+                                        ctx->varScope, ctx->xpathContext,     \
+                                        data))                                \
     {                                                                         \
         xrltTransformError(ctx, NULL, NULL, "Failed to push callback\n");     \
         return FALSE;                                                         \
@@ -330,7 +331,8 @@ xrltIsXRLTNamespace(xmlNodePtr node)
 static inline xrltBool
 xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
                                xrltTransformFunction func, void *comp,
-                               xmlNodePtr insert, size_t varScope, void *data)
+                               xmlNodePtr insert, size_t varScope,
+                               xmlNodePtr xpathContext, void *data)
 {
     if (tcb == NULL || func == NULL) {
         return FALSE;
@@ -345,6 +347,7 @@ xrltTransformCallbackQueuePush(xrltTransformCallbackQueue *tcb,
     item->insert = insert;
     item->comp = comp;
     item->varScope = varScope;
+    item->xpathContext = xpathContext;
     item->data = data;
 
 
@@ -363,7 +366,7 @@ static inline xrltBool
 xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
                                 xrltTransformFunction *func, void **comp,
                                 xmlNodePtr *insert, size_t *varScope,
-                                void **data)
+                                xmlNodePtr *xpathContext, void **data)
 {
     if (tcb == NULL) { return FALSE; }
 
@@ -378,6 +381,7 @@ xrltTransformCallbackQueueShift(xrltTransformCallbackQueue *tcb,
     *insert = item->insert;
     *varScope = item->varScope;
     *data = item->data;
+    *xpathContext = item->xpathContext;
 
     tcb->first = item->next;
     if (item->next == NULL) { tcb->last = NULL; }
@@ -395,10 +399,11 @@ xrltTransformCallbackQueueClear(xrltTransformCallbackQueue *tcb)
     void                   *comp;
     xmlNodePtr              insert;
     size_t                  varScope;
+    xmlNodePtr              xpathContext;
     void                   *data;
 
     while (xrltTransformCallbackQueueShift(tcb, &func, &comp, &insert,
-                                           &varScope, &data));
+                                           &varScope, &xpathContext, &data));
 }
 
 

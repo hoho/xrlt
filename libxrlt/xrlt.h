@@ -173,6 +173,7 @@ struct _xrltContext {
     xmlNodePtr                   varContext;
     size_t                       varScope;
     xmlDocPtr                    xpathDefault;
+    xmlNodePtr                   xpathContext;
     xmlXPathContextPtr           xpath;
     xmlNodePtr                   xpathWait;
 
@@ -191,13 +192,15 @@ struct _xrltTransformCallback {
     xrltTransformFunction      func;    // Function to call.
     void                      *comp;    // Compiled element's data.
     xmlNodePtr                 insert;  // Place to insert the result.
+    size_t                     varScope;
+    xmlNodePtr                 xpathContext;
     void                      *data;    // Data allocated by transform
                                         // function. These datas are stored in
                                         // the transformation context. They are
                                         // freed by free function of
                                         // xrltTransformingElement, when the
                                         // context is being freed.
-    size_t                     varScope;
+
     xrltTransformCallbackPtr   next;    // Next callback in this queue.
 };
 
