@@ -145,6 +145,8 @@ DEFINE_TRANSFORM_FUNCTION(
                     ctx->xpathContextSize = tdata->val->nodeNr;
 
                     for (i = 0; i < tdata->val->nodeNr; i++) {
+                        ctx->varScope = ++ctx->maxVarScope;
+
                         ctx->xpathContext = tdata->val->nodeTab[i];
                         ctx->xpathProximityPosition = i + 1;
 

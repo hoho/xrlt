@@ -1,7 +1,16 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /tmp2
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
-chunk: 1. a: aaa, false
-2. b: bbb, false
-3. c: ccc, false
+chunk: 1. a: aaa
+2. b: bbb
+3. c: ccc
 4. d: ddd, true
 
 XRLT_STATUS_DONE
