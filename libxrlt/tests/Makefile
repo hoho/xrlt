@@ -58,6 +58,7 @@ transform:
                                        \
                                        transform/transformations/test1.xrl transform/transformations/test1.in transform/transformations/test1.out \
                                        transform/transformations/test2.xrl transform/transformations/test2.in transform/transformations/test2.out \
+                                       transform/transformations/test3.xrl transform/transformations/test3.in transform/transformations/test3.out \
                                        \
                                        transform/imports/test1.xrl transform/imports/test1.in transform/imports/test1.out \
                                        \

@@ -505,6 +505,7 @@ xrltTransform(xrltContextPtr ctx, size_t id, xrltTransformValue *val)
                                            &xpathContextSize,
                                            &xpathProximityPosition, &data))
     {
+        ctx->insert = insert;
         ctx->varScope = varScope;
         ctx->xpathContext = xpathContext;
         ctx->xpathContextSize = xpathContextSize;

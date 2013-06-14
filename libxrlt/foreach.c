@@ -30,7 +30,7 @@ xrltForEachCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
     ret->select.type = XRLT_VALUE_XPATH;
     ret->select.xpathval.src = node;
-    ret->select.xpathval.scope = node->parent;
+    ret->select.xpathval.scope = node;
     ret->select.xpathval.expr = xmlXPathCompile(select);
 
     if (ret->select.xpathval.expr == NULL) {
@@ -100,6 +100,10 @@ DEFINE_TRANSFORM_FUNCTION(
     xrltForEachTransformingFree,
     xmlXPathObjectPtr   val;,
     {
+        ASSERT_NODE_DATA(insert, nodeData);
+
+        nodeData->parentScope = ctx->varScope;
+
         if (!xrltXPathEval(ctx, insert, &tcomp->select.xpathval, &val)) {
             return FALSE;
         }

@@ -696,7 +696,6 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
         }
 
         ctx->var = node;
-        ctx->varScope = newScope;
 
         COUNTER_INCREASE(ctx, tdata->node);
 
@@ -738,8 +737,14 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
             {
                 return FALSE;
             }
+
+            ctx->varScope = newScope;
         } else if (!acomp->hasSyncParam && !acomp->func->js) {
+            ctx->varScope = newScope;
+
             TRANSFORM_SUBTREE(ctx, acomp->func->children, tdata->retNode);
+        } else {
+            ctx->varScope = newScope;
         }
 
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltApplyTransform, comp, insert,

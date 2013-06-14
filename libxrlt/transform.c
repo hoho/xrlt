@@ -365,16 +365,22 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
     xmlChar              id[sizeof(xmlNodePtr) * 7]; // TODO: Count actual size.
     xmlXPathObjectPtr    ret;
     xrltContextPtr       ctx = (xrltContextPtr)ctxt;
-    xmlNodePtr           node;
+    size_t               varScope;
+    xmlNodePtr           node, insert;
     xrltNodeDataPtr      n;
 
     if (ctx == NULL) { return NULL; }
 
+    varScope = ctx->varScope;
     node = ctx->varContext;
+    insert = ctx->insert;
 
-    while (node) {
+    while (node != NULL) {
         sprintf((char *)id, "%p-%zd", node,
-                node == ctx->sheetNode ? 0 : ctx->varScope);
+                node == ctx->sheetNode ? 0 : varScope);
+
+        // TODO: Reduce too many hash lookups (assign xrltNodeData to
+        // significant nodes only and switch to parentScope in time).
 
         ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
 
@@ -400,7 +406,22 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
         if (node != ctx->sheetNode) {
             node = node->parent;
         } else {
-            break;
+            node = NULL;
+
+            if (insert != NULL) {
+                while (insert != NULL) {
+                    n = (xrltNodeDataPtr)insert->_private;
+
+                    insert = insert->parent;
+
+                    if (n->parentScope > 0) {
+                        varScope = n->parentScope;
+                        node = ctx->varContext;
+
+                        break;
+                    }
+                }
+            }
         }
     }
 

@@ -1,0 +1,42 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: JSON
+sr url: /tmp
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
+sr type: TEXT
+sr url: /tmpi2
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 3
+sr method: GET
+sr type: TEXT
+sr url: /tmpi
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 4
+sr method: GET
+sr type: TEXT
+sr url: /tmpi
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 5
+sr method: GET
+sr type: TEXT
+sr url: /tmpi
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: {"test1": "<test2><item>=1=</item><item>|2|</item><item>\\3\\</item></test2><test3><item2>--a-</item2><item2>--b-</item2><item2>--c-</item2></test3>\n"}
+XRLT_STATUS_DONE

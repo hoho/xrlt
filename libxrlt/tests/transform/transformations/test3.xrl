@@ -2,10 +2,17 @@
 <xrl:requestsheet xmlns:xrl="http://xrlt.net/Transform">
 
     <xrl:transformation name="json-stringify" type="json-stringify" />
-    <xrl:transformation name="xslt-stringify" type="xslt-stringify" src="test4.xsl" />
+    <xrl:transformation name="xslt-stringify" type="xslt-stringify" src="test3.xsl" />
 
     <xrl:response>
-        <xrl:variable name="tmptmp" select="'-'" />
+        <xrl:variable name="tmptmp">
+            <xrl:include>
+                <xrl:href>/tmpi2</xrl:href>
+                <xrl:type>text</xrl:type>
+            </xrl:include>
+        </xrl:variable>
+
+        <xrl:variable name="tmptmp2" select="'-'" />
 
         <xrl:include>
             <xrl:href>
@@ -19,7 +26,6 @@
                         <xrl:transform name="xslt-stringify">
                             <test2>
                                 <xrl:for-each select="/data[name = 'test2']/item">
-                                    <xrl:value-of select="$tmptmp" />
                                     <xrl:variable name="testi">
                                         <xrl:include>
                                             <xrl:href>/tmpi</xrl:href>
@@ -35,7 +41,7 @@
                             <test3>
                                 <xrl:for-each select="/data[name = 'test3']/item">
                                     <item2>
-                                        <xrl:copy-of select="concat('f', text(), '-')" />
+                                        <xrl:copy-of select="concat($tmptmp, text(), $tmptmp2)" />
                                     </item2>
                                 </xrl:for-each>
                             </test3>

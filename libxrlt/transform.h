@@ -304,6 +304,7 @@ struct _xrltNodeData {
     xmlDocPtr                    root;       // Root for XPath requests.
     void                        *sr;         // Subrequest data, to get headers
                                              // from.
+    size_t                       parentScope;
 };
 
 
