@@ -376,52 +376,58 @@ xrltVariableLookupFunc(void *ctxt, const xmlChar *name, const xmlChar *ns_uri)
     insert = ctx->insert;
 
     while (node != NULL) {
-        sprintf((char *)id, "%p-%zd", node,
-                node == ctx->sheetNode ? 0 : varScope);
+        n = (xrltNodeDataPtr)node->_private;
 
-        // TODO: Reduce too many hash lookups (assign xrltNodeData to
-        // significant nodes only and switch to parentScope in time).
+        if (n->hasVar) {
+            sprintf((char *)id, "%p-%zd", node,
+                    node == ctx->sheetNode ? 0 : varScope);
 
-        ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash, id, name);
+            ret = (xmlXPathObjectPtr)xmlHashLookup2(ctx->xpath->varHash,
+                                                    id, name);
 
-        if (ret != NULL) {
-            if (ret->type == XPATH_NODESET) {
-                node = xmlXPathNodeSetItem(ret->nodesetval, 0);
+            if (ret != NULL) {
+                if (ret->type == XPATH_NODESET) {
+                    node = xmlXPathNodeSetItem(ret->nodesetval, 0);
 
-                if (node != NULL) {
-                    n = (xrltNodeDataPtr)node->_private;
+                    if (node != NULL) {
+                        n = (xrltNodeDataPtr)node->_private;
 
-                    if (n != NULL && n->count > 0) {
-                        ctx->xpathWait = node;
+                        if (n != NULL && n->count > 0) {
+                            ctx->xpathWait = node;
 
-                        return xmlXPathNewNodeSet(NULL);
+                            return xmlXPathNewNodeSet(NULL);
+                        }
                     }
+                }
+
+                return xmlXPathObjectCopy(ret);
+            }
+        }
+
+        if (n->parentScope) {
+            while (insert != NULL) {
+                n = (xrltNodeDataPtr)insert->_private;
+
+                insert = insert->parent;
+
+                if (n->parentScope > 0) {
+                    varScope = n->parentScope;
+                    node = ctx->varContext;
+
+                    break;
                 }
             }
 
-            return xmlXPathObjectCopy(ret);
+            node = node->parent;
+
+            continue;
         }
 
         // Try upper scope.
         if (node != ctx->sheetNode) {
             node = node->parent;
         } else {
-            node = NULL;
-
-            if (insert != NULL) {
-                while (insert != NULL) {
-                    n = (xrltNodeDataPtr)insert->_private;
-
-                    insert = insert->parent;
-
-                    if (n->parentScope > 0) {
-                        varScope = n->parentScope;
-                        node = ctx->varContext;
-
-                        break;
-                    }
-                }
-            }
+            break;
         }
     }
 

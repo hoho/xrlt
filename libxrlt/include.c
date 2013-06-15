@@ -191,6 +191,9 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         sheet->querystringNode = node;
         sheet->querystringComp = ret;
         ret->includeType = XRLT_INCLUDE_TYPE_QUERYSTRING;
+
+        ASSERT_NODE_DATA_GOTO(node->parent, n);
+        n->hasVar = TRUE;
     } else if (xmlStrEqual(node->name, (const xmlChar *)"body")) {
         if (sheet->bodyNode != NULL) {
             xrltTransformError(NULL, sheet, node,
@@ -206,6 +209,9 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         sheet->bodyNode = node;
         sheet->bodyComp = ret;
         ret->includeType = XRLT_INCLUDE_TYPE_BODY;
+
+        ASSERT_NODE_DATA_GOTO(node->parent, n);
+        n->hasVar = TRUE;
     } else {
         ret->includeType = XRLT_INCLUDE_TYPE_INCLUDE;
     }

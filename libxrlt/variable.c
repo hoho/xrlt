@@ -73,6 +73,9 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     ret->node = node;
     ret->declScope = node->parent;
 
+    ASSERT_NODE_DATA_GOTO(node->parent, n);
+    n->hasVar = TRUE;
+
     return ret;
 
   error:

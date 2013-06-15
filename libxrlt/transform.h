@@ -305,6 +305,7 @@ struct _xrltNodeData {
     void                        *sr;         // Subrequest data, to get headers
                                              // from.
     size_t                       parentScope;
+    xrltBool                     hasVar;
 };
 
 

@@ -36,7 +36,7 @@ extern "C" {
         _val = xmlXPathNewNodeSet((xmlNodePtr)_vdoc);                         \
     }                                                                         \
     if (_val == NULL) {                                                       \
-        xrltTransformError(ctx, NULL, _node,                                   \
+        xrltTransformError(ctx, NULL, _node,                                  \
                            "Failed to initialize variable\n");                \
         return FALSE;                                                         \
     }                                                                         \

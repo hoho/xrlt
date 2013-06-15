@@ -11,6 +11,7 @@ xrltForEachCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltForEachData  *ret = NULL;
     xmlChar          *select = NULL;
+    xrltNodeDataPtr   n;
 
     if (node->children == NULL) {
         xrltTransformError(NULL, sheet, node, "Element is empty\n");
@@ -27,6 +28,10 @@ xrltForEachCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                            "Failed to get 'select' attribute\n");
         goto error;
     }
+
+    ASSERT_NODE_DATA_GOTO(node, n);
+
+    n->parentScope = 1;
 
     ret->select.type = XRLT_VALUE_XPATH;
     ret->select.xpathval.src = node;
