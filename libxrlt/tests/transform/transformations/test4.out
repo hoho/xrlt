@@ -1,0 +1,11 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: JSON
+sr url: /tmp/tmp
+sr query: q=%7B%22tmp1%22%3A+%22Blah+blah%22%2C+%22tmp2%22%3A+%22Mooo+mooo%22%7D
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: {"tmp3": "<tmp key=\"a\">aaa</tmp><tmp key=\"b\">bbb</tmp><tmp key=\"c\">ccc</tmp>\n"}
+XRLT_STATUS_DONE

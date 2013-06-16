@@ -1445,6 +1445,8 @@ xrltRequestInputTransform(xrltContextPtr ctx, void *val, xmlNodePtr insert,
                     tdata->comp->declScope, ctx->varScope, vdoc, varval
                 );
 
+                vdoc->doc = vdoc;
+
                 node = (xmlNodePtr)vdoc;
 
                 NEW_CHILD(ctx, node, node, "r");

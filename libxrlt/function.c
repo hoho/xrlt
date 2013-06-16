@@ -587,6 +587,7 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
     int          len;
     xmlNodePtr   node;
 
+
     res = xsltApplyStylesheet(style, doc, NULL);
 
     if (res == NULL) {
@@ -715,6 +716,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                 return FALSE;
             }
+
+            tdata->self->doc = tdata->self;
 
             root = NULL;
             sr = NULL;
