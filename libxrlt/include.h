@@ -58,6 +58,7 @@ typedef struct {
     xrltCompiledValue             bodyTest;
     xrltCompiledValue             body;
 
+    xrltCompiledValue             successTest;
     xrltCompiledValue             success;
     xrltCompiledValue             failure;
 } xrltCompiledIncludeData;
@@ -77,6 +78,8 @@ typedef enum {
     XRLT_INCLUDE_TRANSFORM_PARAMS_BEGIN = 0,
     XRLT_INCLUDE_TRANSFORM_PARAMS_END,
     XRLT_INCLUDE_TRANSFORM_READ_RESPONSE,
+    XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN,
+    XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END,
     XRLT_INCLUDE_TRANSFORM_SUCCESS,
     XRLT_INCLUDE_TRANSFORM_FAILURE,
     XRLT_INCLUDE_TRANSFORM_END
@@ -100,6 +103,7 @@ typedef struct {
     xmlNodePtr                  rnode;      // Parent node for the result.
     xmlNodePtr                  hnode;      // Parent node for headers.
     xmlNodePtr                  cnode;      // Parent node for cookies.
+    xmlNodePtr                  successNode;
 
     size_t                      status;
 
@@ -129,6 +133,8 @@ typedef struct {
 
     xrltBool                    bodyTest;
     xmlChar                    *body;
+
+    xrltBool                    successTest;
 } xrltIncludeTransformingData;
 
 

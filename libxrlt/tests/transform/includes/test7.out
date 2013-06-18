@@ -1,0 +1,27 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /tmp
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
+sr type: TEXT
+sr url: /tmp3
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 3
+sr method: GET
+sr type: TEXT
+sr url: /tmp2
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_CHUNK
+chunk: oops
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: hooray
+XRLT_STATUS_DONE

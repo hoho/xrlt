@@ -381,8 +381,14 @@ xrltIncludeCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
         }
 
         if (ret->success.type == XRLT_VALUE_EMPTY &&
-                 xmlStrEqual(tmp->name, XRLT_ELEMENT_SUCCESS))
+            xmlStrEqual(tmp->name, XRLT_ELEMENT_SUCCESS))
         {
+            if (!xrltCompileValue(sheet, tmp, NULL, XRLT_ELEMENT_ATTR_TEST,
+                                  NULL, NULL, FALSE, &ret->successTest))
+            {
+                goto error;
+            }
+
             if (!xrltCompileValue(sheet, tmp, tmp->children,
                                   XRLT_ELEMENT_ATTR_SELECT, NULL, NULL, FALSE,
                                   &ret->success))
@@ -450,6 +456,7 @@ xrltIncludeFree(void *comp)
         CLEAR_XRLT_VALUE(ret->type);
         CLEAR_XRLT_VALUE(ret->bodyTest);
         CLEAR_XRLT_VALUE(ret->body);
+        CLEAR_XRLT_VALUE(ret->successTest);
         CLEAR_XRLT_VALUE(ret->success);
         CLEAR_XRLT_VALUE(ret->failure);
 
@@ -751,13 +758,21 @@ xrltProcessBody(xrltContextPtr ctx, xrltTransformValueSubrequestBody *val,
             if (data->xmlparser->wellFormed == 0) {
                 data->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
             } else {
-                data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
+                data->stage = \
+                    data->comp->successTest.type == XRLT_VALUE_XPATH ?
+                        XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN
+                        :
+                        XRLT_INCLUDE_TRANSFORM_SUCCESS;
 
                 data->doc = data->xmlparser->myDoc;
                 data->xmlparser->myDoc = NULL;
             }
         } else {
-            data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS;
+            data->stage = \
+                data->comp->successTest.type == XRLT_VALUE_XPATH ?
+                    XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN
+                    :
+                    XRLT_INCLUDE_TRANSFORM_SUCCESS;
         }
 
         //xmlDocFormatDump(stderr, data->doc, 1);
@@ -1165,6 +1180,15 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                                    "Wrong transformation stage\n");
                 return FALSE;
 
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN:
+                NEW_CHILD(ctx, node, tdata->node, "s");
+                tdata->successNode = node;
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END:
+                node = tdata->successNode;
+                break;
+
             case XRLT_INCLUDE_TRANSFORM_SUCCESS:
             case XRLT_INCLUDE_TRANSFORM_FAILURE:
             case XRLT_INCLUDE_TRANSFORM_END:
@@ -1259,6 +1283,41 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 }
 
                 break;
+
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN:
+                ASSERT_NODE_DATA(node, n);
+
+                n->root = tdata->doc;
+                n->sr = tdata;
+
+                TRANSFORM_TO_BOOLEAN(
+                    ctx, node, &icomp->successTest, &tdata->successTest
+                );
+
+                if (n->count > 0) {
+                    tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END;
+
+                    SCHEDULE_CALLBACK(
+                        ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
+                    );
+                } else {
+                    tdata->stage = tdata->successTest ?
+                        XRLT_INCLUDE_TRANSFORM_SUCCESS
+                        :
+                        XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+                    return xrltIncludeTransform(ctx, comp, insert, data);
+                }
+
+                break;
+
+            case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END:
+                tdata->stage = tdata->successTest ?
+                    XRLT_INCLUDE_TRANSFORM_SUCCESS
+                    :
+                    XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+                return xrltIncludeTransform(ctx, comp, insert, data);
 
             case XRLT_INCLUDE_TRANSFORM_SUCCESS:
             case XRLT_INCLUDE_TRANSFORM_FAILURE:
