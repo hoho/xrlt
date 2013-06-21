@@ -22,6 +22,7 @@ typedef struct {
 } ngx_http_xrlt_param_t;
 
 
+
 typedef struct {
     xrltRequestsheetPtr        sheet;
     //ngx_hash_t                 types;
@@ -962,6 +963,12 @@ ngx_http_xrlt_handler(ngx_http_request_t *r) {
 
         if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
             return rc;
+        }
+
+        if (ctx->xctx->cur & XRLT_STATUS_DONE) {
+            ngx_http_xrlt_wev_handler(r);
+
+            return NGX_OK;
         }
     } else {
         r->main->count++;
