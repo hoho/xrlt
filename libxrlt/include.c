@@ -758,21 +758,27 @@ xrltProcessBody(xrltContextPtr ctx, xrltTransformValueSubrequestBody *val,
             if (data->xmlparser->wellFormed == 0) {
                 data->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
             } else {
-                data->stage = \
-                    data->comp->successTest.type == XRLT_VALUE_XPATH ?
-                        XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN
+                if (data->comp->successTest.type == XRLT_VALUE_XPATH) {
+                    data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN;
+                } else {
+                    data->stage = data->status >= 200 && data->status < 400 ?
+                        XRLT_INCLUDE_TRANSFORM_SUCCESS
                         :
-                        XRLT_INCLUDE_TRANSFORM_SUCCESS;
+                        XRLT_INCLUDE_TRANSFORM_FAILURE;
+                }
 
                 data->doc = data->xmlparser->myDoc;
                 data->xmlparser->myDoc = NULL;
             }
         } else {
-            data->stage = \
-                data->comp->successTest.type == XRLT_VALUE_XPATH ?
-                    XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN
+            if (data->comp->successTest.type == XRLT_VALUE_XPATH) {
+                data->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN;
+            } else {
+                data->stage = data->status >= 200 && data->status < 400 ?
+                    XRLT_INCLUDE_TRANSFORM_SUCCESS
                     :
-                    XRLT_INCLUDE_TRANSFORM_SUCCESS;
+                    XRLT_INCLUDE_TRANSFORM_FAILURE;
+            }
         }
 
         //xmlDocFormatDump(stderr, data->doc, 1);

@@ -8,6 +8,7 @@ sr url: /qtype
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: hello world|hello world|hello world
 XRLT_STATUS_DONE

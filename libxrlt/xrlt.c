@@ -286,6 +286,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     data->srcNode = sheet->querystringNode;
     data->comp = (xrltCompiledIncludeData *)sheet->querystringComp;
+    data->status = 200;
 
     n->sr = data;
 
@@ -313,6 +314,7 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
         data->srcNode = sheet->bodyNode;
         data->comp = (xrltCompiledIncludeData *)sheet->bodyComp;
+        data->status = 200;
 
         if (!xrltRequestInputTransform(ret, NULL, NULL, data)) {
             goto error;

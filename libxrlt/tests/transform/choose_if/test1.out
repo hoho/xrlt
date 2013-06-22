@@ -10,6 +10,7 @@ chunk: cc
 chunk: gg
 chunk: jj
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: mm
 chunk: oo

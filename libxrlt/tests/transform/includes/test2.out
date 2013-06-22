@@ -26,6 +26,7 @@ sr type: TEXT
 sr url: /test/href/14
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 5
 sr method: GET
@@ -49,6 +50,11 @@ XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 7
 sr method: GET
@@ -63,6 +69,7 @@ sr type: TEXT
 sr url: /test/href/5
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 9
 sr method: GET
@@ -70,6 +77,7 @@ sr type: TEXT
 sr url: /test/href/7
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 10
 sr method: GET
@@ -77,6 +85,7 @@ sr type: TEXT
 sr url: /test/href/8
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 11
 sr method: GET
@@ -84,6 +93,7 @@ sr type: TEXT
 sr url: /test/href/13
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 12
 sr method: GET
@@ -91,6 +101,8 @@ sr type: TEXT
 sr url: /test/href/15
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 13
@@ -101,6 +113,7 @@ sr header: hoho: veve
 sr url: /some/href
 sr query: papapa=pa%3Bva
 sr body: super body
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: bb

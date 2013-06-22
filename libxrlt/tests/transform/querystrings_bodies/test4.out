@@ -20,11 +20,13 @@ sr url: /btype
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: FFF
 chunk: |
 chunk: DDD
 chunk: |
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: hello world,hello world,hello world

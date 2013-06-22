@@ -12,6 +12,7 @@ sr type: TEXT
 sr url: /tmpi2
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 3
 sr method: GET
@@ -26,6 +27,7 @@ sr type: TEXT
 sr url: /tmpi
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 5
 sr method: GET
@@ -33,6 +35,9 @@ sr type: TEXT
 sr url: /tmpi
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING

@@ -19,8 +19,11 @@ sr type: TEXT
 sr url: /tmp2
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: oops
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: hooray

@@ -8,6 +8,7 @@ sr url: /test/href/1
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 2
 sr method: GET
@@ -23,6 +24,8 @@ sr url: /test/href/3
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_SUBREQUEST
 sr id: 4
 sr method: GET
@@ -30,6 +33,7 @@ sr type: JSON
 sr url: hello world
 sr query: p=awesome
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: is

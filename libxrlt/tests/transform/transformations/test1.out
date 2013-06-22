@@ -9,6 +9,7 @@ XRLT_STATUS_CHUNK
 chunk: hihi|test: yoyoyo|test: yaya|haha
 chunk: |||
 XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
 chunk: <yoyo>hihi|quack: opop|heck: quack-quack|quack: apap|haha</yoyo>
 
