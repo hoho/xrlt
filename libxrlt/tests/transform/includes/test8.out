@@ -1,0 +1,13 @@
+XRLT_STATUS_SUBREQUEST
+sr id: 1
+sr method: GET
+sr type: TEXT
+sr url: /tmp
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_WAITING
+XRLT_STATUS_CHUNK
+chunk: oops: hello500
+XRLT_STATUS_DONE

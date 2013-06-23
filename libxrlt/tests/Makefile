@@ -46,6 +46,7 @@ transform:
                                        transform/includes/test5.xrl transform/includes/test5.in transform/includes/test5.out \
                                        transform/includes/test6.xrl transform/includes/test6.in transform/includes/test6.out \
                                        transform/includes/test7.xrl transform/includes/test7.in transform/includes/test7.out \
+                                       transform/includes/test8.xrl transform/includes/test8.in transform/includes/test8.out \
                                        \
                                        transform/headers/test1.xrl transform/headers/test1.in transform/headers/test1.out \
                                        \
