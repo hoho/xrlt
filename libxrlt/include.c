@@ -1296,6 +1296,8 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 n->root = tdata->doc;
                 n->sr = tdata;
 
+                ctx->xpathContext = node;
+
                 TRANSFORM_TO_BOOLEAN(
                     ctx, node, &icomp->successTest, &tdata->successTest
                 );

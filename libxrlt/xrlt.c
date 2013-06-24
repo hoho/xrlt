@@ -10,6 +10,7 @@
 #include "transform.h"
 #include "include.h"
 #include "import.h"
+#include "xpathfuncs.h"
 
 #ifndef __XRLT_NO_JAVASCRIPT__
     #include "js.h"
@@ -265,6 +266,13 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
                                "Variable hash creation failed\n");
             goto error;
         }
+    }
+
+    ret->xpath->extra = ret;
+
+    if (!xrltRegisterFunctions(ret->xpath)) {
+        xrltTransformError(ret, NULL, NULL, "Failed to register functions\n");
+        goto error;
     }
 
     ret->sheetNode = xmlDocGetRootElement(sheet->doc);

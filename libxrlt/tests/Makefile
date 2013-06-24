@@ -36,7 +36,7 @@ compile:
 transform:
 	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
 		../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
-		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../foreach.c ../xrlterror.c \
+		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../foreach.c ../xrlterror.c ../xpathfuncs.c \
 		../ccan_json.c transform/test.c \
 		-lxml2 -lyajl -lxslt
 	@$(VALGRIND) .build/transform_test transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
