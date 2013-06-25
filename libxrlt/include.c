@@ -1291,33 +1291,46 @@ xrltIncludeTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 break;
 
             case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_BEGIN:
-                ASSERT_NODE_DATA(node, n);
+                {
+                    xmlNodePtr   oldNode = ctx->xpathContext;
+                    int          oldContextSize = ctx->xpathContextSize;
+                    int          oldProximityPosition = \
+                                                ctx->xpathProximityPosition;
+                    int          ret = TRUE;
 
-                n->root = tdata->doc;
-                n->sr = tdata;
+                    ASSERT_NODE_DATA(node, n);
 
-                ctx->xpathContext = node;
+                    n->root = tdata->doc;
+                    n->sr = tdata;
 
-                TRANSFORM_TO_BOOLEAN(
-                    ctx, node, &icomp->successTest, &tdata->successTest
-                );
+                    ctx->xpathContext = node;
+                    ctx->xpathContextSize = 0;
+                    ctx->xpathProximityPosition = 0;
 
-                if (n->count > 0) {
-                    tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END;
-
-                    SCHEDULE_CALLBACK(
-                        ctx, &n->tcb, xrltIncludeTransform, comp, insert, data
+                    TRANSFORM_TO_BOOLEAN(
+                        ctx, node, &icomp->successTest, &tdata->successTest
                     );
-                } else {
-                    tdata->stage = tdata->successTest ?
-                        XRLT_INCLUDE_TRANSFORM_SUCCESS
-                        :
-                        XRLT_INCLUDE_TRANSFORM_FAILURE;
 
-                    return xrltIncludeTransform(ctx, comp, insert, data);
+                    if (n->count > 0) {
+                        tdata->stage = XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END;
+
+                        SCHEDULE_CALLBACK(ctx, &n->tcb, xrltIncludeTransform,
+                                          comp, insert, data);
+                    } else {
+                        tdata->stage = tdata->successTest ?
+                            XRLT_INCLUDE_TRANSFORM_SUCCESS
+                            :
+                            XRLT_INCLUDE_TRANSFORM_FAILURE;
+
+                        ret = xrltIncludeTransform(ctx, comp, insert, data);
+                    }
+
+                    ctx->xpathContext = oldNode;
+                    ctx->xpathContextSize = oldContextSize;
+                    ctx->xpathProximityPosition = oldProximityPosition;
+
+                    return ret;
                 }
-
-                break;
 
             case XRLT_INCLUDE_TRANSFORM_SUCCESS_TEST_END:
                 tdata->stage = tdata->successTest ?
