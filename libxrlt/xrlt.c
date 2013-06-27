@@ -211,7 +211,7 @@ xrltRequestsheetFree(xrltRequestsheetPtr sheet)
 
 
 xrltContextPtr
-xrltContextCreate(xrltRequestsheetPtr sheet)
+xrltContextCreate(xrltRequestsheetPtr sheet, xmlChar **params)
 {
     xrltContextPtr                ret;
     xmlNodePtr                    response;
@@ -331,6 +331,30 @@ xrltContextCreate(xrltRequestsheetPtr sheet)
 
     TRANSFORM_SUBTREE_GOTO(ret, ret->sheetNode->children, NULL);
 
+    if (params != NULL) {
+        ret->params = xmlHashCreate(10);
+
+        if (ret->params == NULL) {
+            ERROR_OUT_OF_MEMORY(ret, NULL, NULL);
+            goto error;
+        }
+
+        int       i = 0;
+        xmlChar  *name;
+        xmlChar  *val;
+
+        while (params[i] != NULL) {
+            name = params[i++];
+            val = params[i++];
+
+            if (xmlHashAddEntry3(ret->params, name, NULL, NULL, val)) {
+                xrltTransformError(ret, NULL, NULL,
+                                   "Failed to process params\n");
+                goto error;
+            }
+        }
+    }
+
     return ret;
 
   error:
@@ -401,6 +425,10 @@ xrltContextFree(xrltContextPtr ctx)
 
     if (ctx->bodyBuf != NULL) {
         xmlBufferFree(ctx->bodyBuf);
+    }
+
+    if (ctx->params != NULL) {
+        xmlHashFree(ctx->params, NULL);
     }
 
     xmlFree(ctx);

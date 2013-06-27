@@ -11,13 +11,20 @@ void *
 xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 {
     xrltVariableDataPtr   ret = NULL;
-    xmlChar              *select;
     xrltNodeDataPtr       n;
     int                   i;
+    xrltBool              toplevel;
 
 
     XRLT_MALLOC(NULL, sheet, node, ret, xrltVariableDataPtr,
                 sizeof(xrltVariableData), NULL);
+
+    toplevel = node->parent == NULL || node->parent->parent == NULL ||
+               node->parent->parent->parent == NULL;
+
+    ret->isParam = \
+        toplevel && xmlStrEqual(node->name, (const xmlChar *)"param") ? \
+            TRUE : FALSE;
 
     ret->name = xmlGetProp(node, XRLT_ELEMENT_ATTR_NAME);
     ret->ownName = TRUE;
@@ -44,31 +51,14 @@ xrltVariableCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
     ASSERT_NODE_DATA_GOTO(node, n);
     n->xrlt = TRUE;
 
-    select = xmlGetProp(node, XRLT_ELEMENT_ATTR_SELECT);
-    if (select != NULL) {
-        ret->xval.src = node;
-        ret->xval.scope = node->parent;
-        ret->xval.expr = xmlXPathCompile(select);
-        ret->ownXval = TRUE;
-
-        xmlFree(select);
-
-        if (ret->xval.expr == NULL) {
-            xrltTransformError(NULL, sheet, node,
-                               "Failed to compile 'select' expression\n");
-            goto error;
-        }
-    }
-
-    ret->nval = node->children;
-
-    if (ret->xval.expr != NULL && ret->nval != NULL) {
-        xrltTransformError(
-            NULL, sheet, node,
-            "Element shouldn't have both 'select' attribute and content\n"
-        );
+    if (!xrltCompileValue(sheet, node, node->children,
+                          XRLT_ELEMENT_ATTR_SELECT, NULL, NULL, FALSE,
+                          &ret->val))
+    {
         goto error;
     }
+
+    ret->ownVal = TRUE;
 
     ret->node = node;
     ret->declScope = node->parent;
@@ -99,8 +89,8 @@ xrltVariableFree(void *comp)
             xmlFree(vcomp->jsname);
         }
 
-        if (vcomp->xval.expr != NULL && vcomp->ownXval) {
-            xmlXPathFreeCompExpr(vcomp->xval.expr);
+        if (vcomp->ownVal) {
+            CLEAR_XRLT_VALUE(vcomp->val);
         }
 
         xmlFree(vcomp);
@@ -119,7 +109,7 @@ xrltVariableFromXPath(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltNodeDataPtr     n;
     size_t              sc;
 
-    if (!xrltXPathEval(ctx, insert, &vcomp->xval, &val)) {
+    if (!xrltXPathEval(ctx, insert, &vcomp->val.xpathval, &val)) {
         return FALSE;
     }
 
@@ -185,36 +175,67 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     sc = vcomp->declScopePos > 0 ? vcomp->declScopePos : ctx->varScope;
 
     if (data == NULL) {
-        vdoc = xmlNewDoc(NULL);
+        if (vcomp->isParam && ctx->params != NULL) {
+            xmlChar  *v;
 
-        xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+            v = (xmlChar *)xmlHashLookup3(ctx->params, vcomp->name, NULL, NULL);
 
-        vdoc->doc = vdoc;
+            if (v != NULL) {
+                val = xmlXPathNewString(v);
 
-        if (vcomp->nval != NULL) {
-            XRLT_SET_VARIABLE(
-                id, vcomp->node, vcomp->name, vcomp->declScope, sc, vdoc, val
-            );
-
-            COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
-
-            TRANSFORM_SUBTREE(ctx, vcomp->nval, (xmlNodePtr)vdoc);
-
-            SCHEDULE_CALLBACK(
-                ctx, &ctx->tcb, xrltVariableTransform, comp, insert, vdoc
-            );
-        } else if (vcomp->xval.expr != NULL) {
-            COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
-
-            if (!xrltVariableFromXPath(ctx, comp, insert, vdoc)) {
-                return FALSE;
+                XRLT_SET_VARIABLE(id, vcomp->node, vcomp->name,
+                                  vcomp->declScope, sc, NULL, val);
+                return TRUE;
             }
-        } else {
-            val = xmlXPathNewNodeSet(NULL);
+        }
 
-            XRLT_SET_VARIABLE(
-                id, vcomp->node, vcomp->name, vcomp->declScope, sc, NULL, val
-            );
+        switch (vcomp->val.type) {
+            case XRLT_VALUE_NODELIST:
+                vdoc = xmlNewDoc(NULL);
+                xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+                vdoc->doc = vdoc;
+
+                XRLT_SET_VARIABLE(id, vcomp->node, vcomp->name,
+                                  vcomp->declScope, sc, vdoc, val);
+
+                COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
+
+                TRANSFORM_SUBTREE(ctx, vcomp->val.nodeval, (xmlNodePtr)vdoc);
+
+                SCHEDULE_CALLBACK(
+                    ctx, &ctx->tcb, xrltVariableTransform, comp, insert, vdoc
+                );
+
+                break;
+
+            case XRLT_VALUE_XPATH:
+                vdoc = xmlNewDoc(NULL);
+                xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
+                vdoc->doc = vdoc;
+
+                COUNTER_INCREASE(ctx, (xmlNodePtr)vdoc);
+
+                if (!xrltVariableFromXPath(ctx, comp, insert, vdoc)) {
+                    return FALSE;
+                }
+
+                break;
+
+            case XRLT_VALUE_TEXT:
+            case XRLT_VALUE_INT:
+            case XRLT_VALUE_EMPTY:
+                if (vcomp->val.type == XRLT_VALUE_TEXT) {
+                    val = xmlXPathNewString(vcomp->val.textval);
+                } else if (vcomp->val.type == XRLT_VALUE_INT) {
+                    val = xmlXPathNewFloat(vcomp->val.intval);
+                } else {
+                    val = xmlXPathNewNodeSet(NULL);
+                }
+
+                XRLT_SET_VARIABLE(id, vcomp->node, vcomp->name,
+                                  vcomp->declScope, sc, NULL, val);
+
+                break;
         }
     } else {
         COUNTER_DECREASE(ctx, (xmlNodePtr)data);

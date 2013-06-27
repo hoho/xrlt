@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 
-#define xrltBool   int
+#define xrltBool   char
 
 #ifndef TRUE
 #define TRUE       1

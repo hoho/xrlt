@@ -371,8 +371,8 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
             }
 
             p->declScope = p->declScope->parent;
-            if (p->xval.expr != NULL) {
-                p->xval.scope = p->declScope;
+            if (p->val.type == XRLT_VALUE_XPATH) {
+                p->val.xpathval.scope = p->declScope;
             }
 
             ret->param[ret->paramLen++] = p;
@@ -457,7 +457,7 @@ xrltApplyCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
 
                 p->ownName = FALSE;
                 p->ownJsname = FALSE;
-                p->ownXval = FALSE;
+                p->ownVal = FALSE;
             }
 
             i = 0;

@@ -245,6 +245,7 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
     size_t                   id;
     int                      i, j, k, l;
     xrltTransformValue       val;
+    xmlChar                 *params[5];
 
     memset(indata, 0, TEST_BUFFER_SIZE);
     memset(outdata, 0, TEST_BUFFER_SIZE);
@@ -289,7 +290,14 @@ test_xrltTransform(const char *xrl, const char *in, const char *out)
         TEST_FAILED;
     }
 
-    ctx = xrltContextCreate(sheet);
+    params[0] = (xmlChar *)"param1";
+    params[1] = (xmlChar *)"val1";
+    params[2] = (xmlChar *)"param2";
+    params[3] = (xmlChar *)"val2";
+    params[4] = NULL;
+
+    ctx = xrltContextCreate(sheet, params);
+
     ASSERT_NOT_NULL(ctx);
 
     pos = indata;

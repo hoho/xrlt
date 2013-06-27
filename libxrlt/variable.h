@@ -53,22 +53,22 @@ extern "C" {
 typedef struct _xrltVariableData xrltVariableData;
 typedef xrltVariableData* xrltVariableDataPtr;
 struct _xrltVariableData {
-    xmlNodePtr      node;
-    xmlNodePtr      declScope;
-    size_t          declScopePos;
+    xmlNodePtr          node;
+    xmlNodePtr          declScope;
+    size_t              declScopePos;
 
-    xrltBool        sync;
+    xrltBool            isParam;
 
-    xrltBool        ownName;
-    xmlChar        *name;
+    xrltBool            sync;
 
-    xrltBool        ownJsname;
-    xmlChar        *jsname;
+    xrltBool            ownName;
+    xmlChar            *name;
 
-    xmlNodePtr      nval;
+    xrltBool            ownJsname;
+    xmlChar            *jsname;
 
-    xrltBool        ownXval;
-    xrltXPathExpr   xval;
+    xrltBool            ownVal;
+    xrltCompiledValue   val;
 };
 
 

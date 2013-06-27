@@ -107,6 +107,12 @@ xrltRegisterBuiltinElementsIfUnregistered(void)
                                xrltVariableFree,
                                xrltVariableTransform);
 
+    ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"param",
+                               XRLT_REGISTER_TOPLEVEL | XRLT_COMPILE_PASS1,
+                               xrltVariableCompile,
+                               xrltVariableFree,
+                               xrltVariableTransform);
+
     ret &= xrltElementRegister(XRLT_NS, (const xmlChar *)"log",
                                XRLT_COMPILE_PASS1,
                                xrltLogCompile,

@@ -152,6 +152,9 @@ struct _xrltContext {
     xrltRequestsheetPtr          sheet;
 
     xrltBool                     error;
+
+    xmlHashTablePtr              params;
+
     int                          cur;          // Current combination of
                                                // XRLT_STATUS_*
     xrltHeaderOutList            header;       // Response headers.
@@ -243,7 +246,7 @@ XRLTPUBFUN void XRLTCALL
 
 
 XRLTPUBFUN xrltContextPtr XRLTCALL
-        xrltContextCreate         (xrltRequestsheetPtr sheet);
+        xrltContextCreate         (xrltRequestsheetPtr sheet, xmlChar **params);
 XRLTPUBFUN void XRLTCALL
         xrltContextFree           (xrltContextPtr ctx);
 XRLTPUBFUN int XRLTCALL
