@@ -17,7 +17,7 @@ static ngx_str_t   ngx_http_xrlt_options_method = { 7, (u_char *) "OPTIONS " };
 
 
 typedef struct {
-    u_char                    *name;
+    ngx_str_t                  name;
     ngx_http_complex_value_t   value;
 } ngx_http_xrlt_param_t;
 
@@ -125,6 +125,9 @@ ngx_inline static ngx_http_xrlt_ctx_t *
 ngx_http_xrlt_create_ctx(ngx_http_request_t *r, size_t id) {
     ngx_http_xrlt_ctx_t       *ctx;
     ngx_http_xrlt_loc_conf_t  *conf;
+    ngx_uint_t                 i, j;
+    ngx_http_xrlt_param_t     *params;
+    xmlChar                  **xrltparams;
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_xrlt_module);
 
@@ -143,7 +146,28 @@ ngx_http_xrlt_create_ctx(ngx_http_request_t *r, size_t id) {
 
         dd("XRLT context creation");
 
-        ctx->xctx = xrltContextCreate(conf->sheet);
+        if (conf->params->nelts > 0) {
+            params = conf->params->elts;
+
+            xrltparams = ngx_palloc(
+                r->pool, sizeof(xmlChar *) * (conf->params->nelts * 2 + 1)
+            );
+
+            j = 0;
+
+            for (i = 0; i < conf->params->nelts; i++) {
+                xrltparams[j++] = xmlStrndup(params[i].name.data,
+                                             params[i].name.len);
+                xrltparams[j++] = xmlStrndup(params[i].value.value.data,
+                                             params[i].value.value.len);
+            }
+
+            xrltparams[j] = NULL;
+        } else {
+            xrltparams = NULL;
+        }
+
+        ctx->xctx = xrltContextCreate(conf->sheet, xrltparams);
         ctx->id = 0;
         ctx->main_ctx = ctx;
 
@@ -1071,7 +1095,13 @@ ngx_http_xrlt_param(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    param->name = value[1].data;
+
+    param->name.data = ngx_pstrdup(cf->pool, &value[1]);
+    if (param->name.data == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    param->name.len = value[1].len;
 
     ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
 
@@ -1107,9 +1137,39 @@ ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_http_xrlt_loc_conf_t  *prev = parent;
     ngx_http_xrlt_loc_conf_t  *conf = child;
+    ngx_http_xrlt_param_t     *prevparams, *params, *param;
+    ngx_uint_t                 i, j;
+    xrltBool                   add;
+
 
     if (conf->params == NULL) {
         conf->params = prev->params;
+    } else {
+        prevparams = prev->params->elts;
+        params = conf->params->elts;
+
+        for (i = 0; i < prev->params->nelts; i++) {
+            add = TRUE;
+
+            for (j = 0; j < conf->params->nelts; j++) {
+                if (prevparams[i].name.len != params[j].name.len ||
+                    ngx_strncmp(prevparams[i].name.data, params[j].name.data,
+                                params[j].name.len) == 0)
+                {
+                    add = FALSE;
+                }
+            }
+
+            if (add) {
+                param = ngx_array_push(conf->params);
+                if (param == NULL) {
+                    return NGX_CONF_ERROR;
+                }
+
+                param->name = prevparams[i].name;
+                param->value = prevparams[i].value;
+            }
+        }
     }
 
     return NGX_CONF_OK;

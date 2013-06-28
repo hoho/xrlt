@@ -577,7 +577,7 @@ xrltXPathEval(xrltContextPtr ctx, xmlNodePtr insert, xrltXPathExpr *expr,
               xmlXPathObjectPtr *ret)
 {
     xmlXPathObjectPtr  r;
-    xmlNodePtr         node = insert;
+    xmlNodePtr         node = insert == NULL ? ctx->response : insert;
     xrltNodeDataPtr    n;
 
     do {
