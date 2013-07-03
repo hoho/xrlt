@@ -109,6 +109,7 @@ struct ngx_http_xrlt_ctx_s {
     ngx_http_xrlt_ctx_t  *main_ctx;
     unsigned              headers_sent:1;
     unsigned              run_post_subrequest:1;
+    unsigned              refused:1;
 };
 
 
@@ -335,6 +336,7 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
 
     if (result & XRLT_STATUS_REFUSE_SUBREQUEST) {
         // Cancel r subrequest, there is something wrong with it.
+        ctx->refused = TRUE;
     }
 
     if (result & XRLT_STATUS_SUBREQUEST) {
@@ -664,10 +666,12 @@ ngx_http_xrlt_post_sr(ngx_http_request_t *r, void *data, ngx_int_t rc)
 
     sr_ctx->run_post_subrequest = 1;
 
-    if (ngx_http_xrlt_transform_body(r, sr_ctx, sr_ctx->id, NULL,
-                                     TRUE) == NGX_ERROR)
-    {
-        return NGX_ERROR;
+    if (!sr_ctx->refused) {
+        if (ngx_http_xrlt_transform_body(r, sr_ctx, sr_ctx->id, NULL,
+                                         TRUE) == NGX_ERROR)
+        {
+            return NGX_ERROR;
+        }
     }
 
     if (r != r->connection->data) {
@@ -840,7 +844,7 @@ ngx_http_xrlt_header_filter(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    if (ngx_http_xrlt_transform_headers(r, ctx) != NGX_ERROR) {
+    if (ctx->refused || ngx_http_xrlt_transform_headers(r, ctx) != NGX_ERROR) {
         return NGX_OK;
     } else {
         return NGX_ERROR;
@@ -869,10 +873,12 @@ ngx_http_xrlt_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         s.data = (char *)cl->buf->pos;
         s.len = cl->buf->last - cl->buf->pos;
 
-        rc = ngx_http_xrlt_transform_body(r, ctx, ctx->id, &s, FALSE);
+        if (!ctx->refused) {
+            rc = ngx_http_xrlt_transform_body(r, ctx, ctx->id, &s, FALSE);
 
-        if (rc == NGX_ERROR) {
-            return NGX_ERROR;
+            if (rc == NGX_ERROR) {
+                return NGX_ERROR;
+            }
         }
 
         cl->buf->pos = cl->buf->last;
@@ -1157,6 +1163,7 @@ ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
                                 params[j].name.len) == 0)
                 {
                     add = FALSE;
+                    break;
                 }
             }
 
