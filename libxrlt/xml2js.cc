@@ -119,7 +119,20 @@ xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
             } else {
                 ret = v8::Null();
             }
-        } else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0])) {
+        }
+        else if (data->type == XRLT_JSON2XML_STRING && data->nodes.size() > 1)
+        {
+            std::string   str;
+            uint32_t      i;
+
+            for (i = 0; i < data->nodes.size(); i++) {
+                str.append((char *)data->nodes[i]->content);
+            }
+
+            ret = v8::String::New(str.c_str());
+        }
+        else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0]))
+        {
             // A single text node becomes a JavaScript string, unless parent's
             // xrl:type attribute says it should be a number or a boolean.
             if (data->type == XRLT_JSON2XML_NUMBER) {

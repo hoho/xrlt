@@ -104,7 +104,11 @@ xrltXML2JSONData::xrltXML2JSONData(xmlNodePtr parent, xmlXPathObjectPtr val,
 
     if (typestr == NULL || type == XRLT_JSON2XML_UNKNOWN) {
         if (named.size() > 1 && nodes.size() == named.count(key)) {
-            type = XRLT_JSON2XML_ARRAY;
+            if (nodes[0]->type == XML_TEXT_NODE) {
+                type = XRLT_JSON2XML_STRING;
+            } else {
+                type = XRLT_JSON2XML_ARRAY;
+            }
         }
 
         if (named.size() == 0 && parent != NULL &&
@@ -263,7 +267,41 @@ xrltXML2JSONStringify(xrltContextPtr ctx, xmlNodePtr parent,
             } else {
                 ADD_CONST("null");
             }
-        } else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0])) {
+        }
+        else if (data->type == XRLT_JSON2XML_STRING && data->nodes.size() > 1)
+        {
+            xmlBufferPtr   strbuf;
+            int            ok;
+
+            strbuf = xmlBufferCreate();
+
+            RAISE_OUT_OF_MEMORY_IF_TRUE(strbuf == NULL);
+
+            for (i = 0; i < data->nodes.size(); i++) {
+                ok = xmlBufferAdd(strbuf, data->nodes[i]->content, -1);
+                if (ok != 0) {
+                    xmlBufferFree(strbuf);
+                    RAISE_OUT_OF_MEMORY_IF_TRUE(TRUE);
+                }
+            }
+
+            tmp = json_encode_string((const char *)xmlBufferContent(strbuf));
+
+            xmlBufferFree(strbuf);
+
+            if (tmp == NULL) {
+                RAISE_OUT_OF_MEMORY_IF_TRUE(TRUE);
+            }
+
+            if (xmlBufferAdd(*buf, (const xmlChar *)tmp, -1) != 0) {
+                free(tmp);
+                RAISE_OUT_OF_MEMORY_IF_TRUE(TRUE);
+            } else {
+                free(tmp);
+            }
+        }
+        else if (data->nodes.size() == 1 && xmlNodeIsText(data->nodes[0]))
+        {
             if (data->type == XRLT_JSON2XML_NUMBER) {
                 jsnode = json_decode((const char *)data->nodes[0]->content);
 

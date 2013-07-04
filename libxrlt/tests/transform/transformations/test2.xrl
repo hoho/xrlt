@@ -13,6 +13,7 @@
                 <b>"b\b'b</b>
                 <c>ccc</c>
             </test>
+            <test>piu<xrl:value-of select="'-'" />piu</test>
         </xrl:transform>
     </xrl:response>
 

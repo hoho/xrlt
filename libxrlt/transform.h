@@ -101,7 +101,6 @@ extern "C" {
     if (ctx->responseCur == node) {                                           \
         ctx->responseCur = ctx->responseCur->next;                            \
     }                                                                         \
-    xmlTextMerge(node->prev, node->next);                                     \
     xmlUnlinkNode(node);                                                      \
     xmlFreeNode(node);                                                        \
 }
