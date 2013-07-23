@@ -403,8 +403,6 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
                 return NGX_ERROR;
             }
 
-            sr->discard_body = sr_body.len > 0 ? 0 : 1;
-
             switch (m) {
                 case XRLT_METHOD_GET:
                     sr->method = NGX_HTTP_GET;
@@ -619,15 +617,17 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
 
 static ngx_int_t
 ngx_http_xrlt_transform_body(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
-                             size_t id, xrltString *val, xrltBool last)
+                             size_t id, xrltString *val, xrltBool last,
+                             xrltBool error)
 {
     xrltTransformValue   v;
     int                  result;
     ngx_int_t            rc;
 
-    dd("Transform body (r: %p, id: %zd, val: %p, last: %d)", r, id, val, last);
+    dd("Transform body (r: %p, id: %zd, val: %p, last: %d, error: %d)",
+       r, id, val, last, error);
 
-    v.type = XRLT_TRANSFORM_VALUE_BODY;
+    v.type = error ? XRLT_TRANSFORM_VALUE_ERROR : XRLT_TRANSFORM_VALUE_BODY;
 
     if (val == NULL) {
         ngx_memset(&v.bodyval.val, 0, sizeof(xrltString));
@@ -651,7 +651,7 @@ ngx_http_xrlt_transform_body(ngx_http_request_t *r, ngx_http_xrlt_ctx_t *ctx,
         }
     }
 
-    return rc;
+    return rc == NGX_ERROR ? NGX_ERROR : NGX_OK;
 }
 
 
@@ -659,16 +659,23 @@ static ngx_int_t
 ngx_http_xrlt_post_sr(ngx_http_request_t *r, void *data, ngx_int_t rc)
 {
     ngx_http_xrlt_ctx_t  *sr_ctx = data;
+    xrltBool              error;
 
     if (sr_ctx->run_post_subrequest) {
-        return rc;
+        if (r != r->connection->data) {
+            r->connection->data = r;
+        }
+
+        return NGX_OK;
     }
 
     sr_ctx->run_post_subrequest = 1;
 
     if (!sr_ctx->refused) {
+        error = rc == NGX_ERROR ? TRUE : FALSE;
+
         if (ngx_http_xrlt_transform_body(r, sr_ctx, sr_ctx->id, NULL,
-                                         TRUE) == NGX_ERROR)
+                                         TRUE, error) == NGX_ERROR)
         {
             return NGX_ERROR;
         }
@@ -680,7 +687,7 @@ ngx_http_xrlt_post_sr(ngx_http_request_t *r, void *data, ngx_int_t rc)
 
     dd("Subrequest completed");
 
-    return rc;
+    return NGX_OK;
 }
 
 
@@ -874,7 +881,8 @@ ngx_http_xrlt_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         s.len = cl->buf->last - cl->buf->pos;
 
         if (!ctx->refused) {
-            rc = ngx_http_xrlt_transform_body(r, ctx, ctx->id, &s, FALSE);
+            rc = ngx_http_xrlt_transform_body(r, ctx, ctx->id, &s, FALSE,
+                                              FALSE);
 
             if (rc == NGX_ERROR) {
                 return NGX_ERROR;
@@ -931,7 +939,7 @@ ngx_http_xrlt_post_request_body(ngx_http_request_t *r)
         s.data = NULL;
         s.len = 0;
 
-        rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, TRUE);
+        rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, TRUE, FALSE);
 
         if (rc == NGX_ERROR) {
             ngx_http_finalize_request(r, NGX_ERROR);
@@ -943,7 +951,8 @@ ngx_http_xrlt_post_request_body(ngx_http_request_t *r)
             s.data = (char *)cl->buf->pos;
             s.len = cl->buf->last - cl->buf->pos;
 
-            rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, cl->buf->last_buf);
+            rc = ngx_http_xrlt_transform_body(r, ctx, 0, &s, cl->buf->last_buf,
+                                              FALSE);
 
             if (rc == NGX_ERROR) {
                 ngx_http_finalize_request(r, NGX_ERROR);

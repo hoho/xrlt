@@ -875,6 +875,7 @@ xrltIncludeInputFunc(xrltContextPtr ctx, xrltTransformValue *val, void *data)
     if (val->type == XRLT_TRANSFORM_VALUE_ERROR) {
         tdata->stage = XRLT_INCLUDE_TRANSFORM_FAILURE;
 
+
         SCHEDULE_CALLBACK(ctx, &ctx->tcb, xrltIncludeTransform,
                           tdata->comp, tdata->insert, tdata);
 
