@@ -23,13 +23,15 @@ extern "C" {
 
 typedef enum {
     XRLT_TRANSFORMATION_FUNCTION = 0,
-    XRLT_TRANSFORMATION_XSLT_STRINGIFY,  // XSLT with string result.
-    XRLT_TRANSFORMATION_XSLT,            // XSLT with XML result.
-    XRLT_TRANSFORMATION_JSON_STRINGIFY,  // Serialize to JSON string.
-    XRLT_TRANSFORMATION_JSON_PARSE,      // Parse JSON string.
-    XRLT_TRANSFORMATION_XML_STRINGIFY,   // Serialize to XML string.
-    XRLT_TRANSFORMATION_XML_PARSE,       // Parse XML string.
-    XRLT_TRANSFORMATION_CUSTOM           // Custom transformation.
+    XRLT_TRANSFORMATION_XSLT_STRINGIFY,         // XSLT with string result.
+    XRLT_TRANSFORMATION_XSLT,                   // XSLT with XML result.
+    XRLT_TRANSFORMATION_JSON_STRINGIFY,         // Serialize to JSON string.
+    XRLT_TRANSFORMATION_JSON_PARSE,             // Parse JSON string.
+    XRLT_TRANSFORMATION_XML_STRINGIFY,          // Serialize to XML string.
+    XRLT_TRANSFORMATION_XML_PARSE,              // Parse XML string.
+    XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY,  // Serialize to querystring.
+    XRLT_TRANSFORMATION_QUERYSTRING_PARSE,      // Parse querystring.
+    XRLT_TRANSFORMATION_CUSTOM                  // Custom transformation.
 } xrltTransformationType;
 
 
