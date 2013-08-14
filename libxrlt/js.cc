@@ -2,6 +2,8 @@
  * Copyright Marat Abdullin (https://github.com/hoho)
  */
 
+#define V8_USE_UNSAFE_HANDLES
+
 #include <v8.h>
 #include <string>
 
@@ -59,40 +61,44 @@ void ReportException(xrltContextPtr ctx, xrltRequestsheetPtr sheet,
 }
 
 
-v8::Handle<v8::Value>
-xrltDeferredInit(const v8::Arguments& args) {
+void
+xrltDeferredInit(const v8::FunctionCallbackInfo<v8::Value>& args) {
     args.This()->SetAlignedPointerInInternalField(0, NULL);
 
     args.This()->Set(0, v8::Array::New(0));
 
-    return args.This();
+    args.GetReturnValue().Set(args.This());
 }
 
 
-v8::Handle<v8::Value>
-xrltDeferredThen(const v8::Arguments& args) {
+void
+xrltDeferredThen(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::HandleScope        scope;
 
     v8::Local<v8::Array>   cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
 
     if (args.Length() < 1) {
-        return v8::ThrowException(v8::String::New("Too few arguments"));
+        args.GetReturnValue().Set(
+            v8::ThrowException(v8::String::New("Too few arguments"))
+        );
+        return;
     }
 
     if (!args[0]->IsFunction()) {
-        return v8::ThrowException(
+        args.GetReturnValue().Set(v8::ThrowException(
             v8::Exception::TypeError(v8::String::New("Function is expected"))
-        );
+        ));
+        return;
     }
 
     cb->Set(cb->Length(), args[0]);
 
-    return v8::Undefined();
+    args.GetReturnValue().Set(v8::Undefined());
 }
 
 
-v8::Handle<v8::Value>
-xrltDeferredResolve(const v8::Arguments& args) {
+void
+xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::HandleScope           scope;
 
     v8::Local<v8::Array>      cb;
@@ -102,13 +108,17 @@ xrltDeferredResolve(const v8::Arguments& args) {
 
 
     if (args.Length() < 1) {
-        return v8::ThrowException(v8::String::New("Too few arguments"));
+        args.GetReturnValue().Set(
+            v8::ThrowException(v8::String::New("Too few arguments"))
+        );
+        return;
     }
 
     if (args.This()->Get(1)->BooleanValue()) {
-        return v8::ThrowException(
+        args.GetReturnValue().Set(v8::ThrowException(
             v8::String::New("Can't resolve internal Deferred")
-        );
+        ));
+        return;
     }
 
     argv[0] = args[0];
@@ -130,7 +140,8 @@ xrltDeferredResolve(const v8::Arguments& args) {
             internal = args.This()->GetAlignedPointerFromInternalField(0);
 
             if (internal == NULL) {
-                return trycatch.ReThrow();
+                args.GetReturnValue().Set(trycatch.ReThrow());
+                return;
             }
 
             deferredData = (xrltDeferredTransformingPtr)args.This()->
@@ -148,12 +159,12 @@ xrltDeferredResolve(const v8::Arguments& args) {
         }
     }
 
-    return v8::Undefined();
+    args.GetReturnValue().Set(v8::Undefined());
 }
 
 
-v8::Handle<v8::Value>
-xrltDeferredCallback(const v8::Arguments& args) {
+void
+xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::HandleScope                      scope;
 
     v8::Local<v8::Object>                proto;
@@ -172,7 +183,7 @@ xrltDeferredCallback(const v8::Arguments& args) {
         xrltDeferredInsert(ctx, &val, NULL, NULL, tdata);
     }
 
-    return v8::Undefined();
+    args.GetReturnValue().Set(v8::Undefined());
 }
 
 
@@ -183,8 +194,9 @@ xrltJSInit(void)
 
     xrltXML2JSTemplateInit();
 
-    xrltDeferredConstructor = \
-        v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
+    xrltDeferredConstructor.Reset(v8::Isolate::GetCurrent(),
+                                  v8::FunctionTemplate::New());
+
     xrltDeferredConstructor->SetClassName(v8::String::New("Deferred"));
 
     xrltDeferredConstructor->InstanceTemplate()->SetInternalFieldCount(3);
@@ -217,8 +229,8 @@ const char* ToCString(const v8::String::Utf8Value& value) {
 }
 
 
-v8::Handle<v8::Value>
-Print(const v8::Arguments& args) {
+void
+Print(const v8::FunctionCallbackInfo<v8::Value>& args) {
     bool first = true;
     for (int i = 0; i < args.Length(); i++) {
         v8::HandleScope scope;
@@ -233,12 +245,12 @@ Print(const v8::Arguments& args) {
     }
     printf("\n");
     fflush(stdout);
-    return v8::Undefined();
+    args.GetReturnValue().Set(v8::Undefined());
 }
 
 
-v8::Handle<v8::Value>
-Apply(const v8::Arguments& args) {
+void
+Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
     v8::HandleScope           scope;
 
     v8::Local<v8::External>  _jsctx;
@@ -291,10 +303,11 @@ Apply(const v8::Arguments& args) {
             i = count->Int32Value();
         }
 
-        return scope.Close(func->Call(args.Holder(), i, argv));
+        args.GetReturnValue().Set(func->Call(args.Holder(), i, argv));
+        return;
     }
 
-    return v8::Undefined();
+    args.GetReturnValue().Set(v8::Undefined());
 }
 
 
@@ -317,8 +330,8 @@ xrltJSContextCreate(void)
     priv = (xrltJSContextPrivate *)(ret + 1);
     ret->_private = priv;
 
-    priv->globalTemplate = \
-        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
+    priv->globalTemplate.Reset(v8::Isolate::GetCurrent(),
+                               v8::ObjectTemplate::New());
 
     data = v8::External::New(ret);
 
@@ -331,13 +344,15 @@ xrltJSContextCreate(void)
     priv->globalTemplate->Set(v8::String::New("print"),
                               v8::FunctionTemplate::New(Print));
 
-    priv->context = v8::Context::New(NULL, priv->globalTemplate);
+    priv->context.Reset(v8::Isolate::New(),
+                        v8::Context::New(v8::Isolate::GetCurrent(), NULL,
+                                         priv->globalTemplate));
 
     v8::Context::Scope   context_scope(priv->context);
 
-    priv->global = v8::Persistent<v8::Object>::New(priv->context->Global());
+    priv->global.Reset(v8::Isolate::GetCurrent(), priv->context->Global());
 
-    priv->functions = v8::Persistent<v8::Object>::New(v8::Object::New());
+    priv->functions.Reset(v8::Isolate::GetCurrent(), v8::Object::New());
 
     priv->global->Set(v8::String::New("global"), priv->global);
 
@@ -485,7 +500,7 @@ xrltDeferredInsert(xrltContextPtr ctx, void *val, xmlNodePtr insert,
 
         data->node = node;
         data->src = src;
-        data->deferred = v8::Persistent<v8::Object>::New(*d);
+        data->deferred.Reset(v8::Isolate::GetCurrent(), *d);
 
         protoTempl = v8::ObjectTemplate::New();
         protoTempl->SetInternalFieldCount(2);
@@ -718,13 +733,9 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                                 xrltDeferredTransformingPtr,
                                 sizeof(xrltDeferredTransforming), FALSE);
 
-                    v8::Persistent<v8::Object>   *_val;
-
-                    _val = new v8::Persistent<v8::Object>;
-
-                    *_val = v8::Persistent<v8::Object>::New(
-                        deferredConstr->NewInstance()
-                    );
+                    v8::Persistent<v8::Object>   *_val = \
+                        new v8::Persistent<v8::Object>(deferredConstr->
+                                                                NewInstance());
 
                     deferredData->node = param[i]->node;
                     deferredData->codeNode = node;

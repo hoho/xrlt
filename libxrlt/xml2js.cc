@@ -59,23 +59,25 @@ xrltXML2JSCache::set(void *key, v8::Handle<v8::Value> value)
 
 // Deallocator for C++ data connected to XML2JS cache.
 void
-xrltXML2JSCacheWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
+xrltXML2JSCacheWeakCallback(v8::Isolate *isolate,
+                            v8::Persistent<v8::Object> *obj,
+                            xrltXML2JSCache *data)
 {
-    xrltXML2JSCache *data = static_cast<xrltXML2JSCache *>(payload);
     delete data;
-    obj.ClearWeak();
-    obj.Dispose();
+    obj->ClearWeak();
+    obj->Dispose();
 }
 
 
 // Deallocator for C++ data connected to XML2JS JavaScript object.
 void
-xrltXML2JSWeakCallback(v8::Persistent<v8::Value> obj, void *payload)
+xrltXML2JSWeakCallback(v8::Isolate *isolate,
+                       v8::Persistent<v8::Object> *obj,
+                       xrltXML2JSONData *data)
 {
-    xrltXML2JSONData *data = static_cast<xrltXML2JSONData *>(payload);
     delete data;
-    obj.ClearWeak();
-    obj.Dispose();
+    obj->ClearWeak();
+    obj->Dispose();
 }
 
 
@@ -151,11 +153,7 @@ xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
             }
         } else {
             // We have some more complex structure, create XML2JS object.
-            v8::Persistent<v8::Object> rddm;
-
-            rddm = v8::Persistent<v8::Object>::New(
-                xrltXML2JSTemplate->NewInstance()
-            );
+            v8::Persistent<v8::Object> rddm(xrltXML2JSTemplate->NewInstance());
 
             rddm.MakeWeak(data, xrltXML2JSWeakCallback);
 
@@ -182,7 +180,6 @@ v8::Handle<v8::Value>
 xrltXML2JSCreate(xmlXPathObjectPtr value)
 {
     xrltXML2JSCache *cache;
-    v8::Persistent<v8::Object>   cacheobj;
 
     switch (value->type) {
         case XPATH_STRING:
@@ -212,9 +209,8 @@ xrltXML2JSCreate(xmlXPathObjectPtr value)
     // before cache is freed.
     v8::Local<v8::Array>         data = v8::Array::New();
 
-    cacheobj = v8::Persistent<v8::Object>::New(
-        xrltXML2JSCacheTemplate->NewInstance()
-    );
+    v8::Persistent<v8::Object>   cacheobj(xrltXML2JSCacheTemplate->
+                                                                NewInstance());
 
     // Make a reference to cached data.
     cacheobj->Set(0, data);
@@ -236,8 +232,9 @@ xrltXML2JSCreate(xmlXPathObjectPtr value)
 
 
 // Named properties interceptor for XML2JS JavaScript object.
-v8::Handle<v8::Value>
-xrltXML2JSGetProperty(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+void
+xrltXML2JSGetProperty(v8::Local<v8::String> name,
+                      const v8::PropertyCallbackInfo<v8::Value>& info)
 {
     xrltXML2JSONData                                  *data;
     data = (xrltXML2JSONData *)info.Holder()->
@@ -258,9 +255,10 @@ xrltXML2JSGetProperty(v8::Local<v8::String> name, const v8::AccessorInfo& info)
         }
 
         if (values.size() == 1) {
-            return xrltXML2JSCreateInternal(
+            info.GetReturnValue().Set(xrltXML2JSCreateInternal(
                 values[0], NULL, static_cast<xrltXML2JSCache *>(data->cache)
-            );
+            ));
+            return;
         } else if (values.size() > 1) {
             uint32_t               index = 0;
             v8::Local<v8::Array>   ret = v8::Array::New();
@@ -273,17 +271,18 @@ xrltXML2JSGetProperty(v8::Local<v8::String> name, const v8::AccessorInfo& info)
                     )
                 );
             }
-            return ret;
+            info.GetReturnValue().Set(ret);
+            return;
         }
     }
 
-    return v8::Undefined();
+    info.GetReturnValue().Set(v8::Undefined());
 }
 
 
 // Named properties enumerator for XML2JS JavaScript object.
-v8::Handle<v8::Array>
-xrltXML2JSEnumProperties(const v8::AccessorInfo& info)
+void
+xrltXML2JSEnumProperties(const v8::PropertyCallbackInfo<v8::Array>& info)
 {
     xrltXML2JSONData                                  *data;
     data = (xrltXML2JSONData *)info.Holder()->
@@ -301,7 +300,7 @@ xrltXML2JSEnumProperties(const v8::AccessorInfo& info)
         ret->Set(index++, v8::String::New(i->first.c_str()));
     }
 
-    return scope.Close(ret);
+    info.GetReturnValue().Set(ret);
 }
 
 
@@ -309,13 +308,14 @@ xrltXML2JSEnumProperties(const v8::AccessorInfo& info)
 void
 xrltXML2JSTemplateInit(void)
 {
-    xrltXML2JSCacheTemplate = \
-        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
+
+    xrltXML2JSCacheTemplate.Reset(v8::Isolate::GetCurrent(),
+                                  v8::ObjectTemplate::New());
 
     xrltXML2JSCacheTemplate->SetInternalFieldCount(1);
 
-    xrltXML2JSTemplate = \
-        v8::Persistent<v8::ObjectTemplate>::New(v8::ObjectTemplate::New());
+    xrltXML2JSTemplate.Reset(v8::Isolate::GetCurrent(),
+                             v8::ObjectTemplate::New());
 
     xrltXML2JSTemplate->SetInternalFieldCount(1);
 

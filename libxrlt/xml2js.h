@@ -5,6 +5,7 @@
 #ifndef __XRLT_XML2JS_H__
 #define __XRLT_XML2JS_H__
 
+#define V8_USE_UNSAFE_HANDLES
 
 #include <libxml/xpath.h>
 #include <v8.h>
