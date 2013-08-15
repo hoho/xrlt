@@ -105,6 +105,10 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 ret->transformation = XRLT_TRANSFORMATION_XML_STRINGIFY;
             } else if (xmlStrcasecmp(t, (xmlChar *)"xml-parse") == 0) {
                 ret->transformation = XRLT_TRANSFORMATION_XML_PARSE;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-stringify")) {
+                ret->transformation = XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY;
+            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-parse")) {
+                ret->transformation = XRLT_TRANSFORMATION_QUERYSTRING_PARSE;
             } else {
                 ret->transformation = XRLT_TRANSFORMATION_CUSTOM;
             }
@@ -873,6 +877,12 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             break;
 
                         case XRLT_TRANSFORMATION_XML_PARSE:
+                            break;
+
+                        case XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY:
+                            break;
+
+                        case XRLT_TRANSFORMATION_QUERYSTRING_PARSE:
                             break;
                     }
 

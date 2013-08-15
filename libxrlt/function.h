@@ -29,8 +29,8 @@ typedef enum {
     XRLT_TRANSFORMATION_JSON_PARSE,             // Parse JSON string.
     XRLT_TRANSFORMATION_XML_STRINGIFY,          // Serialize to XML string.
     XRLT_TRANSFORMATION_XML_PARSE,              // Parse XML string.
-//    XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY,  // Serialize to querystring.
-//    XRLT_TRANSFORMATION_QUERYSTRING_PARSE,      // Parse querystring.
+    XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY,  // Serialize to querystring.
+    XRLT_TRANSFORMATION_QUERYSTRING_PARSE,      // Parse querystring.
     XRLT_TRANSFORMATION_CUSTOM                  // Custom transformation.
 } xrltTransformationType;
 
