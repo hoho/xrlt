@@ -5,6 +5,7 @@
 #include "transform.h"
 #include "function.h"
 #include "xml2json.h"
+#include "querystring.h"
 #include <libxml/uri.h>
 #include <libxslt/xsltutils.h>
 
@@ -105,9 +106,9 @@ xrltFunctionCompile(xrltRequestsheetPtr sheet, xmlNodePtr node, void *prevcomp)
                 ret->transformation = XRLT_TRANSFORMATION_XML_STRINGIFY;
             } else if (xmlStrcasecmp(t, (xmlChar *)"xml-parse") == 0) {
                 ret->transformation = XRLT_TRANSFORMATION_XML_PARSE;
-            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-stringify")) {
+            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-stringify") == 0) {
                 ret->transformation = XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY;
-            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-parse")) {
+            } else if (xmlStrcasecmp(t, (xmlChar *)"querystring-parse") == 0) {
                 ret->transformation = XRLT_TRANSFORMATION_QUERYSTRING_PARSE;
             } else {
                 ret->transformation = XRLT_TRANSFORMATION_CUSTOM;
@@ -653,6 +654,126 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
 }
 
 
+
+
+
+static inline xrltBool
+xrltQuerystringStringify(xrltContextPtr ctx, xmlNodePtr src,
+                         xmlDocPtr doc, xmlNodePtr insert)
+{
+    xmlNodePtr     node;
+    xmlChar       *text = NULL;
+    xmlChar       *encoded = NULL;
+    xmlBufferPtr   buf = NULL;
+    xrltBool       added;
+
+    node = doc->children;
+
+    if (node != NULL) {
+        buf = xmlBufferCreate();
+
+        if (buf == NULL) {
+            ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+            goto error;
+        }
+
+        while (node != NULL) {
+            added = FALSE;
+
+            if (node->type != XML_TEXT_NODE &&
+                node->type != XML_CDATA_SECTION_NODE)
+            {
+                encoded = \
+                    (xmlChar *)xmlMalloc((size_t)xmlStrlen(node->name) * 3);
+
+                if (encoded == NULL) {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                    goto error;
+                }
+
+                xrltURLEncode((char *)node->name, (char *)encoded);
+
+                if (xmlBufferAdd(buf, encoded, -1) != 0 ||
+                    xmlBufferAdd(buf, (const xmlChar *)"=", 1) != 0)
+                {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                    goto error;
+                }
+
+                xmlFree(encoded);
+
+                added = TRUE;
+            }
+
+            text = xmlXPathCastNodeToString(node);
+
+            if (text == NULL) {
+                ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                goto error;
+            }
+
+            if (xmlStrlen(text) > 0) {
+                encoded = (xmlChar *)xmlMalloc((size_t)xmlStrlen(text) * 3);
+
+                if (encoded == NULL) {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                    goto error;
+                }
+
+                xrltURLEncode((char *)text, (char *)encoded);
+
+                if (xmlBufferAdd(buf, encoded, xmlStrlen(encoded)) != 0) {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                    goto error;
+                }
+
+                xmlFree(encoded);
+
+                added = TRUE;
+            }
+
+            xmlFree(text);
+
+            node = node->next;
+
+            if (node != NULL && added) {
+                if (xmlBufferAdd(buf, (const xmlChar *)"&", 1) != 0) {
+                    ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                    goto error;
+                }
+            }
+        }
+
+        NEW_TEXT_CHILD(
+            ctx, node, insert,
+            xmlBufferContent(buf),
+            xmlBufferLength(buf),
+            xmlBufferFree(buf)
+        );
+    }
+
+    return TRUE;
+
+  error:
+    if (buf != NULL) {
+        xmlBufferFree(buf);
+    }
+
+    if (encoded != NULL) {
+        xmlFree(encoded);
+    }
+
+    if (text != NULL) {
+        xmlFree(text);
+    }
+
+    return FALSE;
+}
+
+
+
+
+
 xrltBool
 xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                    void *data)
@@ -880,6 +1001,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             break;
 
                         case XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY:
+                            xrltQuerystringStringify(ctx, acomp->node,
+                                                     tdata->self, tdata->retNode);
                             break;
 
                         case XRLT_TRANSFORMATION_QUERYSTRING_PARSE:

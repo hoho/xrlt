@@ -1,0 +1,3 @@
+XRLT_STATUS_CHUNK
+chunk: test=hello&test=&test=&test=world&thisis&boo=something+awesome+indeed
+XRLT_STATUS_DONE
