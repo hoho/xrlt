@@ -654,9 +654,6 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
 }
 
 
-
-
-
 static inline xrltBool
 xrltQuerystringStringify(xrltContextPtr ctx, xmlNodePtr src,
                          xmlDocPtr doc, xmlNodePtr insert)
@@ -722,7 +719,7 @@ xrltQuerystringStringify(xrltContextPtr ctx, xmlNodePtr src,
 
                 xrltURLEncode((char *)text, (char *)encoded);
 
-                if (xmlBufferAdd(buf, encoded, xmlStrlen(encoded)) != 0) {
+                if (xmlBufferAdd(buf, encoded, -1) != 0) {
                     ERROR_OUT_OF_MEMORY(ctx, NULL, src);
                     goto error;
                 }
@@ -771,7 +768,48 @@ xrltQuerystringStringify(xrltContextPtr ctx, xmlNodePtr src,
 }
 
 
+static inline xrltBool
+xrltQuerystringParse(xrltContextPtr ctx, xmlNodePtr src,
+                     xmlDocPtr doc, xmlNodePtr insert)
+{
+    xmlChar                   *text = NULL;
+    xrltQueryStringParserPtr   parser = NULL;
+    xrltBool                   ret = FALSE;
 
+    text = xmlXPathCastNodeToString((xmlNodePtr)doc);
+
+    if (text == NULL) {
+        ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+        goto error;
+    }
+
+    parser = xrltQueryStringParserInit(insert);
+
+    if (parser == NULL) {
+        ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+        goto error;
+    }
+
+    if (!xrltQueryStringParserFeed(parser, (char *)text,
+                                   (size_t)xmlStrlen(text), TRUE))
+    {
+        xrltTransformError(ctx, NULL, src, "Failed to parse querystring\n");
+        goto error;
+    }
+
+    ret = TRUE;
+
+  error:
+    if (text != NULL) {
+        xmlFree(text);
+    }
+
+    if (parser != NULL) {
+        xrltQueryStringParserFree(parser);
+    }
+
+    return ret;
+}
 
 
 xrltBool
@@ -1001,11 +1039,23 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                             break;
 
                         case XRLT_TRANSFORMATION_QUERYSTRING_STRINGIFY:
-                            xrltQuerystringStringify(ctx, acomp->node,
-                                                     tdata->self, tdata->retNode);
+                            if (!xrltQuerystringStringify(ctx, acomp->node,
+                                                          tdata->self,
+                                                          tdata->retNode))
+                            {
+                                return FALSE;
+                            }
+
                             break;
 
                         case XRLT_TRANSFORMATION_QUERYSTRING_PARSE:
+                            if (!xrltQuerystringParse(ctx, acomp->node,
+                                                      tdata->self,
+                                                      tdata->retNode))
+                            {
+                                return FALSE;
+                            }
+
                             break;
                     }
 

@@ -1,3 +1,11 @@
 XRLT_STATUS_CHUNK
 chunk: test=hello&test=&test=&test=world&thisis&boo=something+awesome+indeed
-XRLT_STATUS_DONE
+chunk: |
+XRLT_STATUS_CHUNK
+chunk: <?xml version="1.0"?>
+<world>awesome</world>
+<world>awesome2</world>
+<this>is</this>
+<amazing/>
+<indeed/>
+
