@@ -1,11 +1,18 @@
 <?xml version="1.0"?>
 <xrl:requestsheet xmlns:xrl="http://xrlt.net/Transform">
 
-    <xrl:transformation name="xsl" type="xslt" src="test1.xsl" />
+    <xrl:transformation name="xsl" type="xslt" src="test1.xsl">
+        <xrl:param name="papapa1" />
+        <xrl:param name="papapa2" />
+        <xrl:param name="papapa3" select="'pep&amp;epe'"/>
+        <xrl:param name="papapa4" />
+    </xrl:transformation>
     <xrl:transformation name="xsl2" type="xslt-stringify" src="test1.xsl" />
 
     <xrl:response>
         <xrl:transform name="xsl">
+            <xrl:with-param name="papapa1" select="9876" />
+            <xrl:with-param name="papapa2">'alala'</xrl:with-param>
             <test>yoyoyo</test>
             <test>yaya</test>
         </xrl:transform>

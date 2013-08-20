@@ -6,11 +6,11 @@ sr url: /heck
 sr query: (null)
 sr body: (null)
 XRLT_STATUS_CHUNK
-chunk: hihi|test: yoyoyo|test: yaya|haha
+chunk: hihi|papapa1=9876|papapa2='alala'|papapa3=pep&epe|papapa4=57575|test: yoyoyo|test: yaya|haha
 chunk: |||
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
-chunk: <yoyo>hihi|quack: opop|heck: quack-quack|quack: apap|haha</yoyo>
+chunk: <yoyo>hihi|papapa1=|papapa2=|papapa3=|papapa4=57575|quack: opop|heck: quack-quack|quack: apap|haha</yoyo>
 
 XRLT_STATUS_DONE

@@ -8,6 +8,7 @@
 #include "querystring.h"
 #include <libxml/uri.h>
 #include <libxslt/xsltutils.h>
+#include <libxslt/variables.h>
 
 
 static void
@@ -584,16 +585,70 @@ xrltApplyTransformingFree(void *data)
 
 
 static inline xrltBool
-xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
-                  xmlDocPtr doc, xrltBool tostr, xmlNodePtr insert)
+xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src,
+                  xrltVariableDataPtr *param, size_t paramLen,
+                  xsltStylesheetPtr style, xmlDocPtr doc, xrltBool tostr,
+                  xmlNodePtr insert)
 {
-    xmlDocPtr    res = NULL;
-    xmlChar     *ret;
-    int          len;
-    xmlNodePtr   node;
+    xmlDocPtr                 res = NULL;
+    xmlChar                  *xsltResult;
+    int                       len;
+    xmlNodePtr                node;
+    size_t                    i;
+    xmlXPathObjectPtr         val;
+    xmlChar                  *pval;
+    size_t                    paramIndex;
+    char                    **applyParams = NULL;
+    xsltTransformContextPtr   xctx;
+    xrltBool                  ret = FALSE;
 
+    if (paramLen > 0) {
+        XRLT_MALLOC(ctx, NULL, src, applyParams, char **,
+                    sizeof(char *) * (paramLen + paramLen + 1), FALSE);
 
-    res = xsltApplyStylesheet(style, doc, NULL);
+        paramIndex = 0;
+
+        for (i = 0; i < paramLen; i++) {
+            val = xrltVariableLookupFunc(ctx, param[i]->name, NULL);
+
+            if (val == NULL) {
+                xrltTransformError(ctx, NULL, param[i]->node,
+                                   "Variable '%s' lookup failed\n",
+                                   param[i]->name);
+                goto error;
+            }
+
+            pval = xmlXPathCastToString(val);
+
+            xmlXPathFreeObject(val);
+
+            if (pval == NULL) {
+                ERROR_OUT_OF_MEMORY(ctx, NULL, src);
+                goto error;
+            }
+
+            if (xmlStrlen(pval) > 0) {
+                applyParams[paramIndex++] = (char *)param[i]->name;
+                applyParams[paramIndex] = (char *)pval;
+                paramIndex++;
+            } else {
+                xmlFree(pval);
+            }
+        }
+
+        if (paramIndex == 0) {
+            xmlFree(applyParams);
+            applyParams = NULL;
+        }
+    }
+
+    xctx = xsltNewTransformContext(style, doc);
+
+    if (xctx != NULL) {
+        xsltQuoteUserParams(xctx, (const char **)applyParams);
+        res = xsltApplyStylesheetUser(style, doc, 0, 0, 0, xctx);
+        xsltFreeTransformContext(xctx);
+    }
 
     if (res == NULL) {
         xrltTransformError(ctx, NULL, src,
@@ -602,10 +657,10 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
     }
 
     if (tostr) {
-        if (xsltSaveResultToString(&ret, &len, res, style) == 0) {
-            node = xmlNewTextLen(ret, len);
+        if (xsltSaveResultToString(&xsltResult, &len, res, style) == 0) {
+            node = xmlNewTextLen(xsltResult, len);
 
-            xmlFree(ret);
+            xmlFree(xsltResult);
 
             if (node == NULL) {
                 ERROR_CREATE_NODE(ctx, NULL, src);
@@ -643,14 +698,25 @@ xrltXSLTTransform(xrltContextPtr ctx, xmlNodePtr src, xsltStylesheetPtr style,
         }
     }
 
-    xmlFreeDoc(res);
-
-    return TRUE;
+    ret = TRUE;
 
   error:
     if (res != NULL) { xmlFreeDoc(res); }
 
-    return FALSE;
+    if (applyParams != NULL) {
+        paramIndex = 1;
+
+        for (i = 0; i < paramLen; i++) {
+            if (applyParams[paramIndex] != NULL) {
+                xmlFree(applyParams[paramIndex++]);
+                paramIndex++;
+            }
+        }
+
+        xmlFree(applyParams);
+    }
+
+    return ret;
 }
 
 
@@ -974,6 +1040,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                         case XRLT_TRANSFORMATION_XSLT_STRINGIFY:
                             if (!xrltXSLTTransform(ctx, acomp->node,
+                                                   acomp->param,
+                                                   acomp->paramLen,
                                                    acomp->func->xslt,
                                                    tdata->self, TRUE,
                                                    tdata->retNode))
@@ -985,6 +1053,8 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
                         case XRLT_TRANSFORMATION_XSLT:
                             if (!xrltXSLTTransform(ctx, acomp->node,
+                                                   acomp->param,
+                                                   acomp->paramLen,
                                                    acomp->func->xslt,
                                                    tdata->self, FALSE,
                                                    tdata->retNode))
