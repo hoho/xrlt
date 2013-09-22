@@ -343,9 +343,9 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
         size_t                       sr_id;
         xrltHTTPMethod               m;
         xrltSubrequestDataType       type;
-        xrltHeaderOutList sr_header;
+        xrltHeaderOutList            sr_header;
         xrltString                   url, querystring, body, hname, hval;
-        xrltHeaderOutType htype;
+        xrltHeaderOutType            htype;
         ngx_http_xrlt_ctx_t         *sr_ctx;
         ngx_str_t                    sr_uri, sr_querystring, sr_body;
         ngx_http_request_t          *sr;
@@ -391,7 +391,8 @@ ngx_http_xrlt_process_transform_result(ngx_http_request_t *r,
                 return NGX_ERROR;
             }
 
-            dd("Performing subrequest (uri: %s, r: %p)", sr_uri.data, sr);
+            dd("Performing subrequest (r: %p, uri: %s, querystring: %s, "
+               "body: %s)", sr, sr_uri.data, sr_querystring.data, sr_body.data);
 
             // Don't inherit parent request variables. Content-Length is
             // cacheable in proxy module and we don't need Content-Length from
@@ -1156,10 +1157,9 @@ ngx_http_xrlt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_uint_t                 i, j;
     xrltBool                   add;
 
-
     if (conf->params == NULL) {
         conf->params = prev->params;
-    } else {
+    } else if (prev->params != NULL) {
         prevparams = prev->params->elts;
         params = conf->params->elts;
 
