@@ -147,7 +147,7 @@ ngx_http_xrlt_create_ctx(ngx_http_request_t *r, size_t id) {
 
         dd("XRLT context creation");
 
-        if (conf->params->nelts > 0) {
+        if (conf->params != NULL && conf->params->nelts > 0) {
             params = conf->params->elts;
 
             xrltparams = ngx_palloc(
