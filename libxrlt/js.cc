@@ -1,9 +1,6 @@
 /*
  * Copyright Marat Abdullin (https://github.com/hoho)
  */
-
-#define V8_USE_UNSAFE_HANDLES
-
 #include <v8.h>
 #include <string>
 
@@ -15,10 +12,13 @@
 
 
 typedef struct {
-    v8::Persistent<v8::ObjectTemplate>   globalTemplate;
-    v8::Persistent<v8::Object>           global;
-    v8::Persistent<v8::Object>           functions;
-    v8::Persistent<v8::Context>          context;
+    v8::Persistent<v8::ObjectTemplate>     globalTemplate;
+    v8::Persistent<v8::Object>             global;
+    v8::Persistent<v8::Object>             functions;
+    v8::Persistent<v8::Context>            context;
+    v8::Persistent<v8::FunctionTemplate>   deferredTemplate;
+    v8::Persistent<v8::ObjectTemplate>     xml2jsCacheTemplate;
+    v8::Persistent<v8::ObjectTemplate>     xml2jsTemplate;
 } xrltJSContextPrivate;
 
 
@@ -29,23 +29,22 @@ typedef struct {
 } xrltDeferredInsertTransformingData;
 
 
-static xrltBool xrltDeferredInsert   (xrltContextPtr ctx, void *val,
+static xrltBool xrltDeferredInsert   (v8::Isolate *isolate,
+                                      xrltContextPtr ctx, void *val,
                                       xmlNodePtr insert, xmlNodePtr src,
                                       xrltDeferredInsertTransformingData *data);
 
-static xrltBool xrltJS2XML           (xrltContextPtr ctx,
+static xrltBool xrltJS2XML           (v8::Isolate *isolate, xrltContextPtr ctx,
                                       xrltJSON2XMLPtr js2xml,
                                       xmlNodePtr srcNode,
                                       v8::Local<v8::Value> val);
 
 
-v8::Persistent<v8::FunctionTemplate> xrltDeferredConstructor;
-
-
-void ReportException(xrltContextPtr ctx, xrltRequestsheetPtr sheet,
-                     xmlNodePtr node, v8::TryCatch* trycatch)
+void ReportException(v8::Isolate *isolate, xrltContextPtr ctx,
+                     xrltRequestsheetPtr sheet, xmlNodePtr node,
+                     v8::TryCatch* trycatch)
 {
-    v8::HandleScope          scope;
+    v8::HandleScope          scope(isolate);
 
     v8::Local<v8::Value>     exception(trycatch->Exception());
     v8::String::AsciiValue   exception_str(exception);
@@ -73,7 +72,7 @@ xrltDeferredInit(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 void
 xrltDeferredThen(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::HandleScope        scope;
+    v8::HandleScope        scope(args.GetIsolate());
 
     v8::Local<v8::Array>   cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
 
@@ -99,7 +98,8 @@ xrltDeferredThen(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 void
 xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::HandleScope           scope;
+    v8::Isolate              *isolate = args.GetIsolate();
+    v8::HandleScope           scope(isolate);
 
     v8::Local<v8::Array>      cb;
     v8::Local<v8::Function>   func;
@@ -150,7 +150,8 @@ xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
                                         GetAlignedPointerFromInternalField(2);
 
             if (deferredData != NULL && ctx != NULL) {
-                ReportException(ctx, NULL, deferredData->codeNode, &trycatch);
+                ReportException(isolate, ctx, NULL, deferredData->codeNode,
+                                &trycatch);
 
                 ctx->cur |= XRLT_STATUS_ERROR;
             }
@@ -165,7 +166,8 @@ xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 void
 xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::HandleScope                      scope;
+    v8::Isolate                         *isolate = args.GetIsolate();
+    v8::HandleScope                      scope(isolate);
 
     v8::Local<v8::Object>                proto;
     xrltContextPtr                       ctx;
@@ -180,7 +182,7 @@ xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
     if (ctx != NULL && tdata != NULL) {
         val = args[0];
-        xrltDeferredInsert(ctx, &val, NULL, NULL, tdata);
+        xrltDeferredInsert(isolate, ctx, &val, NULL, NULL, tdata);
     }
 
     args.GetReturnValue().Set(v8::Undefined());
@@ -190,36 +192,14 @@ xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
 void
 xrltJSInit(void)
 {
-    v8::HandleScope   scope;
-
-    xrltXML2JSTemplateInit();
-
-    xrltDeferredConstructor.Reset(v8::Isolate::GetCurrent(),
-                                  v8::FunctionTemplate::New());
-
-    xrltDeferredConstructor->SetClassName(v8::String::New("Deferred"));
-
-    xrltDeferredConstructor->InstanceTemplate()->SetInternalFieldCount(3);
-
-    xrltDeferredConstructor->SetCallHandler(xrltDeferredInit);
-
-    xrltDeferredConstructor->PrototypeTemplate()->Set(
-        v8::String::New("then"),
-        v8::FunctionTemplate::New(xrltDeferredThen)
-    );
-
-    xrltDeferredConstructor->PrototypeTemplate()->Set(
-        v8::String::New("resolve"),
-        v8::FunctionTemplate::New(xrltDeferredResolve)
-    );
+    v8::V8::InitializeICU();
 }
 
 
 void
 xrltJSFree(void)
 {
-    xrltXML2JSTemplateFree();
-    xrltDeferredConstructor.Dispose();
+    v8::V8::Dispose();
 }
 
 
@@ -233,7 +213,7 @@ void
 Print(const v8::FunctionCallbackInfo<v8::Value>& args) {
     bool first = true;
     for (int i = 0; i < args.Length(); i++) {
-        v8::HandleScope scope;
+        v8::HandleScope   scope(args.GetIsolate());
         if (first) {
             first = false;
         } else {
@@ -251,7 +231,8 @@ Print(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 void
 Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::HandleScope           scope;
+    v8::Isolate              *isolate = args.GetIsolate();
+    v8::HandleScope           scope(isolate);
 
     v8::Local<v8::External>  _jsctx;
     xrltJSContextPtr          jsctx;
@@ -262,15 +243,17 @@ Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
     priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (args.Length() > 0) {
-        v8::Local<v8::Object>     funcwrap;
+        v8::Local<v8::Object>     functions = \
+            v8::Local<v8::Object>::New(isolate, priv->functions);
+
+        v8::Local<v8::Object>     funcwrap = \
+            v8::Local<v8::Object>::Cast(functions->Get(args[0]));
         v8::Local<v8::Function>   func;
         v8::Local<v8::Number>     count;
         v8::Local<v8::Object>    _args;
         int                       i;
 
         _args = v8::Local<v8::Object>::Cast(args[1]);
-
-        funcwrap = v8::Local<v8::Object>::Cast(priv->functions->Get(args[0]));
 
         func = \
             v8::Local<v8::Function>::Cast(funcwrap->Get(v8::String::New("0")));
@@ -281,7 +264,7 @@ Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
         v8::Local<v8::Value>      argv[i > 0 ? i : 1];
 
         for (i = i - 1; i >= 0; i--) {
-            argv[i] = v8::Local<v8::Value>::New(v8::Undefined());
+            argv[i] = v8::Local<v8::Value>::New(isolate, v8::Undefined());
         }
 
         if (_args->IsUndefined()) {
@@ -316,7 +299,8 @@ xrltJSContextCreate(void)
 {
     xrltJSContextPtr          ret;
     xrltJSContextPrivate     *priv;
-    v8::HandleScope           scope;
+    v8::Isolate              *isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope           scope(isolate);
 
     v8::Local<v8::External>   data;
 
@@ -330,31 +314,61 @@ xrltJSContextCreate(void)
     priv = (xrltJSContextPrivate *)(ret + 1);
     ret->_private = priv;
 
-    priv->globalTemplate.Reset(v8::Isolate::GetCurrent(),
-                               v8::ObjectTemplate::New());
-
     data = v8::External::New(ret);
 
-    priv->globalTemplate->Set(v8::String::New("apply"),
-                              v8::FunctionTemplate::New(Apply, data));
+    v8::Local<v8::ObjectTemplate>     globalTpl = v8::Local<v8::ObjectTemplate>::New(isolate, v8::ObjectTemplate::New());
+    v8::Local<v8::FunctionTemplate>   deferredTpl(v8::FunctionTemplate::New());
 
-    priv->globalTemplate->Set(v8::String::New("Deferred"),
-                              xrltDeferredConstructor);
 
-    priv->globalTemplate->Set(v8::String::New("print"),
-                              v8::FunctionTemplate::New(Print));
+    deferredTpl->SetClassName(v8::String::New("Deferred"));
+    deferredTpl->InstanceTemplate()->SetInternalFieldCount(3);
+    deferredTpl->SetCallHandler(xrltDeferredInit);
 
-    priv->context.Reset(v8::Isolate::New(),
-                        v8::Context::New(v8::Isolate::GetCurrent(), NULL,
-                                         priv->globalTemplate));
+    deferredTpl->PrototypeTemplate()->Set(
+        v8::String::New("then"),
+        v8::FunctionTemplate::New(xrltDeferredThen)
+    );
 
-    v8::Context::Scope   context_scope(priv->context);
+    deferredTpl->PrototypeTemplate()->Set(
+        v8::String::New("resolve"),
+        v8::FunctionTemplate::New(xrltDeferredResolve)
+    );
 
-    priv->global.Reset(v8::Isolate::GetCurrent(), priv->context->Global());
+    v8::Local<v8::ObjectTemplate>   xml2jsTpl(v8::ObjectTemplate::New());
+    v8::Local<v8::ObjectTemplate>   xml2jsCacheTpl(v8::ObjectTemplate::New());
 
-    priv->functions.Reset(v8::Isolate::GetCurrent(), v8::Object::New());
+    xml2jsTpl->SetInternalFieldCount(1);
+    xml2jsTpl->SetNamedPropertyHandler(
+        xrltXML2JSGetProperty, 0, 0, 0, xrltXML2JSEnumProperties
+    );
 
-    priv->global->Set(v8::String::New("global"), priv->global);
+    xml2jsCacheTpl->SetInternalFieldCount(1);
+
+    globalTpl->Set(v8::String::New("apply"),
+                   v8::FunctionTemplate::New(Apply, data));
+    globalTpl->Set(v8::String::New("Deferred"), deferredTpl);
+    globalTpl->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
+
+    v8::Local<v8::Context> context = v8::Context::New(isolate, NULL, globalTpl);
+
+    if (context.IsEmpty()) {
+        xmlFree(ret);
+        return NULL;
+    }
+
+    v8::Context::Scope       context_scope(context);
+
+    v8::Local<v8::Object>    global = context->Global();
+
+    global->Set(v8::String::New("global"), global);
+
+    priv->context.Reset(isolate, context);
+    priv->globalTemplate.Reset(isolate, globalTpl);
+    priv->global.Reset(isolate, global);
+    priv->functions.Reset(isolate, v8::Object::New());
+    priv->deferredTemplate.Reset(isolate, deferredTpl);
+    priv->xml2jsTemplate.Reset(isolate, xml2jsTpl);
+    priv->xml2jsCacheTemplate.Reset(isolate, xml2jsCacheTpl);
 
     return ret;
 }
@@ -372,6 +386,9 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
         priv->context.Dispose();
         priv->global.Dispose();
         priv->globalTemplate.Dispose();
+        priv->deferredTemplate.Dispose();
+        priv->xml2jsCacheTemplate.Dispose();
+        priv->xml2jsTemplate.Dispose();
     }
 
     xmlFree(jsctx);
@@ -403,8 +420,11 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
 
     xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::HandleScope           scope;
-    v8::Context::Scope        context_scope(priv->context);
+    v8::Isolate              *isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope           scope(isolate);
+    v8::Local<v8::Context>    context = \
+        v8::Local<v8::Context>::New(isolate, priv->context);
+    v8::Context::Scope        context_scope(context);
 
     v8::Local<v8::Function>   constr;
     v8::Local<v8::Value>      argv[2];
@@ -412,6 +432,10 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
     size_t                    count;
     v8::Local<v8::Object>     funcwrap = v8::Object::New();
     v8::Local<v8::Object>     func;
+    v8::Local<v8::Object>     global = \
+        v8::Local<v8::Object>::New(isolate, priv->global);
+    v8::Local<v8::Object>     functions = \
+        v8::Local<v8::Object>::New(isolate, priv->functions);
 
     if (param != NULL && paramLen > 0) {
         std::string   _args;
@@ -435,7 +459,7 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
     argv[argc++] = v8::String::New((char *)code);
 
     constr = v8::Local<v8::Function>::Cast(
-        priv->global->Get(v8::String::New("Function"))
+        global->Get(v8::String::New("Function"))
     );
 
     v8::TryCatch   trycatch;
@@ -443,7 +467,7 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
     func = constr->NewInstance(argc, argv);
 
     if (trycatch.HasCaught()) {
-        ReportException(NULL, sheet, node, &trycatch);
+        ReportException(isolate, NULL, sheet, node, &trycatch);
 
         return FALSE;
     }
@@ -451,7 +475,7 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
     funcwrap->Set(v8::String::New("0"), func);
     funcwrap->Set(v8::String::New("1"), v8::Number::New(count));
 
-    priv->functions->Set(v8::String::New((char *)name), funcwrap);
+    functions->Set(v8::String::New((char *)name), funcwrap);
 
     return TRUE;
 }
@@ -474,8 +498,9 @@ xrltDeferredInsertTransformingFree(void *data)
 
 
 static xrltBool
-xrltDeferredInsert(xrltContextPtr ctx, void *val, xmlNodePtr insert,
-                   xmlNodePtr src, xrltDeferredInsertTransformingData *data)
+xrltDeferredInsert(v8::Isolate *isolate, xrltContextPtr ctx, void *val,
+                   xmlNodePtr insert, xmlNodePtr src,
+                   xrltDeferredInsertTransformingData *data)
 {
     xmlNodePtr                           node;
     xrltNodeDataPtr                      n;
@@ -529,7 +554,7 @@ xrltDeferredInsert(xrltContextPtr ctx, void *val, xmlNodePtr insert,
 
         js2xml = xrltJSON2XMLInit(node, TRUE);
 
-        r = xrltJS2XML(ctx, js2xml, data->src, *_val);
+        r = xrltJS2XML(isolate, ctx, js2xml, data->src, *_val);
 
         xrltJSON2XMLFree(js2xml);
 
@@ -549,8 +574,8 @@ xrltDeferredInsert(xrltContextPtr ctx, void *val, xmlNodePtr insert,
 
 
 static xrltBool
-xrltJS2XML(xrltContextPtr ctx, xrltJSON2XMLPtr js2xml, xmlNodePtr srcNode,
-           v8::Local<v8::Value> val)
+xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
+           xmlNodePtr srcNode, v8::Local<v8::Value> val)
 {
     if (val->IsString() || val->IsDate()) {
         v8::Local<v8::String>   _val = val->ToString();
@@ -577,17 +602,27 @@ xrltJS2XML(xrltContextPtr ctx, xrltJSON2XMLPtr js2xml, xmlNodePtr srcNode,
         xrltJSON2XMLArrayStart(js2xml);
 
         for (i = 0; i < _val->Length(); i++) {
-            if (!xrltJS2XML(ctx, js2xml, srcNode, _val->Get(i))) {
+            if (!xrltJS2XML(isolate, ctx, js2xml, srcNode, _val->Get(i))) {
                 return FALSE;
             }
         }
 
         xrltJSON2XMLArrayEnd(js2xml);
     } else if (val->IsObject()) {
-        v8::Local<v8::Object>   _val = v8::Local<v8::Object>::Cast(val);
+        xrltJSContextPtr              jsctx = (xrltJSContextPtr)ctx->sheet->js;
+        xrltJSContextPrivate         *priv = \
+                                       (xrltJSContextPrivate *)jsctx->_private;
 
-        if (xrltDeferredConstructor->HasInstance(_val)) {
-            if (!xrltDeferredInsert(ctx, &_val, js2xml->cur, srcNode, NULL)) {
+        v8::Local<v8::Object>            _val = \
+            v8::Local<v8::Object>::Cast(val);
+        v8::Local<v8::FunctionTemplate>   deferredConst = \
+            v8::Local<v8::FunctionTemplate>::New(isolate,
+                                                 priv->deferredTemplate);
+
+        if (deferredConst->HasInstance(_val)) {
+            if (!xrltDeferredInsert(isolate, ctx, &_val, js2xml->cur, srcNode,
+                                    NULL))
+            {
                 return FALSE;
             }
         } else {
@@ -612,7 +647,9 @@ xrltJS2XML(xrltContextPtr ctx, xrltJSON2XMLPtr js2xml, xmlNodePtr srcNode,
                 xrltJSON2XMLMapKey(js2xml, (const unsigned char *)*__key,
                                    (size_t)_key->Length());
 
-                if (!xrltJS2XML(ctx, js2xml, srcNode, _val->Get(key))) {
+                if (!xrltJS2XML(isolate, ctx, js2xml, srcNode,
+                                _val->Get(key)))
+                {
                     return FALSE;
                 }
             }
@@ -636,14 +673,20 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltJSContextPrivate         *priv = \
                                       (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::HandleScope               scope;
-    v8::Context::Scope            context_scope(priv->context);
+    v8::Isolate                  *isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope               scope(isolate);
+
+    v8::Local<v8::Context>        context = \
+        v8::Local<v8::Context>::New(isolate, priv->context);
+    v8::Context::Scope            context_scope(context);
 
     v8::Persistent<v8::Object>   *obj;
     v8::Local<v8::Function>       resolve;
     v8::Local<v8::Value>          argv[1];
 
     obj = (v8::Persistent<v8::Object> *)dcomp->deferred;
+
+    v8::Local<v8::Object>   tmptmp = v8::Local<v8::Object>::New(isolate, *obj);
 
     ctx->varContext = dcomp->varContext;
 
@@ -656,11 +699,17 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     }
 
     resolve = \
-        v8::Local<v8::Function>::Cast((*obj)->Get(v8::String::New("resolve")));
+        v8::Local<v8::Function>::Cast(tmptmp->Get(v8::String::New("resolve")));
 
-    argv[0] = v8::Local<v8::Value>::New(xrltXML2JSCreate(val));
+    argv[0] = v8::Local<v8::Value>::New(
+        isolate,
+        xrltXML2JSCreate(isolate,
+                         &priv->xml2jsTemplate,
+                         &priv->xml2jsCacheTemplate,
+                         val)
+    );
 
-    resolve->Call(*obj, 1, argv);
+    resolve->Call(tmptmp, 1, argv);
 
     obj->Dispose();
     delete obj;
@@ -681,23 +730,33 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
 {
     if (ctx == NULL || name == NULL || insert == NULL) { return FALSE; }
 
-    xrltJSContextPtr              jsctx = (xrltJSContextPtr)ctx->sheet->js;
-    xrltJSContextPrivate         *priv = \
+    xrltJSContextPtr                  jsctx = (xrltJSContextPtr)ctx->sheet->js;
+    xrltJSContextPrivate             *priv = \
                                       (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::HandleScope               scope;
-    v8::Context::Scope            context_scope(priv->context);
+    v8::Isolate                      *isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope                   scope(isolate);
+    v8::Local<v8::Context>            context = \
+        v8::Local<v8::Context>::New(isolate, priv->context);
+    v8::Context::Scope                context_scope(context);
 
-    v8::Local<v8::Object>         funcwrap;
-    v8::Local<v8::Function>       func;
-    size_t                        argc;
-    v8::Local<v8::Value>          ret;
-    xmlXPathObjectPtr             val;
-    xrltDeferredTransformingPtr   deferredData;
-    v8::Local<v8::Function>       deferredConstr;
-    xrltNodeDataPtr               n;
+    v8::Local<v8::Object>             funcwrap;
+    v8::Local<v8::Function>           func;
+    size_t                            argc;
+    v8::Local<v8::Value>              ret;
+    xmlXPathObjectPtr                 val;
+    xrltDeferredTransformingPtr       deferredData;
+    v8::Local<v8::Function>           deferredConstr;
+    xrltNodeDataPtr                   n;
 
-    funcwrap = priv->functions->Get(v8::String::New((char *)name))->ToObject();
+    v8::Local<v8::Object>             functions = \
+        v8::Local<v8::Object>::New(isolate, priv->functions);
+    v8::Local<v8::FunctionTemplate>   deferredTpl = \
+        v8::Local<v8::FunctionTemplate>::New(isolate, priv->deferredTemplate);
+    v8::Local<v8::Object>             global = \
+        v8::Local<v8::Object>::New(isolate, priv->global);
+
+    funcwrap = functions->Get(v8::String::New((char *)name))->ToObject();
 
     if (!funcwrap.IsEmpty() && !funcwrap->IsUndefined()) {
         argc = paramLen;
@@ -726,16 +785,19 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
 
                 if (ctx->xpathWait != NULL) {
                     if (deferredConstr.IsEmpty()) {
-                        deferredConstr = xrltDeferredConstructor->GetFunction();
+                        deferredConstr = deferredTpl->GetFunction();
                     }
 
                     XRLT_MALLOC(ctx, NULL, node, deferredData,
                                 xrltDeferredTransformingPtr,
                                 sizeof(xrltDeferredTransforming), FALSE);
 
+                    v8::Local<v8::Object> deferred = \
+                        deferredConstr->NewInstance();
+
                     v8::Persistent<v8::Object>   *_val = \
-                        new v8::Persistent<v8::Object>(deferredConstr->
-                                                                NewInstance());
+                        new v8::Persistent<v8::Object>(isolate, deferred);
+
 
                     deferredData->node = param[i]->node;
                     deferredData->codeNode = node;
@@ -743,9 +805,9 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                     deferredData->varContext = ctx->varContext;
                     deferredData->deferred = _val;
 
-                    (*_val)->SetAlignedPointerInInternalField(0, (void *)0x2);
-                    (*_val)->SetAlignedPointerInInternalField(1, deferredData);
-                    (*_val)->SetAlignedPointerInInternalField(2, ctx);
+                    deferred->SetAlignedPointerInInternalField(0, (void *)0x2);
+                    deferred->SetAlignedPointerInInternalField(1, deferredData);
+                    deferred->SetAlignedPointerInInternalField(2, ctx);
 
                     ASSERT_NODE_DATA(ctx->xpathWait, n);
 
@@ -758,21 +820,25 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                     //       xrltDeferredVariableResolve, so memory leak is
                     //       possible in case of error before.
 
-                    argv[i] = *_val;
+                    argv[i] = deferred;
                 } else {
                     argv[i] = v8::Local<v8::Value>::New(
-                        xrltXML2JSCreate(val)
+                        isolate,
+                        xrltXML2JSCreate(isolate,
+                                         &priv->xml2jsTemplate,
+                                         &priv->xml2jsCacheTemplate,
+                                         val)
                     );
                 }
             }
 
-            ret = func->Call(priv->global, argc, argv);
+            ret = func->Call(global, argc, argv);
         } else {
-            ret = func->Call(priv->global, 0, NULL);
+            ret = func->Call(global, 0, NULL);
         }
 
         if (trycatch.HasCaught()) {
-            ReportException(ctx, NULL, node, &trycatch);
+            ReportException(isolate, ctx, NULL, node, &trycatch);
 
             return FALSE;
         }
@@ -783,7 +849,7 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
 
             js2xml = xrltJSON2XMLInit(insert, TRUE);
 
-            r = xrltJS2XML(ctx, js2xml, node, ret);
+            r = xrltJS2XML(isolate, ctx, js2xml, node, ret);
 
             xrltJSON2XMLFree(js2xml);
 

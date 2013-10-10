@@ -12,13 +12,6 @@
 #include "xml2json.h"
 
 
-// XML2JS cache template, needs xrltXML2JSTemplateInit to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltXML2JSCacheTemplate;
-
-// XML2JS object template, needs xrltXML2JSTemplateInit to initialize.
-v8::Persistent<v8::ObjectTemplate> xrltXML2JSTemplate;
-
-
 // C++ structure to be associated with XML2JS cache.
 struct xrltXML2JSCache {
     xrltXML2JSCache(v8::Handle<v8::Array> data) : index(0), data(data) {};
@@ -83,7 +76,9 @@ xrltXML2JSWeakCallback(v8::Isolate *isolate,
 
 // XML2JS JavaScript object creator. Pretty much to optimize here.
 v8::Handle<v8::Value>
-xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
+xrltXML2JSCreateInternal(v8::Isolate *isolate,
+                         v8::Persistent<v8::ObjectTemplate> *xml2jsTemplate,
+                         xmlNodePtr parent, xmlXPathObjectPtr val,
                          xrltXML2JSCache *cache)
 {
     v8::Handle<v8::Value>   ret;
@@ -106,7 +101,8 @@ xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
 
         for (i = 0; i < data->nodes.size(); i++) {
             arr->Set(i,
-                     xrltXML2JSCreateInternal(data->nodes[i], NULL, cache));
+                     xrltXML2JSCreateInternal(isolate, xml2jsTemplate,
+                                              data->nodes[i], NULL, cache));
         }
         ret = arr;
     } else {
@@ -153,11 +149,16 @@ xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
             }
         } else {
             // We have some more complex structure, create XML2JS object.
-            v8::Persistent<v8::Object> rddm(xrltXML2JSTemplate->NewInstance());
+            v8::Local<v8::ObjectTemplate>   tpl = \
+                v8::Local<v8::ObjectTemplate>::New(isolate, *xml2jsTemplate);
+            v8::Local<v8::Object>           rddm(tpl->NewInstance());
+            v8::Persistent<v8::Object>      wrapper(isolate, rddm);
 
-            rddm.MakeWeak(data, xrltXML2JSWeakCallback);
-
+            data->xml2jsTemplate = xml2jsTemplate;
             rddm->SetAlignedPointerInInternalField(0, data);
+
+            wrapper.MakeWeak(data, xrltXML2JSWeakCallback);
+            wrapper.ClearAndLeak();
 
             ret = rddm;
             isXML2JS = true;
@@ -177,7 +178,10 @@ xrltXML2JSCreateInternal(xmlNodePtr parent, xmlXPathObjectPtr val,
 
 // XML2JS JavaScript object creator. Pretty much to optimize here.
 v8::Handle<v8::Value>
-xrltXML2JSCreate(xmlXPathObjectPtr value)
+xrltXML2JSCreate(v8::Isolate *isolate,
+                 v8::Persistent<v8::ObjectTemplate> *xml2jsTemplate,
+                 v8::Persistent<v8::ObjectTemplate> *xml2jsCacheTemplate,
+                 xmlXPathObjectPtr value)
 {
     xrltXML2JSCache *cache;
 
@@ -207,26 +211,29 @@ xrltXML2JSCreate(xmlXPathObjectPtr value)
 
     // We will store objects in JavaScript array to avoid freeing them by GC
     // before cache is freed.
-    v8::Local<v8::Array>         data = v8::Array::New();
-
-    v8::Persistent<v8::Object>   cacheobj(xrltXML2JSCacheTemplate->
-                                                                NewInstance());
+    v8::Local<v8::Array>            data = v8::Array::New();
+    v8::Local<v8::ObjectTemplate>   tpl = \
+        v8::Local<v8::ObjectTemplate>::New(isolate, *xml2jsCacheTemplate);
+    v8::Local<v8::Object>           cacheobj(tpl->NewInstance());
+    v8::Persistent<v8::Object>      wrapper(isolate, cacheobj);
 
     // Make a reference to cached data.
     cacheobj->Set(0, data);
-
     cache = new xrltXML2JSCache(data);
-
-    cacheobj.MakeWeak(cache, xrltXML2JSCacheWeakCallback);
     cacheobj->SetAlignedPointerInInternalField(0, cache);
+
+    wrapper.MakeWeak(cache, xrltXML2JSCacheWeakCallback);
+    wrapper.ClearAndLeak();
 
     if (value->nodesetval->nodeNr == 1 &&
         value->nodesetval->nodeTab[0]->type == XML_DOCUMENT_NODE)
     {
-        return xrltXML2JSCreateInternal(value->nodesetval->nodeTab[0], NULL,
+        return xrltXML2JSCreateInternal(isolate, xml2jsTemplate,
+                                        value->nodesetval->nodeTab[0], NULL,
                                         cache);
     } else {
-        return xrltXML2JSCreateInternal(NULL, value, cache);
+        return xrltXML2JSCreateInternal(isolate, xml2jsTemplate, NULL, value,
+                                        cache);
     }
 }
 
@@ -236,6 +243,9 @@ void
 xrltXML2JSGetProperty(v8::Local<v8::String> name,
                       const v8::PropertyCallbackInfo<v8::Value>& info)
 {
+    v8::Isolate                                       *isolate;
+    isolate = info.GetIsolate();
+
     xrltXML2JSONData                                  *data;
     data = (xrltXML2JSONData *)info.Holder()->
                                         GetAlignedPointerFromInternalField(0);
@@ -256,7 +266,11 @@ xrltXML2JSGetProperty(v8::Local<v8::String> name,
 
         if (values.size() == 1) {
             info.GetReturnValue().Set(xrltXML2JSCreateInternal(
-                values[0], NULL, static_cast<xrltXML2JSCache *>(data->cache)
+                isolate,
+                (v8::Persistent<v8::ObjectTemplate> *)data->xml2jsTemplate,
+                values[0],
+                NULL,
+                static_cast<xrltXML2JSCache *>(data->cache)
             ));
             return;
         } else if (values.size() > 1) {
@@ -266,7 +280,11 @@ xrltXML2JSGetProperty(v8::Local<v8::String> name,
             for (index = 0; index < values.size(); index++) {
                 ret->Set(
                     index, xrltXML2JSCreateInternal(
-                        values[index], NULL,
+                        isolate,
+                        (v8::Persistent<v8::ObjectTemplate> *)data->
+                                xml2jsTemplate,
+                        values[index],
+                        NULL,
                         static_cast<xrltXML2JSCache *>(data->cache)
                     )
                 );
@@ -288,7 +306,7 @@ xrltXML2JSEnumProperties(const v8::PropertyCallbackInfo<v8::Array>& info)
     data = (xrltXML2JSONData *)info.Holder()->
                                          GetAlignedPointerFromInternalField(0);
 
-    v8::HandleScope                                    scope;
+    v8::HandleScope                                    scope(info.GetIsolate());
 
     v8::Local<v8::Array>                               ret = v8::Array::New();
     uint32_t                                           index = 0;
@@ -301,33 +319,4 @@ xrltXML2JSEnumProperties(const v8::PropertyCallbackInfo<v8::Array>& info)
     }
 
     info.GetReturnValue().Set(ret);
-}
-
-
-// This function must be called to initialize XML2JS object template.
-void
-xrltXML2JSTemplateInit(void)
-{
-
-    xrltXML2JSCacheTemplate.Reset(v8::Isolate::GetCurrent(),
-                                  v8::ObjectTemplate::New());
-
-    xrltXML2JSCacheTemplate->SetInternalFieldCount(1);
-
-    xrltXML2JSTemplate.Reset(v8::Isolate::GetCurrent(),
-                             v8::ObjectTemplate::New());
-
-    xrltXML2JSTemplate->SetInternalFieldCount(1);
-
-    xrltXML2JSTemplate->SetNamedPropertyHandler(
-        xrltXML2JSGetProperty, 0, 0, 0, xrltXML2JSEnumProperties
-    );
-}
-
-
-void
-xrltXML2JSTemplateFree(void)
-{
-    xrltXML2JSCacheTemplate.Dispose();
-    xrltXML2JSTemplate.Dispose();
 }

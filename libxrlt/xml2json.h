@@ -38,6 +38,8 @@ struct xrltXML2JSONData {
 
     void                                    *cache; // For creating JavaScript
                                                     // objects.
+    void                                    *xml2jsTemplate;
+
 };
 
 
