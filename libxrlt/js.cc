@@ -582,14 +582,14 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
         v8::String::Utf8Value   __val(_val);
 
         xrltJSON2XMLString(
-            js2xml, (const unsigned char *)*__val, (size_t)_val->Length()
+            js2xml, (const unsigned char *)*__val, (size_t)_val->Utf8Length()
         );
     } else if (val->IsNumber()) {
         v8::Local<v8::String>   _val = val->ToString();
         v8::String::Utf8Value   __val(_val);
 
         xrltJSON2XMLNumber(
-            js2xml, (const char *)*__val, (size_t)_val->Length()
+            js2xml, (const char *)*__val, (size_t)_val->Utf8Length()
         );
     } else if (val->IsBoolean()) {
         xrltJSON2XMLBoolean(js2xml, val->ToBoolean()->Value() ? 1 : 0);
@@ -645,7 +645,7 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
                 v8::String::Utf8Value   __key(_key);
 
                 xrltJSON2XMLMapKey(js2xml, (const unsigned char *)*__key,
-                                   (size_t)_key->Length());
+                                   (size_t)_key->Utf8Length());
 
                 if (!xrltJS2XML(isolate, ctx, js2xml, srcNode,
                                 _val->Get(key)))
