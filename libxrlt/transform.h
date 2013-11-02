@@ -950,6 +950,32 @@ xrltTransformByCompiledValue(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 }
 
 
+static inline xrltBool
+xrltCopyXPathRoot(xmlNodePtr src, xmlDocPtr dst)
+{
+    if (src != NULL && dst != NULL) {
+        xrltNodeDataPtr   n;
+        xmlNodePtr        node = src;
+        xmlDocPtr         root = NULL;
+        void             *sr = NULL;
+
+        do {
+            ASSERT_NODE_DATA(node, n);
+            if (root == NULL && n->root != NULL) { root = n->root; }
+            if (sr == NULL && n->sr != NULL) { sr = n->sr; }
+            node = node->parent;
+        } while (node != NULL && (root == NULL || sr == NULL));
+
+        ASSERT_NODE_DATA(dst, n);
+
+        n->root = root;
+        n->sr = sr;
+    }
+
+    return TRUE;
+}
+
+
 #ifdef __cplusplus
 }
 #endif

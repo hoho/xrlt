@@ -1,10 +1,18 @@
 XRLT_STATUS_SUBREQUEST
 sr id: 1
 sr method: GET
+sr type: JSON
+sr url: eee
+sr query: (null)
+sr body: (null)
+XRLT_STATUS_SUBREQUEST
+sr id: 2
+sr method: GET
 sr type: XML
 sr url: /tmp
 sr query: (null)
 sr body: (null)
+XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_WAITING
 XRLT_STATUS_CHUNK
@@ -12,4 +20,9 @@ chunk: b
 chunk: f
 chunk: aaa
 chunk: ddd
+chunk: kkk
+chunk: 111
+chunk: kkk
+chunk: 222
+chunk: kkk
 XRLT_STATUS_DONE

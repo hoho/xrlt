@@ -195,6 +195,10 @@ xrltVariableTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
                 xmlAddChild(ctx->var, (xmlNodePtr)vdoc);
                 vdoc->doc = vdoc;
 
+                if (!xrltCopyXPathRoot(insert, vdoc)) {
+                    return FALSE;
+                }
+
                 XRLT_SET_VARIABLE(id, vcomp->node, vcomp->name,
                                   vcomp->declScope, sc, vdoc, val);
 

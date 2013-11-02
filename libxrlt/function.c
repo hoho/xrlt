@@ -890,8 +890,6 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltApplyTransformingData  *tdata;
     size_t                      i;
     size_t                      newScope;
-    xmlDocPtr                   root;
-    void                       *sr;
 
     if (data == NULL) {
         NEW_CHILD(ctx, node, insert, "a");
@@ -948,21 +946,9 @@ xrltApplyTransform(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
             tdata->self->doc = tdata->self;
 
-            root = NULL;
-            sr = NULL;
-            node = insert;
-
-            do {
-                ASSERT_NODE_DATA(node, n);
-                if (root == NULL && n->root != NULL) { root = n->root; }
-                if (sr == NULL && n->sr != NULL) { sr = n->sr; }
-                node = node->parent;
-            } while (node != NULL && (root == NULL || sr == NULL));
-
-            ASSERT_NODE_DATA(tdata->self, n);
-
-            n->root = root;
-            n->sr = sr;
+            if (!xrltCopyXPathRoot(insert, tdata->self)) {
+                return FALSE;
+            }
 
             if (!xrltTransformByCompiledValue(ctx, &acomp->self,
                                               (xmlNodePtr)tdata->self, NULL))
