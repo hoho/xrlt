@@ -1,0 +1,6 @@
+[submodule "libxrlt/tools/v8"]
+	path = libxrlt/tools/v8
+	url = https://github.com/v8/v8.git
+[submodule "libxrlt/tools/gyp"]
+	path = libxrlt/tools/gyp
+	url = http://git.chromium.org/external/gyp.git
