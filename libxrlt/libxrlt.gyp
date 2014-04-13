@@ -77,9 +77,9 @@
                         "__XRLT_NO_JAVASCRIPT__"
                     ],
                 }],
-            ],
-            "ldflags": [
-
+                ["OS in 'linux freebsd openbsd solaris android'", {
+                    "cflags": ["-fPIC"],
+                }],
             ],
             "libraries": [
                 "-lxml2",
