@@ -32,7 +32,7 @@ extern "C" {
         }                                                                     \
         _lookup = _lookup->parent;                                            \
     }                                                                         \
-    if (_vdoc) {                                                              \
+    if (_vdoc != NULL) {                                                      \
         _val = xmlXPathNewNodeSet((xmlNodePtr)_vdoc);                         \
     }                                                                         \
     if (_val == NULL) {                                                       \

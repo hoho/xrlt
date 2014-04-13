@@ -71,6 +71,12 @@ parser.add_option('--static',
     help='Build static library')
 
 
+parser.add_option('--without-js',
+    action='store_true',
+    dest='without_js',
+    help='Build without V8 javascript engine')
+
+
 (options, args) = parser.parse_args()
 
 
@@ -248,7 +254,7 @@ def configure_libxrlt(o):
   o['variables']['target_arch'] = target_arch
   o['variables']['library'] = '%s_library' % \
                               ('static' if options.static else 'shared')
-  o['variables']['xrlt_js'] = 0
+  o['variables']['xrlt_js'] = 0 if options.without_js else 1
 
   if target_arch == 'arm':
     configure_arm(o)

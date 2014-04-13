@@ -2,10 +2,6 @@
     "target_defaults": {
         "configurations": {
             "Release": {
-                "cflags": [
-                    "-Wall",
-                    "-Werror"
-                ],
                 "include_dirs": [
                     ".",
                     "deps/yajl/build/yajl-<(yajl_version)/include",
@@ -59,6 +55,13 @@
                 "copyof.cc",
                 "foreach.cc",
                 "ccan_json.cc",
+
+                "deps/yajl/src/yajl.c",
+                "deps/yajl/src/yajl_alloc.c",
+                "deps/yajl/src/yajl_buf.c",
+                "deps/yajl/src/yajl_encode.c",
+                "deps/yajl/src/yajl_lex.c",
+                "deps/yajl/src/yajl_parser.c",
             ],
             "conditions": [
                 ["xrlt_js==1", {
@@ -69,7 +72,7 @@
                         "xml2js.cc",
                         "js.cc",
                     ],
-                }, { # JS != 1
+                }, {
                     "defines": [
                         "__XRLT_NO_JAVASCRIPT__"
                     ],
@@ -81,6 +84,16 @@
             "libraries": [
                 "-lxml2",
                 "-lxslt",
+            ],
+        },
+        {
+            "target_name": "transform_test",
+            "type": "executable",
+            "dependencies": [
+                "libxrlt",
+            ],
+            "sources": [
+                "tests/transform/test.c",
             ],
         },
     ],
