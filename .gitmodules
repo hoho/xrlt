@@ -4,3 +4,6 @@
 [submodule "libxrlt/deps/gyp"]
 	path = libxrlt/deps/gyp
 	url = http://git.chromium.org/external/gyp.git
+[submodule "libxrlt/deps/yajl"]
+	path = libxrlt/deps/yajl
+	url = https://github.com/lloyd/yajl.git
