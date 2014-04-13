@@ -4,9 +4,3 @@
 [submodule "libxrlt/deps/gyp"]
 	path = libxrlt/deps/gyp
 	url = http://git.chromium.org/external/gyp.git
-[submodule "libxrlt/deps/libxml2"]
-	path = libxrlt/deps/libxml2
-	url = git://git.gnome.org/libxml2
-[submodule "libxrlt/deps/libxslt"]
-	path = libxrlt/deps/libxslt
-	url = git://git.gnome.org/libxslt
