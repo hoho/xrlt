@@ -1,6 +1,12 @@
-[submodule "libxrlt/tools/v8"]
-	path = libxrlt/tools/v8
+[submodule "libxrlt/deps/v8"]
+	path = libxrlt/deps/v8
 	url = https://github.com/v8/v8.git
-[submodule "libxrlt/tools/gyp"]
-	path = libxrlt/tools/gyp
+[submodule "libxrlt/deps/gyp"]
+	path = libxrlt/deps/gyp
 	url = http://git.chromium.org/external/gyp.git
+[submodule "libxrlt/deps/libxml2"]
+	path = libxrlt/deps/libxml2
+	url = git://git.gnome.org/libxml2
+[submodule "libxrlt/deps/libxslt"]
+	path = libxrlt/deps/libxslt
+	url = git://git.gnome.org/libxslt
