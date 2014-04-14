@@ -96,5 +96,14 @@
                 "tests/transform/test.c",
             ],
         },
+        {
+            "target_name": "querystring_test",
+            "type": "executable",
+            "sources": [
+                "xrlterror.cc",
+                "querystring.cc",
+                "tests/querystring/test.c",
+            ],
+        },
     ],
 }
