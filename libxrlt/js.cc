@@ -24,7 +24,6 @@ using v8::Value;
 using v8::TryCatch;
 using v8::String;
 using v8::Message;
-using v8::FunctionCallbackInfo;
 using v8::Array;
 using v8::Exception;
 using v8::Undefined;
@@ -84,7 +83,7 @@ void ReportException(Isolate *isolate, xrltContextPtr ctx,
 
 
 void
-xrltDeferredInit(const FunctionCallbackInfo<Value>& args) {
+xrltDeferredInit(const v8::FunctionCallbackInfo<Value>& args) {
     args.This()->SetAlignedPointerInInternalField(0, NULL);
 
     args.This()->Set(0, Array::New(0));
@@ -94,7 +93,7 @@ xrltDeferredInit(const FunctionCallbackInfo<Value>& args) {
 
 
 void
-xrltDeferredThen(const FunctionCallbackInfo<Value>& args) {
+xrltDeferredThen(const v8::FunctionCallbackInfo<Value>& args) {
     Isolate           *isolate = args.GetIsolate();
     HandleScope        scope(isolate);
 
@@ -121,7 +120,7 @@ xrltDeferredThen(const FunctionCallbackInfo<Value>& args) {
 
 
 void
-xrltDeferredResolve(const FunctionCallbackInfo<Value>& args) {
+xrltDeferredResolve(const v8::FunctionCallbackInfo<Value>& args) {
     Isolate              *isolate = args.GetIsolate();
     HandleScope           scope(isolate);
 
@@ -189,7 +188,7 @@ xrltDeferredResolve(const FunctionCallbackInfo<Value>& args) {
 
 
 void
-xrltDeferredCallback(const FunctionCallbackInfo<Value>& args) {
+xrltDeferredCallback(const v8::FunctionCallbackInfo<Value>& args) {
     Isolate                         *isolate = args.GetIsolate();
     HandleScope                      scope(isolate);
 
@@ -234,9 +233,9 @@ const char* ToCString(const String::Utf8Value& value) {
 
 
 void
-Print(const FunctionCallbackInfo<Value>& args) {
+Print(const v8::FunctionCallbackInfo<Value>& args) {
     Isolate *isolate = args.GetIsolate();
-    
+
     bool first = true;
     for (int i = 0; i < args.Length(); i++) {
         HandleScope   scope(isolate);
@@ -256,7 +255,7 @@ Print(const FunctionCallbackInfo<Value>& args) {
 
 
 void
-Apply(const FunctionCallbackInfo<Value>& args) {
+Apply(const v8::FunctionCallbackInfo<Value>& args) {
     Isolate              *isolate = args.GetIsolate();
     HandleScope           scope(isolate);
 
