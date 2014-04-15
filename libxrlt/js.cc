@@ -11,44 +11,67 @@
 #include "transform.h"
 
 
+using v8::Persistent; 
+using v8::ObjectTemplate;
+using v8::Object;
+using v8::Context;
+using v8::FunctionTemplate;
+using v8::Isolate;
+using v8::Local;
+using v8::Handle;
+using v8::HandleScope;
+using v8::Value;
+using v8::TryCatch;
+using v8::String;
+using v8::Message;
+using v8::FunctionCallbackInfo;
+using v8::Array;
+using v8::Exception;
+using v8::Undefined;
+using v8::Function;
+using v8::V8;
+using v8::External;
+using v8::Number;
+
+
 typedef struct {
-    v8::Persistent<v8::ObjectTemplate>     globalTemplate;
-    v8::Persistent<v8::Object>             global;
-    v8::Persistent<v8::Object>             functions;
-    v8::Persistent<v8::Context>            context;
-    v8::Persistent<v8::FunctionTemplate>   deferredTemplate;
-    v8::Persistent<v8::ObjectTemplate>     xml2jsCacheTemplate;
-    v8::Persistent<v8::ObjectTemplate>     xml2jsTemplate;
+    Persistent<ObjectTemplate>     globalTemplate;
+    Persistent<Object>             global;
+    Persistent<Object>             functions;
+    Persistent<Context>            context;
+    Persistent<FunctionTemplate>   deferredTemplate;
+    Persistent<ObjectTemplate>     xml2jsCacheTemplate;
+    Persistent<ObjectTemplate>     xml2jsTemplate;
 } xrltJSContextPrivate;
 
 
 typedef struct {
     xmlNodePtr                   node;
     xmlNodePtr                   src;
-    v8::Persistent<v8::Object>   deferred;
+    Persistent<Object>   deferred;
 } xrltDeferredInsertTransformingData;
 
 
-static xrltBool xrltDeferredInsert   (v8::Isolate *isolate,
+static xrltBool xrltDeferredInsert   (Isolate *isolate,
                                       xrltContextPtr ctx, void *val,
                                       xmlNodePtr insert, xmlNodePtr src,
                                       xrltDeferredInsertTransformingData *data);
 
-static xrltBool xrltJS2XML           (v8::Isolate *isolate, xrltContextPtr ctx,
+static xrltBool xrltJS2XML           (Isolate *isolate, xrltContextPtr ctx,
                                       xrltJSON2XMLPtr js2xml,
                                       xmlNodePtr srcNode,
-                                      v8::Local<v8::Value> val);
+                                      Local<Value> val);
 
 
-void ReportException(v8::Isolate *isolate, xrltContextPtr ctx,
+void ReportException(Isolate *isolate, xrltContextPtr ctx,
                      xrltRequestsheetPtr sheet, xmlNodePtr node,
-                     v8::TryCatch* trycatch)
+                     TryCatch* trycatch)
 {
-    v8::HandleScope          scope(isolate);
+    HandleScope          scope(isolate);
 
-    v8::Local<v8::Value>     exception(trycatch->Exception());
-    v8::String::AsciiValue   exception_str(exception);
-    v8::Local<v8::Message>   message = trycatch->Message();
+    Local<Value>     exception(trycatch->Exception());
+    String::Utf8Value   exception_str(exception);
+    Local<Message>   message = trycatch->Message();
 
     if (message.IsEmpty()) {
         xrltTransformError(ctx, sheet, node, "%s\n", *exception_str);
@@ -61,74 +84,75 @@ void ReportException(v8::Isolate *isolate, xrltContextPtr ctx,
 
 
 void
-xrltDeferredInit(const v8::FunctionCallbackInfo<v8::Value>& args) {
+xrltDeferredInit(const FunctionCallbackInfo<Value>& args) {
     args.This()->SetAlignedPointerInInternalField(0, NULL);
 
-    args.This()->Set(0, v8::Array::New(0));
+    args.This()->Set(0, Array::New(0));
 
     args.GetReturnValue().Set(args.This());
 }
 
 
 void
-xrltDeferredThen(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::HandleScope        scope(args.GetIsolate());
+xrltDeferredThen(const FunctionCallbackInfo<Value>& args) {
+    Isolate           *isolate = args.GetIsolate();
+    HandleScope        scope(isolate);
 
-    v8::Local<v8::Array>   cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
+    Local<Array>   cb = Local<Array>::Cast(args.This()->Get(0));
 
     if (args.Length() < 1) {
         args.GetReturnValue().Set(
-            v8::ThrowException(v8::String::New("Too few arguments"))
+            isolate->ThrowException(String::NewFromUtf8(isolate, "Too few arguments"))
         );
         return;
     }
 
     if (!args[0]->IsFunction()) {
-        args.GetReturnValue().Set(v8::ThrowException(
-            v8::Exception::TypeError(v8::String::New("Function is expected"))
+        args.GetReturnValue().Set(isolate->ThrowException(
+            Exception::TypeError(String::NewFromUtf8(isolate, "Function is expected"))
         ));
         return;
     }
 
     cb->Set(cb->Length(), args[0]);
 
-    args.GetReturnValue().Set(v8::Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
 
 void
-xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::Isolate              *isolate = args.GetIsolate();
-    v8::HandleScope           scope(isolate);
+xrltDeferredResolve(const FunctionCallbackInfo<Value>& args) {
+    Isolate              *isolate = args.GetIsolate();
+    HandleScope           scope(isolate);
 
-    v8::Local<v8::Array>      cb;
-    v8::Local<v8::Function>   func;
+    Local<Array>      cb;
+    Local<Function>   func;
     uint32_t                  i;
-    v8::Local<v8::Value>      argv[1];
+    Local<Value>      argv[1];
 
 
     if (args.Length() < 1) {
         args.GetReturnValue().Set(
-            v8::ThrowException(v8::String::New("Too few arguments"))
+            isolate->ThrowException(String::NewFromUtf8(isolate, "Too few arguments"))
         );
         return;
     }
 
     if (args.This()->Get(1)->BooleanValue()) {
-        args.GetReturnValue().Set(v8::ThrowException(
-            v8::String::New("Can't resolve internal Deferred")
+        args.GetReturnValue().Set(isolate->ThrowException(
+            String::NewFromUtf8(isolate, "Can't resolve internal Deferred")
         ));
         return;
     }
 
     argv[0] = args[0];
 
-    cb = v8::Local<v8::Array>::Cast(args.This()->Get(0));
+    cb = Local<Array>::Cast(args.This()->Get(0));
 
-    v8::TryCatch   trycatch;
+    TryCatch   trycatch;
 
     for (i = 0; i < cb->Length(); i++) {
-        func = v8::Local<v8::Function>::Cast(cb->Get(i));
+        func = Local<Function>::Cast(cb->Get(i));
 
         func->Call(args.This(), 1, argv);
 
@@ -160,21 +184,21 @@ xrltDeferredResolve(const v8::FunctionCallbackInfo<v8::Value>& args) {
         }
     }
 
-    args.GetReturnValue().Set(v8::Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
 
 void
-xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::Isolate                         *isolate = args.GetIsolate();
-    v8::HandleScope                      scope(isolate);
+xrltDeferredCallback(const FunctionCallbackInfo<Value>& args) {
+    Isolate                         *isolate = args.GetIsolate();
+    HandleScope                      scope(isolate);
 
-    v8::Local<v8::Object>                proto;
+    Local<Object>                proto;
     xrltContextPtr                       ctx;
     xrltDeferredInsertTransformingData  *tdata;
-    v8::Local<v8::Value>                 val;
+    Local<Value>                 val;
 
-    proto = v8::Local<v8::Object>::Cast(args.Callee()->GetPrototype());
+    proto = Local<Object>::Cast(args.Callee()->GetPrototype());
 
     ctx = (xrltContextPtr)proto->GetAlignedPointerFromInternalField(0);
     tdata = (xrltDeferredInsertTransformingData *)proto->
@@ -185,98 +209,100 @@ xrltDeferredCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {
         xrltDeferredInsert(isolate, ctx, &val, NULL, NULL, tdata);
     }
 
-    args.GetReturnValue().Set(v8::Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
 
 void
 xrltJSInit(void)
 {
-    v8::V8::InitializeICU();
+    V8::InitializeICU();
 }
 
 
 void
 xrltJSFree(void)
 {
-    v8::V8::Dispose();
+    V8::Dispose();
 }
 
 
 // Extracts a C string from a V8 Utf8Value.
-const char* ToCString(const v8::String::Utf8Value& value) {
+const char* ToCString(const String::Utf8Value& value) {
     return *value ? *value : "<string conversion failed>";
 }
 
 
 void
-Print(const v8::FunctionCallbackInfo<v8::Value>& args) {
+Print(const FunctionCallbackInfo<Value>& args) {
+    Isolate *isolate = args.GetIsolate();
+    
     bool first = true;
     for (int i = 0; i < args.Length(); i++) {
-        v8::HandleScope   scope(args.GetIsolate());
+        HandleScope   scope(isolate);
         if (first) {
             first = false;
         } else {
             printf(" ");
         }
-        v8::String::Utf8Value str(args[i]);
+        String::Utf8Value str(args[i]);
         const char* cstr = ToCString(str);
         printf("%s", cstr);
     }
     printf("\n");
     fflush(stdout);
-    args.GetReturnValue().Set(v8::Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
 
 void
-Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
-    v8::Isolate              *isolate = args.GetIsolate();
-    v8::HandleScope           scope(isolate);
+Apply(const FunctionCallbackInfo<Value>& args) {
+    Isolate              *isolate = args.GetIsolate();
+    HandleScope           scope(isolate);
 
-    v8::Local<v8::External>  _jsctx;
+    Local<External>  _jsctx;
     xrltJSContextPtr          jsctx;
     xrltJSContextPrivate     *priv;
 
-    _jsctx = v8::Local<v8::External>::Cast(args.Data());
+    _jsctx = Local<External>::Cast(args.Data());
     jsctx = static_cast<xrltJSContextPtr>(_jsctx->Value());
     priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (args.Length() > 0) {
-        v8::Local<v8::Object>     functions = \
-            v8::Local<v8::Object>::New(isolate, priv->functions);
+        Local<Object>     functions = \
+            Local<Object>::New(isolate, priv->functions);
 
-        v8::Local<v8::Object>     funcwrap = \
-            v8::Local<v8::Object>::Cast(functions->Get(args[0]));
-        v8::Local<v8::Function>   func;
-        v8::Local<v8::Number>     count;
-        v8::Local<v8::Object>    _args;
+        Local<Object>     funcwrap = \
+            Local<Object>::Cast(functions->Get(args[0]));
+        Local<Function>   func;
+        Local<Number>     count;
+        Local<Object>    _args;
         int                       i;
 
-        _args = v8::Local<v8::Object>::Cast(args[1]);
+        _args = Local<Object>::Cast(args[1]);
 
         func = \
-            v8::Local<v8::Function>::Cast(funcwrap->Get(v8::String::New("0")));
+            Local<Function>::Cast(funcwrap->Get(String::NewFromUtf8(isolate, "0")));
         count = \
-            v8::Local<v8::Number>::Cast(funcwrap->Get(v8::String::New("1")));
+            Local<Number>::Cast(funcwrap->Get(String::NewFromUtf8(isolate, "1")));
 
         i = count->Int32Value();
-        v8::Local<v8::Value>      argv[i > 0 ? i : 1];
+        Local<Value>      *argv = new Local<Value>[i > 0 ? i : 1];
 
         for (i = i - 1; i >= 0; i--) {
-            argv[i] = v8::Local<v8::Value>::New(isolate, v8::Undefined());
+            argv[i] = Local<Value>::New(isolate, Undefined(isolate));
         }
 
         if (_args->IsUndefined()) {
             i = 0;
         } else {
-            v8::Local<v8::Array>    argnames = _args->GetOwnPropertyNames();
-            v8::Local<v8::String>   name;
-            v8::Local<v8::Number>   index;
+            Local<Array>    argnames = _args->GetOwnPropertyNames();
+            Local<String>   name;
+            Local<Number>   index;
 
             for (i = argnames->Length() - 1; i >= 0; i--) {
-                name = v8::Local<v8::String>::Cast(argnames->Get(i));
-                index = v8::Local<v8::Number>::Cast(funcwrap->Get(name));
+                name = Local<String>::Cast(argnames->Get(i));
+                index = Local<Number>::Cast(funcwrap->Get(name));
 
                 if (!index->IsUndefined()) {
                     argv[index->Int32Value()] = _args->Get(name);
@@ -287,10 +313,13 @@ Apply(const v8::FunctionCallbackInfo<v8::Value>& args) {
         }
 
         args.GetReturnValue().Set(func->Call(args.Holder(), i, argv));
+
+        delete argv;
+
         return;
     }
 
-    args.GetReturnValue().Set(v8::Undefined());
+    args.GetReturnValue().Set(Undefined(isolate));
 }
 
 
@@ -299,10 +328,10 @@ xrltJSContextCreate(void)
 {
     xrltJSContextPtr          ret;
     xrltJSContextPrivate     *priv;
-    v8::Isolate              *isolate = v8::Isolate::GetCurrent();
-    v8::HandleScope           scope(isolate);
+    Isolate              *isolate = Isolate::GetCurrent();
+    HandleScope           scope(isolate);
 
-    v8::Local<v8::External>   data;
+    Local<External>   data;
 
     ret = (xrltJSContextPtr)xmlMalloc(sizeof(xrltJSContext) +
                                       sizeof(xrltJSContextPrivate));
@@ -314,28 +343,28 @@ xrltJSContextCreate(void)
     priv = (xrltJSContextPrivate *)(ret + 1);
     ret->_private = priv;
 
-    data = v8::External::New(ret);
+    data = External::New(isolate, ret);
 
-    v8::Local<v8::ObjectTemplate>     globalTpl = v8::Local<v8::ObjectTemplate>::New(isolate, v8::ObjectTemplate::New());
-    v8::Local<v8::FunctionTemplate>   deferredTpl(v8::FunctionTemplate::New());
+    Local<ObjectTemplate>     globalTpl = Local<ObjectTemplate>::New(isolate, ObjectTemplate::New());
+    Local<FunctionTemplate>   deferredTpl(FunctionTemplate::New(isolate));
 
 
-    deferredTpl->SetClassName(v8::String::New("Deferred"));
+    deferredTpl->SetClassName(String::NewFromUtf8(isolate, "Deferred"));
     deferredTpl->InstanceTemplate()->SetInternalFieldCount(3);
     deferredTpl->SetCallHandler(xrltDeferredInit);
 
     deferredTpl->PrototypeTemplate()->Set(
-        v8::String::New("then"),
-        v8::FunctionTemplate::New(xrltDeferredThen)
+        String::NewFromUtf8(isolate, "then"),
+        FunctionTemplate::New(isolate, xrltDeferredThen)
     );
 
     deferredTpl->PrototypeTemplate()->Set(
-        v8::String::New("resolve"),
-        v8::FunctionTemplate::New(xrltDeferredResolve)
+        String::NewFromUtf8(isolate, "resolve"),
+        FunctionTemplate::New(isolate, xrltDeferredResolve)
     );
 
-    v8::Local<v8::ObjectTemplate>   xml2jsTpl(v8::ObjectTemplate::New());
-    v8::Local<v8::ObjectTemplate>   xml2jsCacheTpl(v8::ObjectTemplate::New());
+    Local<ObjectTemplate>   xml2jsTpl(ObjectTemplate::New());
+    Local<ObjectTemplate>   xml2jsCacheTpl(ObjectTemplate::New());
 
     xml2jsTpl->SetInternalFieldCount(1);
     xml2jsTpl->SetNamedPropertyHandler(
@@ -344,28 +373,28 @@ xrltJSContextCreate(void)
 
     xml2jsCacheTpl->SetInternalFieldCount(1);
 
-    globalTpl->Set(v8::String::New("apply"),
-                   v8::FunctionTemplate::New(Apply, data));
-    globalTpl->Set(v8::String::New("Deferred"), deferredTpl);
-    globalTpl->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
+    globalTpl->Set(String::NewFromUtf8(isolate, "apply"),
+                   FunctionTemplate::New(isolate, Apply, data));
+    globalTpl->Set(String::NewFromUtf8(isolate, "Deferred"), deferredTpl);
+    globalTpl->Set(String::NewFromUtf8(isolate, "print"), FunctionTemplate::New(isolate, Print));
 
-    v8::Local<v8::Context> context = v8::Context::New(isolate, NULL, globalTpl);
+    Local<Context> context = Context::New(isolate, NULL, globalTpl);
 
     if (context.IsEmpty()) {
         xmlFree(ret);
         return NULL;
     }
 
-    v8::Context::Scope       context_scope(context);
+    Context::Scope       context_scope(context);
 
-    v8::Local<v8::Object>    global = context->Global();
+    Local<Object>    global = context->Global();
 
-    global->Set(v8::String::New("global"), global);
+    global->Set(String::NewFromUtf8(isolate, "global"), global);
 
     priv->context.Reset(isolate, context);
     priv->globalTemplate.Reset(isolate, globalTpl);
     priv->global.Reset(isolate, global);
-    priv->functions.Reset(isolate, v8::Object::New());
+    priv->functions.Reset(isolate, Object::New(isolate));
     priv->deferredTemplate.Reset(isolate, deferredTpl);
     priv->xml2jsTemplate.Reset(isolate, xml2jsTpl);
     priv->xml2jsCacheTemplate.Reset(isolate, xml2jsCacheTpl);
@@ -382,18 +411,18 @@ xrltJSContextFree(xrltJSContextPtr jsctx)
     xrltJSContextPrivate  *priv = (xrltJSContextPrivate *)jsctx->_private;
 
     if (priv != NULL) {
-        priv->functions.Dispose();
-        priv->context.Dispose();
-        priv->global.Dispose();
-        priv->globalTemplate.Dispose();
-        priv->deferredTemplate.Dispose();
-        priv->xml2jsCacheTemplate.Dispose();
-        priv->xml2jsTemplate.Dispose();
+        priv->functions.Reset();
+        priv->context.Reset();
+        priv->global.Reset();
+        priv->globalTemplate.Reset();
+        priv->deferredTemplate.Reset();
+        priv->xml2jsCacheTemplate.Reset();
+        priv->xml2jsTemplate.Reset();
     }
 
     xmlFree(jsctx);
 
-    while (!v8::V8::IdleNotification());
+    while (!V8::IdleNotification());
 }
 
 
@@ -420,49 +449,49 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
 
     xrltJSContextPrivate     *priv = (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::Isolate              *isolate = v8::Isolate::GetCurrent();
-    v8::HandleScope           scope(isolate);
-    v8::Local<v8::Context>    context = \
-        v8::Local<v8::Context>::New(isolate, priv->context);
-    v8::Context::Scope        context_scope(context);
+    Isolate              *isolate = Isolate::GetCurrent();
+    HandleScope           scope(isolate);
+    Local<Context>    context = \
+        Local<Context>::New(isolate, priv->context);
+    Context::Scope        context_scope(context);
 
-    v8::Local<v8::Function>   constr;
-    v8::Local<v8::Value>      argv[2];
+    Local<Function>   constr;
+    Local<Value>      argv[2];
     int                       argc;
     size_t                    count;
-    v8::Local<v8::Object>     funcwrap = v8::Object::New();
-    v8::Local<v8::Object>     func;
-    v8::Local<v8::Object>     global = \
-        v8::Local<v8::Object>::New(isolate, priv->global);
-    v8::Local<v8::Object>     functions = \
-        v8::Local<v8::Object>::New(isolate, priv->functions);
+    Local<Object>     funcwrap = Object::New(isolate);
+    Local<Object>     func;
+    Local<Object>     global = \
+        Local<Object>::New(isolate, priv->global);
+    Local<Object>     functions = \
+        Local<Object>::New(isolate, priv->functions);
 
     if (param != NULL && paramLen > 0) {
         std::string   _args;
 
         for (count = 0; count < paramLen; count++) {
-            funcwrap->Set(v8::String::New((char *)param[count]->jsname),
-                          v8::Number::New(count));
+            funcwrap->Set(String::NewFromUtf8(isolate, (char *)param[count]->jsname),
+                          Number::New(isolate, count));
 
             _args.append((char *)param[count]->jsname);
 
             if (count < paramLen - 1) { _args.append(", "); }
         }
 
-        argv[0] = v8::String::New(_args.c_str());
+        argv[0] = String::NewFromUtf8(isolate, _args.c_str());
         argc = 1;
     } else {
         argc = 0;
         count = 0;
     }
 
-    argv[argc++] = v8::String::New((char *)code);
+    argv[argc++] = String::NewFromUtf8(isolate, (char *)code);
 
-    constr = v8::Local<v8::Function>::Cast(
-        global->Get(v8::String::New("Function"))
+    constr = Local<Function>::Cast(
+        global->Get(String::NewFromUtf8(isolate, "Function"))
     );
 
-    v8::TryCatch   trycatch;
+    TryCatch   trycatch;
 
     func = constr->NewInstance(argc, argv);
 
@@ -472,10 +501,10 @@ xrltJSFunction(xrltRequestsheetPtr sheet, xmlNodePtr node, xmlChar *name,
         return FALSE;
     }
 
-    funcwrap->Set(v8::String::New("0"), func);
-    funcwrap->Set(v8::String::New("1"), v8::Number::New(count));
+    funcwrap->Set(String::NewFromUtf8(isolate, "0"), func);
+    funcwrap->Set(String::NewFromUtf8(isolate, "1"), Number::New(isolate, count));
 
-    functions->Set(v8::String::New((char *)name), funcwrap);
+    functions->Set(String::NewFromUtf8(isolate, (char *)name), funcwrap);
 
     return TRUE;
 }
@@ -489,7 +518,7 @@ xrltDeferredInsertTransformingFree(void *data)
                                     (xrltDeferredInsertTransformingData *)data;
 
         if (!tdata->deferred.IsEmpty()) {
-            tdata->deferred.Dispose();
+            tdata->deferred.Reset();
         }
 
         delete tdata;
@@ -498,7 +527,7 @@ xrltDeferredInsertTransformingFree(void *data)
 
 
 static xrltBool
-xrltDeferredInsert(v8::Isolate *isolate, xrltContextPtr ctx, void *val,
+xrltDeferredInsert(Isolate *isolate, xrltContextPtr ctx, void *val,
                    xmlNodePtr insert, xmlNodePtr src,
                    xrltDeferredInsertTransformingData *data)
 {
@@ -506,13 +535,13 @@ xrltDeferredInsert(v8::Isolate *isolate, xrltContextPtr ctx, void *val,
     xrltNodeDataPtr                      n;
 
     if (data == NULL) {
-        v8::Local<v8::Object>            *d = (v8::Local<v8::Object> *) val;
-        v8::Local<v8::ObjectTemplate>     protoTempl;
-        v8::Local<v8::Object>             proto;
-        v8::Local<v8::FunctionTemplate>   funcTempl;
-        v8::Local<v8::Object>             func;
-        v8::Local<v8::Function>           then;
-        v8::Local<v8::Value>              argv[1];
+        Local<Object>            *d = (Local<Object> *) val;
+        Local<ObjectTemplate>     protoTempl;
+        Local<Object>             proto;
+        Local<FunctionTemplate>   funcTempl;
+        Local<Object>             func;
+        Local<Function>           then;
+        Local<Value>              argv[1];
 
         NEW_CHILD(ctx, node, insert, "d");
 
@@ -525,28 +554,28 @@ xrltDeferredInsert(v8::Isolate *isolate, xrltContextPtr ctx, void *val,
 
         data->node = node;
         data->src = src;
-        data->deferred.Reset(v8::Isolate::GetCurrent(), *d);
+        data->deferred.Reset(Isolate::GetCurrent(), *d);
 
-        protoTempl = v8::ObjectTemplate::New();
+        protoTempl = ObjectTemplate::New();
         protoTempl->SetInternalFieldCount(2);
         proto = protoTempl->NewInstance();
         proto->SetAlignedPointerInInternalField(0, ctx);
         proto->SetAlignedPointerInInternalField(1, data);
 
-        funcTempl = v8::FunctionTemplate::New(xrltDeferredCallback);
+        funcTempl = FunctionTemplate::New(isolate, xrltDeferredCallback);
         func = funcTempl->GetFunction();
         func->SetPrototype(proto);
 
         argv[0] = func;
 
         then = \
-            v8::Local<v8::Function>::Cast((*d)->Get(v8::String::New("then")));
+            Local<Function>::Cast((*d)->Get(String::NewFromUtf8(isolate, "then")));
 
         then->Call(*d, 1, argv);
 
         COUNTER_INCREASE(ctx, node);
     } else {
-        v8::Local<v8::Value>  *_val = (v8::Local<v8::Value> *)val;
+        Local<Value>  *_val = (Local<Value> *)val;
         xrltJSON2XMLPtr        js2xml;
         xrltBool               r;
 
@@ -574,19 +603,19 @@ xrltDeferredInsert(v8::Isolate *isolate, xrltContextPtr ctx, void *val,
 
 
 static xrltBool
-xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
-           xmlNodePtr srcNode, v8::Local<v8::Value> val)
+xrltJS2XML(Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
+           xmlNodePtr srcNode, Local<Value> val)
 {
     if (val->IsString() || val->IsDate()) {
-        v8::Local<v8::String>   _val = val->ToString();
-        v8::String::Utf8Value   __val(_val);
+        Local<String>   _val = val->ToString();
+        String::Utf8Value   __val(_val);
 
         xrltJSON2XMLString(
             js2xml, (const unsigned char *)*__val, (size_t)_val->Utf8Length()
         );
     } else if (val->IsNumber()) {
-        v8::Local<v8::String>   _val = val->ToString();
-        v8::String::Utf8Value   __val(_val);
+        Local<String>   _val = val->ToString();
+        String::Utf8Value   __val(_val);
 
         xrltJSON2XMLNumber(
             js2xml, (const char *)*__val, (size_t)_val->Utf8Length()
@@ -596,7 +625,7 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
     } else if (val->IsNull()) {
         xrltJSON2XMLNull(js2xml);
     } else if (val->IsArray()) {
-        v8::Local<v8::Array>   _val = v8::Local<v8::Array>::Cast(val);
+        Local<Array>   _val = Local<Array>::Cast(val);
         uint32_t               i;
 
         xrltJSON2XMLArrayStart(js2xml);
@@ -613,10 +642,10 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
         xrltJSContextPrivate         *priv = \
                                        (xrltJSContextPrivate *)jsctx->_private;
 
-        v8::Local<v8::Object>            _val = \
-            v8::Local<v8::Object>::Cast(val);
-        v8::Local<v8::FunctionTemplate>   deferredConst = \
-            v8::Local<v8::FunctionTemplate>::New(isolate,
+        Local<Object>            _val = \
+            Local<Object>::Cast(val);
+        Local<FunctionTemplate>   deferredConst = \
+            Local<FunctionTemplate>::New(isolate,
                                                  priv->deferredTemplate);
 
         if (deferredConst->HasInstance(_val)) {
@@ -626,10 +655,10 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
                 return FALSE;
             }
         } else {
-            v8::Local<v8::Array>    keys = _val->GetPropertyNames();
+            Local<Array>    keys = _val->GetPropertyNames();
             uint32_t                i;
-            v8::Local<v8::Value>    key;
-            v8::Local<v8::String>   _key;
+            Local<Value>    key;
+            Local<String>   _key;
 
             xrltJSON2XMLMapStart(js2xml);
 
@@ -637,12 +666,12 @@ xrltJS2XML(v8::Isolate *isolate, xrltContextPtr ctx, xrltJSON2XMLPtr js2xml,
                 key = keys->Get(i);
 
                 if (key->IsString()) {
-                    _key = v8::Local<v8::String>::Cast(key);
+                    _key = Local<String>::Cast(key);
                 } else {
                     _key = key->ToString();
                 }
 
-                v8::String::Utf8Value   __key(_key);
+                String::Utf8Value   __key(_key);
 
                 xrltJSON2XMLMapKey(js2xml, (const unsigned char *)*__key,
                                    (size_t)_key->Utf8Length());
@@ -673,20 +702,20 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     xrltJSContextPrivate         *priv = \
                                       (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::Isolate                  *isolate = v8::Isolate::GetCurrent();
-    v8::HandleScope               scope(isolate);
+    Isolate                  *isolate = Isolate::GetCurrent();
+    HandleScope               scope(isolate);
 
-    v8::Local<v8::Context>        context = \
-        v8::Local<v8::Context>::New(isolate, priv->context);
-    v8::Context::Scope            context_scope(context);
+    Local<Context>        context = \
+        Local<Context>::New(isolate, priv->context);
+    Context::Scope            context_scope(context);
 
-    v8::Persistent<v8::Object>   *obj;
-    v8::Local<v8::Function>       resolve;
-    v8::Local<v8::Value>          argv[1];
+    Persistent<Object>   *obj;
+    Local<Function>       resolve;
+    Local<Value>          argv[1];
 
-    obj = (v8::Persistent<v8::Object> *)dcomp->deferred;
+    obj = (Persistent<Object> *)dcomp->deferred;
 
-    v8::Local<v8::Object>   tmptmp = v8::Local<v8::Object>::New(isolate, *obj);
+    Local<Object>   tmptmp = Local<Object>::New(isolate, *obj);
 
     ctx->varContext = dcomp->varContext;
 
@@ -699,9 +728,9 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
     }
 
     resolve = \
-        v8::Local<v8::Function>::Cast(tmptmp->Get(v8::String::New("resolve")));
+        Local<Function>::Cast(tmptmp->Get(String::NewFromUtf8(isolate, "resolve")));
 
-    argv[0] = v8::Local<v8::Value>::New(
+    argv[0] = Local<Value>::New(
         isolate,
         xrltXML2JSCreate(isolate,
                          &priv->xml2jsTemplate,
@@ -711,7 +740,7 @@ xrltDeferredVariableResolve(xrltContextPtr ctx, void *comp, xmlNodePtr insert,
 
     resolve->Call(tmptmp, 1, argv);
 
-    obj->Dispose();
+    obj->Reset();
     delete obj;
 
     xmlFree(comp);
@@ -734,41 +763,42 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
     xrltJSContextPrivate             *priv = \
                                       (xrltJSContextPrivate *)jsctx->_private;
 
-    v8::Isolate                      *isolate = v8::Isolate::GetCurrent();
-    v8::HandleScope                   scope(isolate);
-    v8::Local<v8::Context>            context = \
-        v8::Local<v8::Context>::New(isolate, priv->context);
-    v8::Context::Scope                context_scope(context);
+    Isolate                      *isolate = Isolate::GetCurrent();
+    HandleScope                   scope(isolate);
+    Local<Context>            context = \
+        Local<Context>::New(isolate, priv->context);
+    Context::Scope                context_scope(context);
 
-    v8::Local<v8::Object>             funcwrap;
-    v8::Local<v8::Function>           func;
+    Local<Object>             funcwrap;
+    Local<Function>           func;
     size_t                            argc;
-    v8::Local<v8::Value>              ret;
+    Local<Value>              ret;
     xmlXPathObjectPtr                 val;
     xrltDeferredTransformingPtr       deferredData;
-    v8::Local<v8::Function>           deferredConstr;
+    Local<Function>           deferredConstr;
     xrltNodeDataPtr                   n;
 
-    v8::Local<v8::Object>             functions = \
-        v8::Local<v8::Object>::New(isolate, priv->functions);
-    v8::Local<v8::FunctionTemplate>   deferredTpl = \
-        v8::Local<v8::FunctionTemplate>::New(isolate, priv->deferredTemplate);
-    v8::Local<v8::Object>             global = \
-        v8::Local<v8::Object>::New(isolate, priv->global);
+    Local<Object>             functions = \
+        Local<Object>::New(isolate, priv->functions);
+    Local<FunctionTemplate>   deferredTpl = \
+        Local<FunctionTemplate>::New(isolate, priv->deferredTemplate);
+    Local<Object>             global = \
+        Local<Object>::New(isolate, priv->global);
 
-    funcwrap = functions->Get(v8::String::New((char *)name))->ToObject();
+    funcwrap = functions->Get(String::NewFromUtf8(isolate, (char *)name))->ToObject();
 
     if (!funcwrap.IsEmpty() && !funcwrap->IsUndefined()) {
         argc = paramLen;
 
-        func = v8::Local<v8::Function>::Cast(
-            funcwrap->Get(v8::String::New("0"))
+        func = Local<Function>::Cast(
+            funcwrap->Get(String::NewFromUtf8(isolate, "0"))
         );
 
-        v8::TryCatch   trycatch;
+        TryCatch   trycatch;
 
         if (argc > 0) {
-            v8::Handle<v8::Value>   argv[argc];
+            // XXX: Handle this to avoid memory leak.
+            Handle<Value>   *argv = new Handle<Value>[argc];
             size_t                  i;
 
             for (i = 0; i < argc; i++) {
@@ -792,11 +822,11 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
                                 xrltDeferredTransformingPtr,
                                 sizeof(xrltDeferredTransforming), FALSE);
 
-                    v8::Local<v8::Object> deferred = \
+                    Local<Object> deferred = \
                         deferredConstr->NewInstance();
 
-                    v8::Persistent<v8::Object>   *_val = \
-                        new v8::Persistent<v8::Object>(isolate, deferred);
+                    Persistent<Object>   *_val = \
+                        new Persistent<Object>(isolate, deferred);
 
 
                     deferredData->node = param[i]->node;
@@ -822,7 +852,7 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
 
                     argv[i] = deferred;
                 } else {
-                    argv[i] = v8::Local<v8::Value>::New(
+                    argv[i] = Local<Value>::New(
                         isolate,
                         xrltXML2JSCreate(isolate,
                                          &priv->xml2jsTemplate,
@@ -833,6 +863,8 @@ xrltJSApply(xrltContextPtr ctx, xmlNodePtr node, xmlChar *name,
             }
 
             ret = func->Call(global, argc, argv);
+
+            delete argv;
         } else {
             ret = func->Call(global, 0, NULL);
         }

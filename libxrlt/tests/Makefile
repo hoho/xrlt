@@ -34,12 +34,8 @@ compile:
 
 .PHONY: transform
 transform:
-	@g++ -o .build/transform_test   -Wall -D__XRLT_NO_JAVASCRIPT__ -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
-		../xrlt.c ../json2xml.c ../xml2json.cc ../querystring.c ../include.c ../variable.c ../headers.c ../function.c ../import.c \
-		../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../foreach.c ../xrlterror.c ../xpathfuncs.c \
-		../ccan_json.c transform/test.c \
-		-lxml2 -lyajl -lxslt
-	@$(VALGRIND) .build/transform_test transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
+	@DYLD_LIBRARY_PATH=../out/Release $(VALGRIND) ../out/Release/transform_test \
+                                       transform/includes/test1.xrl transform/includes/test1.in transform/includes/test1.out \
                                        transform/includes/test2.xrl transform/includes/test2.in transform/includes/test2.out \
                                        transform/includes/test3.xrl transform/includes/test3.in transform/includes/test3.out \
                                        transform/includes/test4.xrl transform/includes/test4.in transform/includes/test4.out \
@@ -74,16 +70,11 @@ transform:
 
 .PHONY: transformjs
 transformjs:
-	@g++ -o .build/transform_testjs   -Wall -I../ -I/usr/include/libxml2 -L/usr/local/lib ../transform.c \
-		../xrlt.c ../json2xml.c ../xml2json.cc ../xml2js.cc ../querystring.c ../include.c ../variable.c ../headers.c \
-		../function.c ../import.c ../choose.c ../if.c ../log.c ../response.c ../valueof.c ../copyof.c ../js.cc \
-		../foreach.c ../ccan_json.c ../xrlterror.c ../xpathfuncs.c transform/test.c \
-		-lxml2 -lyajl -lv8 -lxslt
-	@$(VALGRIND) .build/transform_testjs transform/rddm/test1.xrl transform/rddm/test1.in transform/rddm/test1.out
+	@DYLD_LIBRARY_PATH=../out/Release $(VALGRIND) ../out/Release/transform_test transform/rddm/test1.xrl transform/rddm/test1.in transform/rddm/test1.out
 
 .PHONY: querystring
 querystring:
-	g++ -o .build/querystring_test   -Wall -I../ -I/usr/include/libxml2 ../xrlterror.c ../querystring.c querystring/test.c -lxml2 -lxslt
+	@../out/Release/querystring_test
 
 run:
 	@echo "\nRunning tests:"
