@@ -295,6 +295,8 @@ def configure_v8(o):
   o['variables']['v8_random_seed'] = 0  # Use a random seed for hash tables.
   o['variables']['v8_use_snapshot'] = 'true'
   o['variables']['component'] = 'static_library'
+  # Temporary dirty hack to build position-independent code on Linux.
+  o['variables']['wno_array_bounds'] = '-fPIC'
 
 
 def configure_winsdk(o):
