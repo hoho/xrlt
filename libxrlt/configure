@@ -283,7 +283,7 @@ def configure_libxml(o):
   print 'Configuring libxml2...'
   p = subprocess.Popen(['./autogen.sh', '--without-iconv', '--without-ftp',
                         '--without-http', '--disable-shared',
-                        '--without-python'],
+                        '--without-python', '--without-zlib', 'CFLAGS=-fPIC'],
                        cwd='deps/libxml')
   rc = p.wait()
   if rc != 0:
@@ -296,7 +296,8 @@ def configure_libxslt(o):
 
   print 'Configuring libxslt...'
   p = subprocess.Popen(['./autogen.sh', '--with-libxml-src=../libxml',
-                        '--disable-shared', '--without-python'],
+                        '--disable-shared', '--without-python',
+                        'CFLAGS=-fPIC'],
                        cwd='deps/libxslt')
   rc = p.wait()
   if rc != 0:
