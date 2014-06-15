@@ -10,3 +10,6 @@
 [submodule "libxrlt/deps/libxml"]
 	path = libxrlt/deps/libxml
 	url = git://git.gnome.org/libxml2
+[submodule "libxrlt/deps/libxslt"]
+	path = libxrlt/deps/libxslt
+	url = git://git.gnome.org/libxslt
