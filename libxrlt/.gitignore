@@ -1,0 +1,5 @@
+out
+*.mk
+config.gypi
+gyp-mac-tool
+Makefile

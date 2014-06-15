@@ -5,14 +5,18 @@
                 "include_dirs": [
                     ".",
                     "deps/yajl/build/yajl-<(yajl_version)/include",
-                    "<(libxml_include_path)",
+                    "deps/libxml/include",
+                    "deps/libxslt/libxslt",
+                    "deps/libxslt/libexslt",
                 ],
             },
             "Debug": {
                 "include_dirs": [
                     ".",
                     "deps/yajl/build/yajl-<(yajl_version)/include",
-                    "<(libxml_include_path)",
+                    "deps/libxml/include",
+                    "deps/libxslt/libxslt",
+                    "deps/libxslt/libexslt",
                 ],
             },
         },
@@ -82,9 +86,23 @@
                 }],
             ],
             "libraries": [
-                "-lxml2",
-                "-lxslt",
+                "-lz",
+                "deps/libxml/.libs/libxml2.a",
+                "deps/libxslt/libxslt/.libs/libxslt.a",
+                "deps/libxslt/libexslt/.libs/libexslt.a",
             ],
+            "actions": [{
+                "action_name": "libxml2",
+                "inputs": ["deps/libxml"],
+                "outputs": ["deps/libxml/.libs/libxml2.a"],
+                "action": ["make", "-C", "deps/libxml"],
+            }, {
+                "action_name": "libxslt",
+                "inputs": ["deps/libxslt"],
+                "outputs": ["deps/libxslt/libxslt/.libs/libxslt.a",
+                            "deps/libxslt/libexslt/.libs/libexslt.a"],
+                "action": ["make", "-C", "deps/libxslt"],
+            }],
         },
         {
             "target_name": "transform_test",
@@ -103,6 +121,10 @@
                 "xrlterror.cc",
                 "querystring.cc",
                 "tests/querystring/test.c",
+            ],
+            "libraries": [
+                "-lz",
+                "deps/libxml/.libs/libxml2.a",
             ],
         },
     ],

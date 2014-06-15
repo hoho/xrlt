@@ -77,6 +77,12 @@ parser.add_option('--without-js',
     help='Build without V8 javascript engine')
 
 
+parser.add_option('--skip-deps-configure',
+    action='store_true',
+    dest='skip_deps_configure',
+    help='Do not configure libxml2, libxslt and yajl')
+
+
 (options, args) = parser.parse_args()
 
 
@@ -271,21 +277,44 @@ def configure_libxrlt(o):
 
 
 def configure_libxml(o):
-  o['variables']['libxml_include_path'] = '/usr/include/libxml2'
-  o['libraries'] += ['-lxml2']
+  if options.skip_deps_configure:
+    return
+
+  print 'Configuring libxml2...'
+  p = subprocess.Popen(['./autogen.sh', '--without-iconv', '--without-ftp',
+                        '--without-http', '--disable-shared',
+                        '--without-python'],
+                       cwd='deps/libxml')
+  rc = p.wait()
+  if rc != 0:
+    sys.exit(rc)
 
 
 def configure_libxslt(o):
-  o['libraries'] += ['-lxslt']
+  if options.skip_deps_configure:
+    return
+
+  print 'Configuring libxslt...'
+  p = subprocess.Popen(['./autogen.sh', '--with-libxml-src=../libxml',
+                        '--disable-shared', '--without-python'],
+                       cwd='deps/libxslt')
+  rc = p.wait()
+  if rc != 0:
+    sys.exit(rc)
 
 
 def configure_yajl(o):
-  p = subprocess.Popen('./configure',
-                       stdin=subprocess.PIPE,
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE,
-                       cwd='deps/yajl')
   o['variables']['yajl_version'] = '2.1.0'
+
+  if options.skip_deps_configure:
+    return
+
+  print 'Configuring yajl...'
+  p = subprocess.Popen('./configure',
+                       cwd='deps/yajl')
+  rc = p.wait()
+  if rc != 0:
+    sys.exit(rc)
 
 
 def configure_v8(o):
