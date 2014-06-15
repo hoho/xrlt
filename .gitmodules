@@ -7,3 +7,6 @@
 [submodule "libxrlt/deps/yajl"]
 	path = libxrlt/deps/yajl
 	url = https://github.com/lloyd/yajl.git
+[submodule "libxrlt/deps/libxml"]
+	path = libxrlt/deps/libxml
+	url = git://git.gnome.org/libxml2
