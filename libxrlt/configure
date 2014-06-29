@@ -355,7 +355,7 @@ flavor = GetFlavor(flavor_params);
 output = {
   'variables': {'python': sys.executable},
   'include_dirs': [],
-  'libraries': [],
+  'libraries': ['-lpthread'],
   'defines': [],
   'cflags': ['-fPIC'],
 }
