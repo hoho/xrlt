@@ -6,8 +6,7 @@
                     ".",
                     "deps/yajl/build/yajl-<(yajl_version)/include",
                     "deps/libxml/include",
-                    "deps/libxslt/libxslt",
-                    "deps/libxslt/libexslt",
+                    "deps/libxslt",
                 ],
             },
             "Debug": {
@@ -15,8 +14,7 @@
                     ".",
                     "deps/yajl/build/yajl-<(yajl_version)/include",
                     "deps/libxml/include",
-                    "deps/libxslt/libxslt",
-                    "deps/libxslt/libexslt",
+                    "deps/libxslt",
                 ],
             },
         },
@@ -123,7 +121,6 @@
                 "tests/querystring/test.c",
             ],
             "libraries": [
-                "-lz",
                 "deps/libxml/.libs/libxml2.a",
             ],
         },
