@@ -14,9 +14,8 @@ extern "C" {
 #endif
 
 
-IOJSWRAPPUBFUN int IOJSWRAPCALL   iojsInit(void);
-IOJSWRAPPUBFUN int IOJSWRAPCALL   iojsRun(void);
-IOJSWRAPPUBFUN int IOJSWRAPCALL   iojsFree(void);
+IOJSWRAPPUBFUN int IOJSWRAPCALL   iojsStart(int *fd);
+IOJSWRAPPUBFUN int IOJSWRAPCALL   iojsAwake(void);
 
 
 #ifdef __cplusplus

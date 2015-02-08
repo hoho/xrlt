@@ -49,6 +49,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 
 #if defined(_MSC_VER)
 #include <direct.h>
@@ -3671,7 +3672,22 @@ Environment* CreateEnvironment(Isolate* isolate,
   return env;
 }
 
-                               /*
+
+int iojsPipeFd[2] = {-1, -1};
+uv_barrier_t iojsStartBlocker;
+uv_thread_t iojsThreadId;
+
+
+void RunPendingTasks(uv_poll_t *handle, int status, int events) {
+    char tmp[10];
+    memset(tmp, 0, 10);
+    ssize_t sz = read(iojsPipeFd[0], tmp, 4);
+    fprintf(stderr, "Awake %d %s!!1\n", sz, tmp);
+
+    write(iojsPipeFd[1], "ololo", 5);
+}
+
+
 int Start(int argc, char** argv) {
   PlatformInit();
 
@@ -3730,6 +3746,18 @@ int Start(int argc, char** argv) {
     if (use_debug_agent)
       EnableDebug(env);
 
+    uv_poll_t queuePoll;
+    code = uv_poll_init(env->event_loop(), &queuePoll, iojsPipeFd[0]);
+    if (code)
+      goto done;
+
+    code = uv_poll_start(&queuePoll, UV_READABLE, RunPendingTasks);
+    if (code)
+      goto done;
+
+    if (uv_barrier_wait(&iojsStartBlocker) > 0)
+      uv_barrier_destroy(&iojsStartBlocker);;
+
     bool more;
     do {
       more = uv_run(env->event_loop(), UV_RUN_ONCE);
@@ -3746,6 +3774,7 @@ int Start(int argc, char** argv) {
     code = EmitExit(env);
     RunAtExit(env);
 
+done:
     env->Dispose();
     env = nullptr;
   }
@@ -3755,218 +3784,66 @@ int Start(int argc, char** argv) {
   node_isolate = nullptr;
   V8::Dispose();
 
+    fprintf(stderr, "IOJS is done\n");
+
   delete[] exec_argv;
   exec_argv = nullptr;
 
   return code;
 }
 
-*/
-
-
-
-class IOJSWrap {
-  public:
-    IOJSWrap(int argc, char** argv);
-    ~IOJSWrap();
-    bool run();
-    bool exec();
-    int getReturnCode();
-
-  private:
-    int exec_argc;
-    const char** exec_argv;
-    Locker* locker;
-    Isolate::Scope* isolate_scope;
-    Persistent<Context> context;
-    Environment* env;
-    int code = 0;
-    bool done = false;
-};
-
-
-IOJSWrap::IOJSWrap(int argc, char** argv) {
-    PlatformInit();
-
-    const char* replaceInvalid = secure_getenv("NODE_INVALID_UTF8");
-
-    if (replaceInvalid == nullptr)
-        WRITE_UTF8_FLAGS |= String::REPLACE_INVALID_UTF8;
-
-    CHECK_GT(argc, 0);
-
-    // Hack around with the argv pointer. Used for process.title = "blah".
-    argv = uv_setup_args(argc, argv);
-
-    for (int i = 0; i < argc; i++) {
-        fprintf(stdout, "arg: %s\n", argv[i]);
-    }
-
-    // This needs to run *before* V8::Initialize().  The const_cast is not
-    // optional, in case you're wondering.
-    Init(&argc, const_cast<const char**>(argv), &exec_argc, &exec_argv);
-
-#if HAVE_OPENSSL
-  // V8 on Windows doesn't have a good source of entropy. Seed it from
-  // OpenSSL's pool.
-  V8::SetEntropySource(crypto::EntropySource);
-#endif
-
-    V8::InitializePlatform(new Platform(4));
-
-    V8::Initialize();
-
-    // Fetch a reference to the main isolate, so we have a reference to it
-    // even when we need it to access it from another (debugger) thread.
-    node_isolate = Isolate::New();
-
-    locker = new Locker(node_isolate);
-    isolate_scope = new Isolate::Scope(node_isolate);
-
-    HandleScope handle_scope(node_isolate);
-
-    Handle<Context> ctx = Context::New(node_isolate);
-    context.Reset(node_isolate, ctx);
-
-    env = CreateEnvironment(
-            node_isolate,
-            uv_default_loop(),
-            ctx,
-            argc,
-            argv,
-            exec_argc,
-            exec_argv);
-
-    Context::Scope context_scope(ctx);
-
-    // Start debug agent when argv has --debug
-    if (use_debug_agent)
-        StartDebug(env, debug_wait_connect);
-
-    LoadEnvironment(env);
-
-    // Enable debugger
-    if (use_debug_agent)
-        EnableDebug(env);
-}
-
-
-IOJSWrap::~IOJSWrap() {
-    {
-        HandleScope handle_scope(node_isolate);
-
-        env->Dispose();
-        env = nullptr;
-
-        Local<Context> ctx = Local<Context>::New(node_isolate, context);
-        Context::Scope context_scope(ctx);
-
-        context.Reset();
-    }
-
-    delete isolate_scope;
-    isolate_scope = nullptr;
-    delete locker;
-    locker = nullptr;
-
-    CHECK_NE(node_isolate, nullptr);
-    node_isolate->Dispose();
-    node_isolate = nullptr;
-
-    V8::Dispose();
-
-    delete[] exec_argv;
-    exec_argv = nullptr;
-}
-
-
-bool IOJSWrap::run() {
-    if (done) {
-        return false;
-    }
-
-    HandleScope handle_scope(node_isolate);
-
-    Local<Context> ctx = Local<Context>::New(node_isolate, context);
-    Context::Scope context_scope(ctx);
-
-    int more = uv_run(env->event_loop(), UV_RUN_NOWAIT);
-
-    if (!more) {
-        EmitBeforeExit(env);
-        // Emit `beforeExit` if the loop became alive either after emitting
-        // event, or after running some callbacks.
-        more = uv_run(env->event_loop(), UV_RUN_NOWAIT);
-    }
-
-    if (!more) {
-        code = EmitExit(env);
-        RunAtExit(env);
-        done = true;
-    }
-
-    return more != 0;
-}
-
-
-bool IOJSWrap::exec() {
-    HandleScope handle_scope(node_isolate);
-
-    Local<Context> ctx = Local<Context>::New(node_isolate, context);
-    Context::Scope context_scope(ctx);
-
-    Local<Object>    global = ctx->Global();
-    Local<Function> xrlt = Local<Function>::Cast(global->Get(String::NewFromUtf8(node_isolate, "XRLT")));
-
-    //Local<String> ret = xrlt->Call(global, 0, NULL);
-
-    return false;
-}
-
-
-int IOJSWrap::getReturnCode() {
-    return code;
-}
 
 }  // namespace node
 
 
+void
+iojsRunnerThread(void *arg) {
+    int argc = 2;
+    char** argv;
 
-node::IOJSWrap* iojswrap = nullptr;
+    argv = (char**)malloc(sizeof(char*) * 2);
+    argv[0] = (char*)"XRLT";
+    argv[1] = (char*)"/Users/hoho/Work/xrlt/libxrlt/libxrlt2/xrlt.js";
 
-
-int
-iojsInit(void) {
-    if (iojswrap == nullptr) {
-        int argc = 2;
-        char** argv;
-
-        argv = (char**)malloc(sizeof(char*) * 2);
-        argv[0] = (char*)"XRLT";
-        argv[1] = (char*)"tmp.js";
-
-        iojswrap = new node::IOJSWrap(argc, argv);
-    }
-
-    return iojswrap != nullptr;
+    node::Start(argc, argv);
 }
 
 
 int
-iojsRun(void) {
-    return iojswrap ? iojswrap->run() : 0;
+iojsStart(int *fd) {
+    int err;
+    err = pipe(node::iojsPipeFd);
+    if (err) {
+        err = -errno;
+        return err;
+    }
+
+    int r;
+    int set = 1;
+
+    do r = ioctl(node::iojsPipeFd[0], FIONBIO, &set);
+    while (r == -1 && errno == EINTR);
+    if (r) return -errno;
+
+    do r = ioctl(node::iojsPipeFd[1], FIONBIO, &set);
+    while (r == -1 && errno == EINTR);
+    if (r) return -errno;
+
+    uv_barrier_init(&node::iojsStartBlocker, 2);
+
+    uv_thread_create(&node::iojsThreadId, iojsRunnerThread, NULL);
+
+    if (uv_barrier_wait(&node::iojsStartBlocker) > 0)
+      uv_barrier_destroy(&node::iojsStartBlocker);
+
+    *fd = node::iojsPipeFd[1];
+
+    return 0;
 }
 
 
 int
-iojsFree(void) {
-    if (iojswrap) {
-        int code = iojswrap->getReturnCode();
-        delete iojswrap;
-        iojswrap = nullptr;
-        fprintf(stdout, "yayaya %d\n", code);
-        return code;
-    } else {
-        return -1;
-    }
+iojsAwake(void) {
+    write(node::iojsPipeFd[0], "aa", 2);
+    return 0;
 }
