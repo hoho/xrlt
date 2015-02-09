@@ -3673,7 +3673,8 @@ Environment* CreateEnvironment(Isolate* isolate,
 }
 
 
-int iojsPipeFd[2] = {-1, -1};
+int iojsIncomingPipeFd[2] = {-1, -1};
+int iojsOutgoingPipeFd[2] = {-1, -1};
 uv_barrier_t iojsStartBlocker;
 uv_thread_t iojsThreadId;
 
@@ -3681,10 +3682,9 @@ uv_thread_t iojsThreadId;
 void RunPendingTasks(uv_poll_t *handle, int status, int events) {
     char tmp[10];
     memset(tmp, 0, 10);
-    ssize_t sz = read(iojsPipeFd[0], tmp, 4);
-    fprintf(stderr, "Awake %d %s!!1\n", sz, tmp);
-
-    write(iojsPipeFd[1], "ololo", 5);
+    ssize_t sz = read(iojsIncomingPipeFd[0], tmp, 4);
+    fprintf(stderr, "Awake %zd %s!!1\n", sz, tmp);
+    write(iojsOutgoingPipeFd[1], "ololo", 5);
 }
 
 
@@ -3747,7 +3747,7 @@ int Start(int argc, char** argv) {
       EnableDebug(env);
 
     uv_poll_t queuePoll;
-    code = uv_poll_init(env->event_loop(), &queuePoll, iojsPipeFd[0]);
+    code = uv_poll_init(env->event_loop(), &queuePoll, iojsIncomingPipeFd[0]);
     if (code)
       goto done;
 
@@ -3812,7 +3812,12 @@ iojsRunnerThread(void *arg) {
 int
 iojsStart(int *fd) {
     int err;
-    err = pipe(node::iojsPipeFd);
+    err = pipe(node::iojsIncomingPipeFd);
+    if (err) {
+        err = -errno;
+        return err;
+    }
+    err = pipe(node::iojsOutgoingPipeFd);
     if (err) {
         err = -errno;
         return err;
@@ -3821,11 +3826,19 @@ iojsStart(int *fd) {
     int r;
     int set = 1;
 
-    do r = ioctl(node::iojsPipeFd[0], FIONBIO, &set);
+    do r = ioctl(node::iojsIncomingPipeFd[0], FIONBIO, &set);
     while (r == -1 && errno == EINTR);
     if (r) return -errno;
 
-    do r = ioctl(node::iojsPipeFd[1], FIONBIO, &set);
+    do r = ioctl(node::iojsIncomingPipeFd[1], FIONBIO, &set);
+    while (r == -1 && errno == EINTR);
+    if (r) return -errno;
+
+    do r = ioctl(node::iojsOutgoingPipeFd[0], FIONBIO, &set);
+    while (r == -1 && errno == EINTR);
+    if (r) return -errno;
+
+    do r = ioctl(node::iojsOutgoingPipeFd[1], FIONBIO, &set);
     while (r == -1 && errno == EINTR);
     if (r) return -errno;
 
@@ -3836,14 +3849,16 @@ iojsStart(int *fd) {
     if (uv_barrier_wait(&node::iojsStartBlocker) > 0)
       uv_barrier_destroy(&node::iojsStartBlocker);
 
-    *fd = node::iojsPipeFd[1];
+    *fd = node::iojsOutgoingPipeFd[0];
 
     return 0;
 }
 
 
 int
-iojsAwake(void) {
-    write(node::iojsPipeFd[0], "aa", 2);
+iojsSend(void) {
+    ssize_t sz = write(node::iojsIncomingPipeFd[1], "aa", 2);
+    if (sz < 0) fprintf(stderr, "err: %d %s", errno, node::errno_string(errno));
+    //fprintf(stderr, "Sese %d %zd\n", node::iojsPipeFd[0], sz);
     return 0;
 }
